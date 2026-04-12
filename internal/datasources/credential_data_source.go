@@ -40,20 +40,21 @@ func (d *CredentialDataSource) Metadata(_ context.Context, req datasource.Metada
 
 func (d *CredentialDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Reads a MisterShell credential by ID or by unique name. Note: secret fields in credential_data are masked as '****' by the API.",
+		Description: "Reads a MisterShell credential. Look up by id for a direct fetch, or use name/credential_type to search. Search filters must match exactly one credential. Note: secret fields in credential_data are masked as '****' by the API.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "Credential ID. Specify either id or name.",
+				Description: "Credential ID. Use for direct lookup.",
 				Optional:    true,
 				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				Description: "Credential name (unique). Specify either id or name.",
+				Description: "Credential name (unique). Used as a search filter when id is not specified.",
 				Optional:    true,
 				Computed:    true,
 			},
 			"credential_type": schema.StringAttribute{
-				Description: "Credential type.",
+				Description: "Credential type filter (ssh_password, ssh_key, aws_credentials, azure_service_principal, kubeconfig).",
+				Optional:    true,
 				Computed:    true,
 			},
 			"description": schema.StringAttribute{
@@ -107,44 +108,61 @@ func (d *CredentialDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	}
 
 	hasID := !config.ID.IsNull() && !config.ID.IsUnknown()
-	hasName := !config.Name.IsNull() && !config.Name.IsUnknown()
-
-	if !hasID && !hasName {
-		resp.Diagnostics.AddError("Missing lookup key", "Specify either 'id' or 'name' to look up a credential.")
-		return
-	}
-	if hasID && hasName {
-		resp.Diagnostics.AddError("Ambiguous lookup", "Specify either 'id' or 'name', not both.")
-		return
-	}
 
 	var cred *client.CredentialResponse
-	var err error
 
 	if hasID {
+		var err error
 		cred, err = d.client.GetCredential(ctx, config.ID.ValueInt64())
-	} else {
-		// Look up by name: search and find exact match.
-		name := config.Name.ValueString()
-		creds, searchErr := d.client.ListCredentials(ctx, name)
-		if searchErr != nil {
-			resp.Diagnostics.AddError("Error searching credentials", searchErr.Error())
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading credential", err.Error())
 			return
 		}
-		for i := range creds {
-			if creds[i].Name == name {
-				cred = &creds[i]
-				break
-			}
-		}
-		if cred == nil {
-			err = fmt.Errorf("credential with name %q not found", name)
-		}
-	}
+	} else {
+		hasName := !config.Name.IsNull() && !config.Name.IsUnknown()
+		hasType := !config.CredentialType.IsNull() && !config.CredentialType.IsUnknown()
 
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading credential", err.Error())
-		return
+		if !hasName && !hasType {
+			resp.Diagnostics.AddError("Missing lookup criteria", "Specify 'id' for direct lookup, or at least one of 'name', 'credential_type' to search.")
+			return
+		}
+
+		filter := client.CredentialListFilter{}
+		if hasName {
+			filter.Search = config.Name.ValueString()
+		}
+		if hasType {
+			filter.CredentialType = config.CredentialType.ValueString()
+		}
+
+		creds, err := d.client.ListCredentials(ctx, filter)
+		if err != nil {
+			resp.Diagnostics.AddError("Error searching credentials", err.Error())
+			return
+		}
+
+		// Apply exact name match if name was specified (API search is fuzzy)
+		if hasName {
+			name := config.Name.ValueString()
+			var filtered []client.CredentialResponse
+			for _, c := range creds {
+				if c.Name == name {
+					filtered = append(filtered, c)
+				}
+			}
+			creds = filtered
+		}
+
+		if len(creds) == 0 {
+			resp.Diagnostics.AddError("No matching credential found", "No credential matches the specified criteria.")
+			return
+		}
+		if len(creds) > 1 {
+			resp.Diagnostics.AddError("Multiple credentials found",
+				fmt.Sprintf("Found %d credentials matching the criteria. Add more filters to narrow to exactly one.", len(creds)))
+			return
+		}
+		cred = &creds[0]
 	}
 
 	config.ID = types.Int64Value(cred.ID)

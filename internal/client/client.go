@@ -180,9 +180,26 @@ func (c *Client) DeleteLocation(ctx context.Context, id int64) error {
 	return err
 }
 
-func (c *Client) ListLocations(ctx context.Context, search string) ([]LocationResponse, error) {
-	path := fmt.Sprintf("/api/v1/locations/?page=1&size=100&search=%s", url.QueryEscape(search))
-	data, err := c.doRequest(ctx, http.MethodGet, path, nil)
+type LocationListFilter struct {
+	Search   string
+	ParentID *int64
+	Kind     string
+}
+
+func (c *Client) ListLocations(ctx context.Context, filter LocationListFilter) ([]LocationResponse, error) {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("size", "100")
+	if filter.Search != "" {
+		params.Set("search", filter.Search)
+	}
+	if filter.ParentID != nil {
+		params.Set("parent_id", fmt.Sprintf("%d", *filter.ParentID))
+	}
+	if filter.Kind != "" {
+		params.Set("kind", filter.Kind)
+	}
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/locations/?"+params.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -280,9 +297,38 @@ func (c *Client) DeleteNetworkResource(ctx context.Context, id int64) error {
 	return err
 }
 
-func (c *Client) ListNetworkResources(ctx context.Context, search string) ([]NetworkResourceResponse, error) {
-	path := fmt.Sprintf("/api/v1/resources/?page=1&size=100&search=%s", url.QueryEscape(search))
-	data, err := c.doRequest(ctx, http.MethodGet, path, nil)
+type NetworkResourceListFilter struct {
+	Search       string
+	ResourceType string
+	LocationID   *int64
+	Status       string
+	HealthStatus string
+	IsEnabled    *bool
+}
+
+func (c *Client) ListNetworkResources(ctx context.Context, filter NetworkResourceListFilter) ([]NetworkResourceResponse, error) {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("size", "100")
+	if filter.Search != "" {
+		params.Set("search", filter.Search)
+	}
+	if filter.ResourceType != "" {
+		params.Set("resource_type", filter.ResourceType)
+	}
+	if filter.LocationID != nil {
+		params.Set("location_id", fmt.Sprintf("%d", *filter.LocationID))
+	}
+	if filter.Status != "" {
+		params.Set("status", filter.Status)
+	}
+	if filter.HealthStatus != "" {
+		params.Set("health_status", filter.HealthStatus)
+	}
+	if filter.IsEnabled != nil {
+		params.Set("is_enabled", fmt.Sprintf("%t", *filter.IsEnabled))
+	}
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/resources/?"+params.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -368,9 +414,22 @@ func (c *Client) DeleteCredential(ctx context.Context, id int64) error {
 	return err
 }
 
-func (c *Client) ListCredentials(ctx context.Context, search string) ([]CredentialResponse, error) {
-	path := fmt.Sprintf("/api/v1/credentials/?page=1&size=100&search=%s", url.QueryEscape(search))
-	data, err := c.doRequest(ctx, http.MethodGet, path, nil)
+type CredentialListFilter struct {
+	Search         string
+	CredentialType string
+}
+
+func (c *Client) ListCredentials(ctx context.Context, filter CredentialListFilter) ([]CredentialResponse, error) {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("size", "100")
+	if filter.Search != "" {
+		params.Set("search", filter.Search)
+	}
+	if filter.CredentialType != "" {
+		params.Set("credential_type", filter.CredentialType)
+	}
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/credentials/?"+params.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}

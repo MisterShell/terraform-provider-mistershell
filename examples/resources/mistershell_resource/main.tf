@@ -2,18 +2,13 @@
 resource "mistershell_resource" "core_switch" {
   name          = "core-sw-01.zurich"
   resource_type = "cisco_iosxe"
-  external_id   = "core-sw-01.zurich.example.com"
+  external_id   = "FCW2345L0AB"
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
 
   connector_data = jsonencode({
     host = "10.0.1.1"
     port = 22
-  })
-
-  extra_data = jsonencode({
-    rack     = "A-12"
-    position = "U24"
   })
 }
 

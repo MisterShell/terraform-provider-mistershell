@@ -2,6 +2,7 @@ package datasources
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -49,18 +50,21 @@ func (d *NetworkResourceDataSource) Metadata(_ context.Context, req datasource.M
 
 func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Reads a MisterShell network resource by ID.",
+		Description: "Reads a MisterShell network resource. Look up by id for a direct fetch, or use name/resource_type/location_id/status/health_status to search. Search filters must match exactly one resource.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "Resource ID to look up.",
-				Required:    true,
+				Description: "Resource ID. Use for direct lookup.",
+				Optional:    true,
+				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				Description: "Resource display name.",
+				Description: "Resource name. Used as a search filter when id is not specified.",
+				Optional:    true,
 				Computed:    true,
 			},
 			"resource_type": schema.StringAttribute{
-				Description: "Resource type.",
+				Description: "Resource type filter (e.g. cisco_iosxe, linux, aws_account).",
+				Optional:    true,
 				Computed:    true,
 			},
 			"connector_id": schema.StringAttribute{
@@ -81,15 +85,18 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Computed:    true,
 			},
 			"location_id": schema.Int64Attribute{
-				Description: "Location ID.",
+				Description: "Location ID filter.",
+				Optional:    true,
 				Computed:    true,
 			},
 			"status": schema.StringAttribute{
-				Description: "Connectivity status.",
+				Description: "Connectivity status filter (unknown, verified, unreachable, auth_failed, error).",
+				Optional:    true,
 				Computed:    true,
 			},
 			"health_status": schema.StringAttribute{
-				Description: "Health status.",
+				Description: "Health status filter (healthy, degraded, critical, unknown).",
+				Optional:    true,
 				Computed:    true,
 			},
 			"is_enabled": schema.BoolAttribute{
@@ -97,7 +104,7 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Computed:    true,
 			},
 			"extra_data": schema.StringAttribute{
-				Description: "Additional metadata as JSON.",
+				Description: "Discovered metadata as JSON.",
 				Computed:    true,
 				CustomType:  jsontypes.NormalizedType{},
 			},
@@ -152,12 +159,79 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
-	res, err := d.client.GetNetworkResource(ctx, config.ID.ValueInt64())
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading network resource", err.Error())
-		return
+	hasID := !config.ID.IsNull() && !config.ID.IsUnknown()
+
+	var res *client.NetworkResourceResponse
+
+	if hasID {
+		var err error
+		res, err = d.client.GetNetworkResource(ctx, config.ID.ValueInt64())
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading network resource", err.Error())
+			return
+		}
+	} else {
+		hasName := !config.Name.IsNull() && !config.Name.IsUnknown()
+		hasType := !config.ResourceType.IsNull() && !config.ResourceType.IsUnknown()
+		hasLocationID := !config.LocationID.IsNull() && !config.LocationID.IsUnknown()
+		hasStatus := !config.Status.IsNull() && !config.Status.IsUnknown()
+		hasHealthStatus := !config.HealthStatus.IsNull() && !config.HealthStatus.IsUnknown()
+
+		if !hasName && !hasType && !hasLocationID && !hasStatus && !hasHealthStatus {
+			resp.Diagnostics.AddError("Missing lookup criteria",
+				"Specify 'id' for direct lookup, or at least one of 'name', 'resource_type', 'location_id', 'status', 'health_status' to search.")
+			return
+		}
+
+		filter := client.NetworkResourceListFilter{}
+		if hasName {
+			filter.Search = config.Name.ValueString()
+		}
+		if hasType {
+			filter.ResourceType = config.ResourceType.ValueString()
+		}
+		if hasLocationID {
+			v := config.LocationID.ValueInt64()
+			filter.LocationID = &v
+		}
+		if hasStatus {
+			filter.Status = config.Status.ValueString()
+		}
+		if hasHealthStatus {
+			filter.HealthStatus = config.HealthStatus.ValueString()
+		}
+
+		results, err := d.client.ListNetworkResources(ctx, filter)
+		if err != nil {
+			resp.Diagnostics.AddError("Error searching network resources", err.Error())
+			return
+		}
+
+		// Apply exact name match if name was specified (API search is fuzzy)
+		if hasName {
+			name := config.Name.ValueString()
+			var filtered []client.NetworkResourceResponse
+			for _, r := range results {
+				if r.Name == name {
+					filtered = append(filtered, r)
+				}
+			}
+			results = filtered
+		}
+
+		if len(results) == 0 {
+			resp.Diagnostics.AddError("No matching resource found", "No network resource matches the specified criteria.")
+			return
+		}
+		if len(results) > 1 {
+			resp.Diagnostics.AddError("Multiple resources found",
+				fmt.Sprintf("Found %d resources matching the criteria. Add more filters to narrow to exactly one.", len(results)))
+			return
+		}
+		res = &results[0]
 	}
 
+	config.ID = types.Int64Value(res.ID)
 	config.Name = types.StringValue(res.Name)
 	config.ResourceType = types.StringValue(res.ResourceType)
 	config.ConnectorID = types.StringValue(res.ConnectorID)

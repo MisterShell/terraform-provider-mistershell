@@ -105,8 +105,8 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Optional:    true,
 			},
 			"extra_data": schema.StringAttribute{
-				Description: "Additional metadata as JSON. Use jsonencode() in HCL.",
-				Optional:    true,
+				Description: "Discovered metadata as JSON. Auto-populated by MisterShell from connectivity checks.",
+				Computed:    true,
 				CustomType:  jsontypes.NormalizedType{},
 			},
 			"is_enabled": schema.BoolAttribute{
@@ -190,7 +190,6 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		ExternalID:    plan.ExternalID.ValueString(),
 		LocationID:    plan.LocationID.ValueInt64(),
 		ConnectorData: normalizedToRawJSON(plan.ConnectorData),
-		ExtraData:     normalizedToRawJSON(plan.ExtraData),
 	}
 	input.CredentialID = int64ValueToPtr(plan.CredentialID)
 
@@ -200,6 +199,7 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
+	// Preserve connector_data from plan — the API enriches it with server-side defaults.
 	mapNetworkResourceResponseToModel(res, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -221,7 +221,11 @@ func (r *NetworkResourceResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
+	// Preserve connector_data from state — the API enriches it with server-side defaults
+	// which would cause perpetual diffs.
+	savedConnectorData := state.ConnectorData
 	mapNetworkResourceResponseToModel(res, &state)
+	state.ConnectorData = savedConnectorData
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -253,7 +257,6 @@ func (r *NetworkResourceResource) Update(ctx context.Context, req resource.Updat
 	}
 	input.ConnectorData = normalizedToRawJSON(plan.ConnectorData)
 	input.CredentialID = int64ValueToPtr(plan.CredentialID)
-	input.ExtraData = normalizedToRawJSON(plan.ExtraData)
 	if !plan.IsEnabled.Equal(state.IsEnabled) {
 		v := plan.IsEnabled.ValueBool()
 		input.IsEnabled = &v
@@ -296,7 +299,8 @@ func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *N
 	m.ResourceType = types.StringValue(res.ResourceType)
 	m.ExternalID = types.StringValue(res.ExternalID)
 	m.LocationID = int64PtrToValue(res.LocationID)
-	m.ConnectorData = rawJSONToNormalized(res.ConnectorData)
+	// ConnectorData intentionally NOT set here — preserved from plan/state by the caller
+	// because the API enriches it with server-side defaults (e.g. strict_host_key).
 	m.CredentialID = int64PtrToValue(res.CredentialID)
 	m.ExtraData = rawJSONToNormalized(res.ExtraData)
 	m.IsEnabled = types.BoolValue(res.IsEnabled)
