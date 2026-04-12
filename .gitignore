@@ -1,0 +1,6 @@
+terraform-provider-mistershell
+*.exe
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
