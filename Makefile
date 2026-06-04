@@ -25,18 +25,18 @@ fmt:
 	go fmt ./...
 
 # Regenerate the supported resource/credential type lists from the MisterShell
-# OpenAPI spec (internal/client/types_gen.go). By default the generator fetches
-# the spec from git; set MISTERSHELL_OPENAPI to a local ui/openapi.json path to
-# run offline. See internal/gen/types and README "Development".
+# OpenAPI spec (internal/client/types_gen.go). Point MISTERSHELL_OPENAPI at a
+# local checkout of the (private) backend's ui/openapi.json. See internal/gen/types
+# and README "Development".
 generate:
 	go generate ./...
 	go fmt ./...
 
 # Regenerate the Terraform Registry docs (docs/) from the schema Description
-# fields, the examples/ directory, and templates/guides/ via tfplugindocs.
-# Requires terraform on PATH (it builds a temporary provider schema).
+# fields, the examples/ directory, and templates/ via tfplugindocs.
+# Requires tfplugindocs, terraform, and go on PATH.
 docs:
-	PATH="/usr/local/bin:/home/lionel/go/bin:$$PATH" /home/lionel/gopath/bin/tfplugindocs generate
+	tfplugindocs generate
 
 clean:
 	rm -f terraform-provider-mistershell

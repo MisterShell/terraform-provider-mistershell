@@ -4,10 +4,11 @@
 //
 // Spec resolution order:
 //  1. -spec <path> flag or MISTERSHELL_OPENAPI env var: read that local JSON
-//     file directly (offline / CI / test path).
-//  2. Otherwise fetch from git: MISTERSHELL_REPO (default
-//     git@github.com:MisterShell/mistershell.git) at MISTERSHELL_REF
-//     (default main) via a minimal shallow sparse checkout of ui/openapi.json.
+//     file directly. This is the primary path — point it at a local checkout
+//     of the (private) MisterShell backend's ui/openapi.json.
+//  2. Otherwise fetch from git, but only if MISTERSHELL_REPO is set explicitly
+//     (at MISTERSHELL_REF, default main) via a shallow sparse checkout. There
+//     is no built-in default repo because the backend repository is private.
 //
 // The enum sets are read from these JSON pointers:
 //   - components.schemas.NetworkResourceType.enum -> resource types
@@ -46,7 +47,6 @@ import (
 const (
 	specRelPath   = "ui/openapi.json"
 	outputPath    = "internal/client/types_gen.go"
-	defaultRepo   = "git@github.com:MisterShell/mistershell.git"
 	defaultRef    = "main"
 	resourcePtr   = "components.schemas.NetworkResourceType.enum"
 	credentialPtr = "components.schemas.CredentialType.enum"
@@ -259,7 +259,10 @@ func loadSpec(specFlag string) ([]byte, string, error) {
 func loadSpecFromGit() ([]byte, string, error) {
 	repo := os.Getenv("MISTERSHELL_REPO")
 	if repo == "" {
-		repo = defaultRepo
+		return nil, "", fmt.Errorf(
+			"no OpenAPI spec source configured: set MISTERSHELL_OPENAPI to a local " +
+				"ui/openapi.json path (recommended), or MISTERSHELL_REPO to the backend " +
+				"git repo (the MisterShell backend is a private repository)")
 	}
 	ref := os.Getenv("MISTERSHELL_REF")
 	if ref == "" {

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Terraform provider (built on the [terraform-plugin-framework](https://github.com/hashicorp/terraform-plugin-framework)) for managing [MisterShell](https://www.mistershell.com) inventory: locations, network resources, and credentials. This repo is the provider (client) only and talks to a running MisterShell instance over its REST API; the backend lives in a separate repository (`git@github.com:MisterShell/mistershell.git`).
+A Terraform provider (built on the [terraform-plugin-framework](https://github.com/hashicorp/terraform-plugin-framework)) for managing [MisterShell](https://www.mistershell.com) inventory: locations, network resources, and credentials. This repo is the provider (client) only and talks to a running MisterShell instance over its REST API; the backend lives in a separate, private repository.
 
 ## Commands
 
@@ -47,7 +47,7 @@ Three layers, each its own package under `internal/`:
 - **Free-form JSON fields** (`extra_data`, `connector_data`, `credential_data`) are modeled as `jsontypes.Normalized` in tfsdk and `json.RawMessage` over the wire; convert with `normalizedToRawJSON` / `rawJSONToNormalized`. In HCL these are set with `jsonencode(...)`.
 - **`Read` removes resources on 404**: `if client.IsNotFound(err) { resp.State.RemoveResource(ctx); return }` — keep this so deleted-out-of-band objects re-create cleanly.
 - **Data source search is fuzzy server-side**; data sources re-apply an exact `name ==` match client-side and error explicitly on zero or >1 matches. Filters must resolve to exactly one result.
-- **Supported type lists are generated, not hardcoded.** `client.SupportedResourceTypes` and `client.SupportedCredentialTypes` live in `internal/client/types_gen.go` and feed the `resource_type` / `credential_type` `stringvalidator.OneOf(...)` validators. They are generated from the MisterShell OpenAPI spec (`ui/openapi.json`, `components.schemas.NetworkResourceType` / `CredentialType`) by `internal/gen/types` (`//go:generate` directive in `generate.go`). Do **not** re-hardcode these enums or hand-edit `types_gen.go`. Refresh with `make generate` (set `MISTERSHELL_OPENAPI=/path/to/ui/openapi.json` to run offline against a local backend clone; `MISTERSHELL_REPO` / `MISTERSHELL_REF` override the git source). The generator fails loudly if either enum is missing/empty, guarding against an upstream schema rename.
+- **Supported type lists are generated, not hardcoded.** `client.SupportedResourceTypes` and `client.SupportedCredentialTypes` live in `internal/client/types_gen.go` and feed the `resource_type` / `credential_type` `stringvalidator.OneOf(...)` validators. They are generated from the MisterShell OpenAPI spec (`ui/openapi.json`, `components.schemas.NetworkResourceType` / `CredentialType`) by `internal/gen/types` (`//go:generate` directive in `generate.go`). Do **not** re-hardcode these enums or hand-edit `types_gen.go`. Refresh with `make generate`, pointing `MISTERSHELL_OPENAPI` at a local checkout of the (private) backend's `ui/openapi.json` (there is no default git source). The generator fails loudly if either enum is missing/empty, guarding against an upstream schema rename.
 
 ### Docs
 
@@ -63,5 +63,5 @@ Regenerate with `make docs` (needs `tfplugindocs` + `terraform` + `go` on PATH);
 
 - **Enumerate every valid value** for every constrained field, in **tables** — never an `e.g.` or partial list. This covers all enums (e.g. `resource_type`, `credential_type`, `kind`, database `engine`, azure `cloud`) and all read-only status enums (`status`, `health_status`).
 - For opaque JSON fields (`connector_data`, `credential_data`), document the **full per-type field set** on the page: required vs optional (with defaults), which are secret, and the cross-type compatibility (which `credential_type` pairs with which `resource_type`). Do not defer this to a separate "guide" page.
-- **Derive values from the authoritative source**, never from memory: the generated `client.Supported*Types`, the backend enums/schemas (`/home/lionel/mistershell`: `src/features/inventory/types/*`, `src/features/credentials/config.py`, `_schemas.py`), and the verified e2e test payloads. When the provider gains a value/type, the matching tables must be updated in the same change.
+- **Derive values from the authoritative source**, never from memory: the generated `client.Supported*Types`, the backend enums/schemas (in a local checkout of the MisterShell backend: `src/features/inventory/types/*`, `src/features/credentials/config.py`, `_schemas.py`), and the verified e2e test payloads. When the provider gains a value/type, the matching tables must be updated in the same change.
 - After editing, run `make docs` and open the regenerated pages to confirm the tables, Example Usage, and Import sections are present and complete.

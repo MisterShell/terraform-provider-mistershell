@@ -125,23 +125,20 @@ so they never drift behind upstream. The output lives in
 `credential_type` validators.
 
 ```bash
-# Regenerate (by default fetches the spec from the MisterShell git repo)
-make generate
+# Regenerate the type lists from a local checkout of the MisterShell backend
+MISTERSHELL_OPENAPI=/path/to/mistershell/ui/openapi.json make generate
 ```
 
-`internal/client/types_gen.go` is generated — **do not edit it by hand**.
-Environment overrides for the generator:
+`internal/client/types_gen.go` is generated — **do not edit it by hand**. The
+MisterShell backend is a private repository, so the generator has no built-in
+git source; point it at a local `ui/openapi.json`. Generator environment
+variables:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `MISTERSHELL_OPENAPI` | _(unset)_ | Path to a local `ui/openapi.json`; read directly instead of fetching from git (offline / CI path). |
-| `MISTERSHELL_REPO` | `git@github.com:MisterShell/mistershell.git` | Git repo to fetch the spec from when `MISTERSHELL_OPENAPI` is unset. |
-| `MISTERSHELL_REF` | `main` | Git ref/branch to fetch. |
-
-```bash
-# Regenerate offline from a local backend clone
-MISTERSHELL_OPENAPI=/path/to/mistershell/ui/openapi.json make generate
-```
+| `MISTERSHELL_OPENAPI` | _(unset)_ | Path to a local `ui/openapi.json` (from a backend checkout). Primary, recommended source. |
+| `MISTERSHELL_REPO` | _(unset)_ | Optional git repo to fetch the spec from (git mode). No default — set this only if you have access to the private backend repo and prefer git over `MISTERSHELL_OPENAPI`. |
+| `MISTERSHELL_REF` | `main` | Git ref/branch to fetch (git mode only). |
 
 ## License
 
