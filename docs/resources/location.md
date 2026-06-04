@@ -17,6 +17,7 @@ resource "mistershell_location" "emea" {
   name        = "EMEA"
   kind        = "geo"
   description = "Europe, Middle East, and Africa"
+  parent_id   = 1 # MisterShell root location
 }
 
 resource "mistershell_location" "switzerland" {
@@ -41,6 +42,7 @@ resource "mistershell_location" "zurich" {
 ### Required
 
 - `name` (String) Location name.
+- `parent_id` (Number) Parent location ID. Required — every location must be nested under an existing location (the root location has id 1 on a standard install); creating additional root locations is not allowed.
 
 ### Optional
 
@@ -49,7 +51,6 @@ resource "mistershell_location" "zurich" {
 - `kind` (String) Location type: 'geo' for geographic or 'org' for organizational.
 - `latitude` (Number) Geographic latitude.
 - `longitude` (Number) Geographic longitude.
-- `parent_id` (Number) Parent location ID for hierarchical nesting.
 
 ### Read-Only
 
@@ -64,8 +65,11 @@ resource "mistershell_location" "zurich" {
 | `geo` | Geographic location (region/site/datacenter). Default when `kind` is omitted. |
 | `org` | Organizational unit. |
 
-Omitting `parent_id` makes the location a **root** location. Root locations
-cannot be deleted by the API.
+`parent_id` is **REQUIRED**: every location must be nested under an existing
+location. MisterShell creates a single root location at bootstrap, which has id
+`1` on a standard install — so top-level locations should use `parent_id = 1`.
+Creating additional root locations is not allowed, and the root location itself
+cannot be deleted.
 
 ## Import
 

@@ -24,8 +24,11 @@ description: |-
 | `geo` | Geographic location (region/site/datacenter). Default when `kind` is omitted. |
 | `org` | Organizational unit. |
 
-Omitting `parent_id` makes the location a **root** location. Root locations
-cannot be deleted by the API.
+`parent_id` is **REQUIRED**: every location must be nested under an existing
+location. MisterShell creates a single root location at bootstrap, which has id
+`1` on a standard install — so top-level locations should use `parent_id = 1`.
+Creating additional root locations is not allowed, and the root location itself
+cannot be deleted.
 
 {{ if .HasImport -}}
 ## Import

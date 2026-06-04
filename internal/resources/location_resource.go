@@ -78,8 +78,8 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Optional:    true,
 			},
 			"parent_id": schema.Int64Attribute{
-				Description: "Parent location ID for hierarchical nesting.",
-				Optional:    true,
+				Description: "Parent location ID. Required — every location must be nested under an existing location (the root location has id 1 on a standard install); creating additional root locations is not allowed.",
+				Required:    true,
 			},
 			"latitude": schema.Float64Attribute{
 				Description: "Geographic latitude.",

@@ -3,6 +3,7 @@ resource "mistershell_location" "emea" {
   name        = "EMEA"
   kind        = "geo"
   description = "Europe, Middle East, and Africa"
+  parent_id   = 1 # MisterShell root location
 }
 
 resource "mistershell_location" "switzerland" {
