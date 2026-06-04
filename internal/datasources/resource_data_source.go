@@ -76,7 +76,7 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Computed:    true,
 			},
 			"connector_data": schema.StringAttribute{
-				Description: "Connection parameters as JSON. Fields vary by resource_type; see the Resource Types guide.",
+				Description: "Connection parameters as JSON. Fields vary by resource_type; see the valid resource_type values table on this page.",
 				Computed:    true,
 				CustomType:  jsontypes.NormalizedType{},
 			},
@@ -90,7 +90,7 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Computed:    true,
 			},
 			"status": schema.StringAttribute{
-				Description: "Connectivity status filter (unknown, verified, unreachable, auth_failed, error).",
+				Description: "Connectivity status filter (unknown, verified, unreachable, auth_failed, error, identity_mismatch, snapshot_truncated).",
 				Optional:    true,
 				Computed:    true,
 			},

@@ -92,7 +92,7 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Required:    true,
 			},
 			"connector_data": schema.StringAttribute{
-				Description: "Type-specific connection parameters as JSON. Use jsonencode() in HCL. Fields vary by resource_type (e.g. host/port for SSH types, rdp_port/nla_required for windows and generic_rdp, engine/host/port for database); see the Resource Types guide for the fields per type.",
+				Description: "Type-specific connection parameters as JSON. Use jsonencode() in HCL. Fields vary by resource_type (e.g. host/port for SSH types, rdp_port/nla_required for windows and generic_rdp, engine/host/port for database); see the valid resource_type values table on this page for the fields per type.",
 				Optional:    true,
 				CustomType:  jsontypes.NormalizedType{},
 			},
@@ -119,7 +119,7 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				},
 			},
 			"status": schema.StringAttribute{
-				Description: "Connectivity status (unknown, verified, unreachable, auth_failed, error).",
+				Description: "Connectivity status (unknown, verified, unreachable, auth_failed, error, identity_mismatch, snapshot_truncated).",
 				Computed:    true,
 			},
 			"health_status": schema.StringAttribute{

@@ -1,0 +1,105 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Valid `resource_type` values
+
+The `resource_type` determines the connector used to reach the resource, the
+fields accepted in `connector_data` (set with `jsonencode(...)` in HCL), and
+which `credential_type`(s) it can pair with. `credential_id` must reference a
+credential whose type is compatible per the table below; an incompatible
+pairing is rejected by the API. Required `connector_data` fields must be
+present; optional fields fall back to the noted defaults when omitted.
+
+| resource_type | Connector | Required connector_data | Optional connector_data (default) | Compatible credential_type(s) |
+|---|---|---|---|---|
+| `cisco_ios` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `cisco_iosxe` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `cisco_iosxe_sdwan` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `cisco_nxos` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `cisco_ise` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `cisco_vbond` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `cisco_vmanage` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `cisco_vsmart` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `generic_ssh` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `infoblox_nios` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `linux` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `panos_ssh` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
+| `windows` | SSH/OpenSSH + RDP | `host` | `port` (22), `rdp_port` (3389), `nla_required` (true), `keyboard_layout` ("" = en-US) | `ssh_password`, `ssh_key`, `rdp_password` |
+| `generic_rdp` | RDP | `host` | `rdp_port` (3389), `nla_required` (true), `keyboard_layout` ("" = en-US) | `rdp_password` |
+| `database` | DB | `engine`, `host` | `port` (engine default; see below) | `db_password` |
+| `aws_account` | AWS API | _(none)_ | `hostname` (account alias) | `aws_credentials` |
+| `azure_subscription` | Azure API | `tenant_id`, `subscription_id` | `cloud` (AzureCloud) | `azure_service_principal` |
+| `kubernetes_cluster` | Kubernetes API | _(none)_ | `context` (kubeconfig context), `namespace` (default namespace) | `kubeconfig` |
+
+### database `engine` values
+
+For `resource_type = "database"`, the `engine` field is required. When `port`
+is omitted, the engine default is used:
+
+| engine | default port |
+|---|---|
+| `postgres` | 5432 |
+| `mysql` | 3306 |
+| `sqlserver` | 1433 |
+| `clickhouse` | 9000 |
+
+### azure `cloud` values
+
+For `resource_type = "azure_subscription"`, the optional `cloud` field accepts:
+
+| cloud | notes |
+|---|---|
+| `AzureCloud` | default |
+| `AzureChinaCloud` | |
+| `AzureUSGovernment` | |
+| `AzureGermanCloud` | |
+
+## Read-only status values
+
+`status` and `health_status` are computed by the server and reported back on the
+resource.
+
+### `status` values
+
+| status | meaning |
+|---|---|
+| `unknown` | not yet evaluated |
+| `verified` | reachable and authenticated |
+| `unreachable` | host could not be reached |
+| `auth_failed` | reachable but authentication failed |
+| `error` | a collection or connectivity error occurred |
+| `identity_mismatch` | the device identity did not match expectations |
+| `snapshot_truncated` | the configuration snapshot was truncated |
+
+### `health_status` values
+
+| health_status | meaning |
+|---|---|
+| `healthy` | operating normally |
+| `degraded` | partially impaired |
+| `critical` | severely impaired |
+| `unknown` | not yet evaluated |
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

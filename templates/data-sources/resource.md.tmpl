@@ -1,0 +1,65 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Valid `resource_type` filter values
+
+The `resource_type` argument filters the search to a single resource type. Valid
+values:
+
+| resource_type | Connector |
+|---|---|
+| `cisco_ios` | SSH |
+| `cisco_iosxe` | SSH |
+| `cisco_iosxe_sdwan` | SSH |
+| `cisco_nxos` | SSH |
+| `cisco_ise` | SSH |
+| `cisco_vbond` | SSH |
+| `cisco_vmanage` | SSH |
+| `cisco_vsmart` | SSH |
+| `generic_ssh` | SSH |
+| `infoblox_nios` | SSH |
+| `linux` | SSH |
+| `panos_ssh` | SSH |
+| `windows` | SSH/OpenSSH + RDP |
+| `generic_rdp` | RDP |
+| `database` | DB |
+| `aws_account` | AWS API |
+| `azure_subscription` | Azure API |
+| `kubernetes_cluster` | Kubernetes API |
+
+## Valid `status` filter values
+
+| status | meaning |
+|---|---|
+| `unknown` | not yet evaluated |
+| `verified` | reachable and authenticated |
+| `unreachable` | host could not be reached |
+| `auth_failed` | reachable but authentication failed |
+| `error` | a collection or connectivity error occurred |
+| `identity_mismatch` | the device identity did not match expectations |
+| `snapshot_truncated` | the configuration snapshot was truncated |
+
+## Valid `health_status` filter values
+
+| health_status | meaning |
+|---|---|
+| `healthy` | operating normally |
+| `degraded` | partially impaired |
+| `critical` | severely impaired |
+| `unknown` | not yet evaluated |
