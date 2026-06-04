@@ -8,11 +8,18 @@ install: build
 	cp terraform-provider-mistershell ~/.terraform.d/plugins/registry.terraform.io/mistershell/mistershell/0.1.0/linux_amd64/
 
 # Run the full acceptance test suite against a live MisterShell instance.
-# Requires: MISTERSHELL_URL and MISTERSHELL_API_KEY environment variables.
-# Example:
-#   MISTERSHELL_URL=http://localhost:13000 MISTERSHELL_API_KEY=yami_xxx make test
+# Sources MISTERSHELL_URL and MISTERSHELL_API_KEY (and optional MISTERSHELL_INSECURE)
+# from .env (gitignored), so no manual export is needed.
 test: build
-	TF_ACC=1 go test ./internal/provider/ -v -timeout 5m
+	set -a; . ./.env; set +a; TF_ACC=1 go test ./internal/provider/ -v -timeout 30m
+
+# Run only the comprehensive end-to-end test (every resource + credential type).
+test-e2e: build
+	set -a; . ./.env; set +a; TF_ACC=1 go test ./internal/provider/ -v -timeout 30m -run TestAccEndToEnd
+
+# Delete orphaned tfacc- test objects left behind by a crashed run.
+sweep:
+	set -a; . ./.env; set +a; go test ./internal/provider/ -v -timeout 10m -sweep=mistershell
 
 fmt:
 	go fmt ./...
@@ -28,4 +35,4 @@ generate:
 clean:
 	rm -f terraform-provider-mistershell
 
-.PHONY: default build install test fmt generate clean
+.PHONY: default build install test test-e2e sweep fmt generate clean

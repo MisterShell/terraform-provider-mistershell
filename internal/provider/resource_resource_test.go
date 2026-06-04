@@ -148,12 +148,11 @@ resource "mistershell_location" "test" {
 }
 
 resource "mistershell_credential" "test" {
-  name            = "tf-acc-res-rdp-cred"
-  credential_type = "rdp_password"
+  name            = "tf-acc-res-win-cred"
+  credential_type = "ssh_password"
 
   credential_data = jsonencode({
     username = "Administrator"
-    domain   = "CORP"
     password = "testpass123"
   })
 }

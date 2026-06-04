@@ -17,15 +17,24 @@ func TestAccLocationDataSource_byID(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
+				// Self-contained: create a location, then read it back by id.
+				// (Avoids assuming any pre-existing location's id or name.)
 				Config: `
-data "mistershell_location" "root" {
-  id = 1
+resource "mistershell_location" "test" {
+  name      = "tf-acc-ds-loc-byid"
+  kind      = "geo"
+  parent_id = 1
+}
+
+data "mistershell_location" "by_id" {
+  id = mistershell_location.test.id
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.mistershell_location.root", "name", "Root"),
-					resource.TestCheckResourceAttrSet("data.mistershell_location.root", "kind"),
-					resource.TestCheckResourceAttrSet("data.mistershell_location.root", "created_at"),
+					resource.TestCheckResourceAttrPair("data.mistershell_location.by_id", "id", "mistershell_location.test", "id"),
+					resource.TestCheckResourceAttr("data.mistershell_location.by_id", "name", "tf-acc-ds-loc-byid"),
+					resource.TestCheckResourceAttr("data.mistershell_location.by_id", "kind", "geo"),
+					resource.TestCheckResourceAttrSet("data.mistershell_location.by_id", "created_at"),
 				),
 			},
 		},
