@@ -202,3 +202,30 @@ func (m *useStateForUnknownInt64Modifier) PlanModifyInt64(_ context.Context, req
 	}
 	resp.PlanValue = req.StateValue
 }
+
+// stringUseStateForUnknown returns a plan modifier that copies the prior state
+// value for unknown string values during planning (string analogue of
+// int64UseStateForUnknown — used for a computed id that mirrors a key).
+func stringUseStateForUnknown() planmodifier.String {
+	return &useStateForUnknownStringModifier{}
+}
+
+type useStateForUnknownStringModifier struct{}
+
+func (m *useStateForUnknownStringModifier) Description(_ context.Context) string {
+	return "Use state value for unknown."
+}
+
+func (m *useStateForUnknownStringModifier) MarkdownDescription(_ context.Context) string {
+	return "Use state value for unknown."
+}
+
+func (m *useStateForUnknownStringModifier) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if !req.PlanValue.IsUnknown() {
+		return
+	}
+	if req.StateValue.IsNull() {
+		return
+	}
+	resp.PlanValue = req.StateValue
+}

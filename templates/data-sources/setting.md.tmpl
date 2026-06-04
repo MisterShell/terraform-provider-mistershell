@@ -1,0 +1,40 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Lookup argument
+
+| argument | behavior |
+|---|---|
+| `key` | Required. The registry setting key to read. Must exist in the backend registry — an unknown key returns an error. |
+
+## Returned values
+
+| attribute | description |
+|---|---|
+| `key` | The setting key. |
+| `value` | Current value as JSON (sensitive). Decode with `jsondecode()`. **Masked as `****` for secret keys.** |
+| `description` | Human-readable description from the registry. |
+| `is_secret` | Whether the value is a secret (masked in responses). |
+| `default` | Registry default value as JSON. Masked as `****` for non-empty secret keys. |
+| `created_at` | Creation timestamp. |
+| `updated_at` | Last update timestamp. |
+
+For the complete list of valid `key` values — with each key's value type, range
+or enum constraints, default, and whether it is secret — see the
+[`mistershell_setting` resource](../resources/setting.md) page.

@@ -1,0 +1,210 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Top-level field values
+
+| attribute | constraints |
+|---|---|
+| `name` | Required. 1-128 characters. |
+| `enabled` | Optional. Boolean. Defaults to `true`. |
+| `type` | Required. One of the values below. **Immutable** — changing it forces replacement (the `config` shape is type-coupled). |
+| `streams` | Required. Set of stream values below; **at least one**. |
+| `min_severity` | Optional. One of the severity values below. Defaults to `info`. |
+| `config` | Required, sensitive. Per-type JSON blob set with `jsonencode(...)`; see the per-type tables below. |
+
+### `type` values
+
+| type | config shape |
+|---|---|
+| `syslog` | Syslog config (see below). No secret fields. |
+| `webhook` | Webhook config (see below). Auth may carry secret fields. |
+
+### `streams` values
+
+At least one is required. The set is order-independent.
+
+| stream | meaning |
+|---|---|
+| `security` | Security audit log events |
+| `policy` | Session policy log events |
+| `api` | API access log events |
+| `app` | Application / worker log events |
+
+### `min_severity` values
+
+Only events at or above this severity are forwarded. Defaults to `info`.
+
+| min_severity | meaning |
+|---|---|
+| `info` | informational and above (lowest threshold; the default) |
+| `low` | low and above |
+| `medium` | medium and above |
+| `high` | high and above |
+| `critical` | critical only (highest threshold) |
+
+## The `config` JSON blob
+
+`config` is an opaque, per-`type` JSON object written with `jsonencode(...)`. Its
+shape is determined by `type` and must include a matching `type` discriminator
+field inside the blob. The fields below are the complete set the backend accepts;
+any other key is rejected.
+
+**Secret handling.** Webhook `auth` secret fields (marked below) are encrypted at
+rest and **masked to `****`** in every API response. As with `credential_data`,
+the provider stores `config` **from your configuration** and does **not** read it
+back from the server. Two consequences:
+
+- After **importing** a webhook destination, its secret is unknown until you
+  re-supply the full `config` in HCL — a webhook secret cannot be recovered from
+  the masked server value.
+- For webhook destinations, out-of-band changes to the **non-secret** parts of
+  `config` (url, method, headers, etc.) are **not** detected as drift, because the
+  whole `config` is preserved from state. This is the documented trade-off of the
+  stored-from-config rule (identical to `credential_data`).
+- `config` is **excluded from import** (only `id` is set on import); re-supply it
+  in HCL, exactly like `credential_data`.
+
+### `type = "syslog"` config
+
+Syslog has **no secret fields**.
+
+| field | type | required | default | secret |
+|---|---|---|---|---|
+| `type` | string const `"syslog"` | yes (discriminator) | — | no |
+| `host` | string | **yes** | — | no |
+| `port` | integer (1-65535) | **yes** | — | no |
+| `protocol` | string enum | **yes** | — | no |
+| `format` | string enum | **yes** | — | no |
+| `facility` | string enum | no | `local0` | no |
+| `tls_verify` | boolean | no | `true` | no |
+
+`protocol` values:
+
+| protocol |
+|---|
+| `UDP` |
+| `TCP` |
+| `TLS` |
+
+`format` values:
+
+| format |
+|---|
+| `RFC3164` |
+| `RFC5424` |
+| `CEF` |
+
+`facility` values: `local0`, `local1`, `local2`, `local3`, `local4`, `local5`,
+`local6`, `local7` (default `local0`).
+
+Example:
+
+```hcl
+config = jsonencode({
+  type       = "syslog"
+  host       = "logs.example.com"
+  port       = 6514
+  protocol   = "TLS"     # UDP | TCP | TLS
+  format     = "RFC5424" # RFC3164 | RFC5424 | CEF
+  facility   = "local1"  # local0..local7 (default local0)
+  tls_verify = true
+})
+```
+
+### `type = "webhook"` config
+
+| field | type | required | default | secret |
+|---|---|---|---|---|
+| `type` | string const `"webhook"` | yes (discriminator) | — | no |
+| `url` | string | **yes** | — | no |
+| `method` | string enum | no | `POST` | no |
+| `headers` | object (string→string map) | no | `{}` | no |
+| `auth` | object (see auth variants) | no | `{ "type": "none" }` | contains secrets |
+| `body_format` | string enum | no | `raw` | no |
+| `timeout_seconds` | integer (1-60) | no | `5` | no |
+| `tls_verify` | boolean | no | `true` | no |
+
+`method` values:
+
+| method |
+|---|
+| `POST` |
+| `PUT` |
+
+`body_format` values:
+
+| body_format | meaning |
+|---|---|
+| `raw` | raw JSON event body |
+| `splunk_hec` | Splunk HTTP Event Collector envelope |
+
+#### Webhook `auth` variants
+
+`auth` is itself a discriminated object keyed by `auth.type`. Choose one of the
+four types below. The **secret** fields are masked to `****` by the API and stored
+from config (see the secret-handling note above).
+
+| auth.type | fields | secret field(s) |
+|---|---|---|
+| `none` | `type` only | _(none)_ |
+| `bearer` | `type`, `token` (minLength 1) | **`token`** |
+| `basic` | `type`, `username` (1-255), `password` (minLength 1) | **`password`** |
+| `header` | `type`, `header_name` (1-255), `header_value` (minLength 1) | **`header_value`** |
+
+Example (bearer auth):
+
+```hcl
+config = jsonencode({
+  type            = "webhook"
+  url             = "https://siem.example.com/ingest"
+  method          = "POST" # POST | PUT
+  body_format     = "raw"  # raw | splunk_hec
+  timeout_seconds = 5      # 1..60
+  tls_verify      = true
+  headers = {
+    "X-Source" = "mistershell"
+  }
+  auth = {
+    type  = "bearer"
+    token = var.webhook_token # secret; masked by the API, stored from config
+  }
+})
+```
+
+Example (basic auth):
+
+```hcl
+config = jsonencode({
+  type = "webhook"
+  url  = "https://siem.example.com/ingest"
+  auth = {
+    type     = "basic"
+    username = "svc-logs"
+    password = var.webhook_password # secret
+  }
+})
+```
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

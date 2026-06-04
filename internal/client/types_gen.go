@@ -4,8 +4,17 @@ package client
 
 // Supported type lists generated from the MisterShell OpenAPI spec
 // (ui/openapi.json):
-//   - SupportedResourceTypes   <- components.schemas.NetworkResourceType
-//   - SupportedCredentialTypes <- components.schemas.CredentialType
+//   - SupportedResourceTypes          <- components.schemas.NetworkResourceType
+//   - SupportedCredentialTypes        <- components.schemas.CredentialType
+//   - SupportedLogDestinationTypes    <- LogDestinationCreate.properties.type
+//   - SupportedLogStreams             <- LogDestinationCreate.properties.streams.items
+//   - SupportedLogSeverities          <- LogDestinationCreate.properties.min_severity
+//   - SupportedSyslogProtocols        <- SyslogConfig.properties.protocol
+//   - SupportedSyslogFormats          <- SyslogConfig.properties.format
+//   - SupportedSyslogFacilities       <- SyslogConfig.properties.facility
+//   - SupportedWebhookMethods         <- WebhookConfig.properties.method
+//   - SupportedWebhookBodyFormats     <- WebhookConfig.properties.body_format
+//   - SupportedWebhookAuthTypes       <- WebhookConfig.properties.auth.discriminator.mapping
 //
 // Regenerate with: make generate
 
@@ -42,4 +51,73 @@ var SupportedCredentialTypes = []string{
 	"rdp_password",
 	"ssh_key",
 	"ssh_password",
+}
+
+// SupportedLogDestinationTypes are the log-destination type values.
+var SupportedLogDestinationTypes = []string{
+	"syslog",
+	"webhook",
+}
+
+// SupportedLogStreams are the log-destination stream values.
+var SupportedLogStreams = []string{
+	"api",
+	"app",
+	"policy",
+	"security",
+}
+
+// SupportedLogSeverities are the log-destination min_severity values.
+var SupportedLogSeverities = []string{
+	"critical",
+	"high",
+	"info",
+	"low",
+	"medium",
+}
+
+// SupportedSyslogProtocols are the syslog config protocol values (docs/anti-drift).
+var SupportedSyslogProtocols = []string{
+	"TCP",
+	"TLS",
+	"UDP",
+}
+
+// SupportedSyslogFormats are the syslog config format values (docs/anti-drift).
+var SupportedSyslogFormats = []string{
+	"CEF",
+	"RFC3164",
+	"RFC5424",
+}
+
+// SupportedSyslogFacilities are the syslog config facility values (docs/anti-drift).
+var SupportedSyslogFacilities = []string{
+	"local0",
+	"local1",
+	"local2",
+	"local3",
+	"local4",
+	"local5",
+	"local6",
+	"local7",
+}
+
+// SupportedWebhookMethods are the webhook config method values (docs/anti-drift).
+var SupportedWebhookMethods = []string{
+	"POST",
+	"PUT",
+}
+
+// SupportedWebhookBodyFormats are the webhook config body_format values (docs/anti-drift).
+var SupportedWebhookBodyFormats = []string{
+	"raw",
+	"splunk_hec",
+}
+
+// SupportedWebhookAuthTypes are the webhook config auth.type values (docs/anti-drift).
+var SupportedWebhookAuthTypes = []string{
+	"basic",
+	"bearer",
+	"header",
+	"none",
 }

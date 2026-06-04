@@ -1,0 +1,60 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Overview
+
+Log-destination presets are a **fixed, code-owned registry** maintained in the
+product, not by Terraform. This data source is read-only and takes no arguments;
+it returns every preset the instance defines. Each preset is a ready-to-edit
+`config` template for a particular vendor/type — copy a preset's `default_config`
+into a [`mistershell_log_destination`](../resources/log_destination.md) `config`
+to author a destination quickly (see the Example Usage above).
+
+## Returned values
+
+| attribute | description |
+|---|---|
+| `id` | Synthetic constant (`log_destination_presets`); this is a list data source with no primary key. |
+| `presets` | List of available presets. Each element is an object with the fields below. |
+
+Each element of `presets` has:
+
+| field | description |
+|---|---|
+| `key` | Preset key (stable identifier). |
+| `label` | Human-readable preset label. |
+| `vendor` | Vendor name. |
+| `type` | Destination type the preset targets (`syslog` or `webhook`). |
+| `default_config` | A ready-to-edit `config` template as a JSON string. Decode with `jsondecode()`, or copy/merge it into a destination's `config`. Secret fields (e.g. webhook `auth.header_value`) come empty and must be filled in. |
+
+## Available presets
+
+The registry currently defines five presets:
+
+| key | label | vendor | type | default_config highlights |
+|---|---|---|---|---|
+| `custom_syslog` | Custom Syslog | Custom | `syslog` | `host` empty, `port` 514, `protocol` `UDP`, `format` `RFC5424`, `facility` `local0`, `tls_verify` true |
+| `custom_webhook` | Custom Webhook | Custom | `webhook` | `url` empty, `method` `POST`, `headers` `{}`, `auth` `{type:none}`, `body_format` `raw`, `timeout_seconds` 5, `tls_verify` true |
+| `splunk_hec` | Splunk HEC | Splunk | `webhook` | `url` `…:8088/services/collector`, `auth` `{type:header, header_name:Authorization, header_value:""}`, `body_format` `splunk_hec` |
+| `elastic` | Elastic | Elastic | `webhook` | `url` empty, `auth` `{type:header, header_name:Authorization, header_value:""}`, `body_format` `raw` |
+| `datadog` | Datadog | Datadog | `webhook` | `url` `…/api/v2/logs`, `auth` `{type:header, header_name:DD-API-KEY, header_value:""}`, `body_format` `raw` |
+
+The live set (including each `default_config` verbatim) is returned in the
+`presets` attribute. For the full per-type `config` field reference, see the
+[`mistershell_log_destination` resource](../resources/log_destination.md) page.

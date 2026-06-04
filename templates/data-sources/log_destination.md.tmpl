@@ -1,0 +1,45 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Lookup arguments
+
+Specify exactly one of:
+
+| argument | behavior |
+|---|---|
+| `id` | Direct lookup by integer ID. |
+| `name` | Exact-match lookup by name (fuzzy server search, then exact `name ==` filter). Errors if zero or more than one destination matches. |
+
+## Returned values
+
+| attribute | description |
+|---|---|
+| `id` | Log destination integer ID. |
+| `name` | Destination name. |
+| `enabled` | Whether the destination is enabled. |
+| `type` | `syslog` or `webhook`. |
+| `streams` | Set of forwarded streams: `security`, `policy`, `api`, `app`. |
+| `min_severity` | One of `info`, `low`, `medium`, `high`, `critical`. |
+| `config` | Per-type config JSON (sensitive). **Webhook auth secrets are masked as `****`** in this read — they cannot be recovered from the data source. |
+| `created_at` | Creation timestamp. |
+| `updated_at` | Last update timestamp. |
+
+For the full shape of `config` per `type` (syslog and webhook fields, the webhook
+`auth` variants, and which fields are secret), see the
+[`mistershell_log_destination` resource](../resources/log_destination.md) page.

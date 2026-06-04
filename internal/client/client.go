@@ -731,3 +731,223 @@ func (c *Client) ListPermissionModules(ctx context.Context) ([]string, error) {
 	}
 	return modules, nil
 }
+
+// ---------------------------------------------------------------------------
+// Log Destination API models
+// ---------------------------------------------------------------------------
+
+// config is an opaque per-type blob; secrets are masked in responses.
+type LogDestinationCreateInput struct {
+	Name        string          `json:"name"`
+	Enabled     *bool           `json:"enabled,omitempty"` // default true server-side
+	Type        string          `json:"type"`
+	Streams     []string        `json:"streams"`                // minItems 1
+	MinSeverity string          `json:"min_severity,omitempty"` // default "info"
+	Config      json.RawMessage `json:"config"`
+}
+
+// LogDestinationUpdateInput is a FULL-REPLACE PUT — identical shape to create
+// (no PATCH semantics).
+type LogDestinationUpdateInput struct {
+	Name        string          `json:"name"`
+	Enabled     *bool           `json:"enabled,omitempty"`
+	Type        string          `json:"type"`
+	Streams     []string        `json:"streams"`
+	MinSeverity string          `json:"min_severity,omitempty"`
+	Config      json.RawMessage `json:"config"`
+}
+
+type LogDestinationResponse struct {
+	ID          int64           `json:"id"`
+	Name        string          `json:"name"`
+	Enabled     bool            `json:"enabled"`
+	Type        string          `json:"type"`
+	Streams     []string        `json:"streams"`
+	MinSeverity string          `json:"min_severity"`
+	Config      json.RawMessage `json:"config"` // secrets masked as ****
+	CreatedAt   string          `json:"created_at"`
+	UpdatedAt   string          `json:"updated_at"`
+}
+
+type LogDestinationListFilter struct {
+	Search string
+}
+
+// LogDestinationPreset is {key,label,vendor,type,default_config}.
+type LogDestinationPreset struct {
+	Key           string          `json:"key"`
+	Label         string          `json:"label"`
+	Vendor        string          `json:"vendor"`
+	Type          string          `json:"type"`
+	DefaultConfig json.RawMessage `json:"default_config"`
+}
+
+// LogDestinationTestResult is the /{id}/test payload (always 200).
+type LogDestinationTestResult struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+func (c *Client) CreateLogDestination(ctx context.Context, input LogDestinationCreateInput) (*LogDestinationResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, "/api/v1/log-destinations", input)
+	if err != nil {
+		return nil, err
+	}
+	var dest LogDestinationResponse
+	if err := json.Unmarshal(data, &dest); err != nil {
+		return nil, fmt.Errorf("decoding log destination: %w", err)
+	}
+	return &dest, nil
+}
+
+func (c *Client) GetLogDestination(ctx context.Context, id int64) (*LogDestinationResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/log-destinations/%d", id), nil)
+	if err != nil {
+		return nil, err
+	}
+	var dest LogDestinationResponse
+	if err := json.Unmarshal(data, &dest); err != nil {
+		return nil, fmt.Errorf("decoding log destination: %w", err)
+	}
+	return &dest, nil
+}
+
+func (c *Client) UpdateLogDestination(ctx context.Context, id int64, input LogDestinationUpdateInput) (*LogDestinationResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/log-destinations/%d", id), input)
+	if err != nil {
+		return nil, err
+	}
+	var dest LogDestinationResponse
+	if err := json.Unmarshal(data, &dest); err != nil {
+		return nil, fmt.Errorf("decoding log destination: %w", err)
+	}
+	return &dest, nil
+}
+
+func (c *Client) DeleteLogDestination(ctx context.Context, id int64) error {
+	_, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/log-destinations/%d", id), nil)
+	return err
+}
+
+func (c *Client) ListLogDestinations(ctx context.Context, filter LogDestinationListFilter) ([]LogDestinationResponse, error) {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("size", "10000")
+	if filter.Search != "" {
+		params.Set("search", filter.Search)
+	}
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/log-destinations?"+params.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var dests []LogDestinationResponse
+	if err := json.Unmarshal(data, &dests); err != nil {
+		return nil, fmt.Errorf("decoding log destinations: %w", err)
+	}
+	return dests, nil
+}
+
+func (c *Client) ListLogDestinationPresets(ctx context.Context) ([]LogDestinationPreset, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/log-destinations/presets", nil)
+	if err != nil {
+		return nil, err
+	}
+	var presets []LogDestinationPreset
+	if err := json.Unmarshal(data, &presets); err != nil {
+		return nil, fmt.Errorf("decoding log destination presets: %w", err)
+	}
+	return presets, nil
+}
+
+// TestLogDestination sends a synthetic event (POST …/{id}/test). Always 200 with
+// a {success,error} payload. Not surfaced as a resource/data source; used by e2e.
+func (c *Client) TestLogDestination(ctx context.Context, id int64) (*LogDestinationTestResult, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/log-destinations/%d/test", id), nil)
+	if err != nil {
+		return nil, err
+	}
+	var result LogDestinationTestResult
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("decoding log destination test result: %w", err)
+	}
+	return &result, nil
+}
+
+// ---------------------------------------------------------------------------
+// App Settings API models
+// ---------------------------------------------------------------------------
+
+type SettingUpdateInput struct {
+	Value json.RawMessage `json:"value"` // heterogeneous: true / 90 / "localhost"
+}
+
+type SettingResponse struct {
+	Key         string          `json:"key"`
+	Description string          `json:"description"`
+	IsSecret    bool            `json:"is_secret"`
+	Value       json.RawMessage `json:"value"`   // masked **** if is_secret
+	Default     json.RawMessage `json:"default"` // masked **** if secret & non-empty
+	Schema      json.RawMessage `json:"schema"`  // JSON Schema or null
+	IsEncrypted bool            `json:"is_encrypted"`
+	CreatedAt   string          `json:"created_at"`
+	UpdatedAt   string          `json:"updated_at"`
+}
+
+type SettingListFilter struct {
+	Search string
+}
+
+func (c *Client) GetSetting(ctx context.Context, key string) (*SettingResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/settings/%s", url.PathEscape(key)), nil)
+	if err != nil {
+		return nil, err
+	}
+	var setting SettingResponse
+	if err := json.Unmarshal(data, &setting); err != nil {
+		return nil, fmt.Errorf("decoding setting: %w", err)
+	}
+	return &setting, nil
+}
+
+func (c *Client) UpdateSetting(ctx context.Context, key string, input SettingUpdateInput) (*SettingResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/settings/%s", url.PathEscape(key)), input)
+	if err != nil {
+		return nil, err
+	}
+	var setting SettingResponse
+	if err := json.Unmarshal(data, &setting); err != nil {
+		return nil, fmt.Errorf("decoding setting: %w", err)
+	}
+	return &setting, nil
+}
+
+// ResetSetting resets the key to its registry default (POST …/{key}/reset).
+func (c *Client) ResetSetting(ctx context.Context, key string) (*SettingResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/settings/%s/reset", url.PathEscape(key)), nil)
+	if err != nil {
+		return nil, err
+	}
+	var setting SettingResponse
+	if err := json.Unmarshal(data, &setting); err != nil {
+		return nil, fmt.Errorf("decoding setting: %w", err)
+	}
+	return &setting, nil
+}
+
+func (c *Client) ListSettings(ctx context.Context, filter SettingListFilter) ([]SettingResponse, error) {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("size", "10000")
+	if filter.Search != "" {
+		params.Set("search", filter.Search)
+	}
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/settings/?"+params.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var settings []SettingResponse
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return nil, fmt.Errorf("decoding settings: %w", err)
+	}
+	return settings, nil
+}

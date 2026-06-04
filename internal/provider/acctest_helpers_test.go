@@ -1,8 +1,10 @@
 package provider_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -61,6 +63,30 @@ func testAccCheckAllDestroyed(s *terraform.State) error {
 
 	ctx := context.Background()
 	for _, rs := range s.RootModule().Resources {
+		// mistershell_setting is keyed by the string key, not an int64, and it
+		// cannot be truly destroyed: Delete resets the key to its registry
+		// default. Verify the reset happened (live value == registry default)
+		// rather than expecting a not-found. Handle it before the int64 parse
+		// guard, which would otherwise skip it (the key is non-numeric).
+		// Data-source instances also appear in state (e.g. the setting data
+		// source shares the "mistershell_setting" type). They carry the
+		// sentinel "id-attribute-not-set" — skip them; only managed resources
+		// need destroy verification.
+		if rs.Primary.ID == "id-attribute-not-set" {
+			continue
+		}
+		if rs.Type == "mistershell_setting" {
+			setting, gerr := c.GetSetting(ctx, rs.Primary.ID)
+			if gerr != nil {
+				return fmt.Errorf("checking reset of setting %q: %w", rs.Primary.ID, gerr)
+			}
+			if !jsonRawEqual(setting.Value, setting.Default) {
+				return fmt.Errorf("setting %q not reset to default after destroy: value=%s default=%s",
+					rs.Primary.ID, string(setting.Value), string(setting.Default))
+			}
+			continue
+		}
+
 		id, perr := strconv.ParseInt(rs.Primary.ID, 10, 64)
 		if perr != nil {
 			continue
@@ -78,6 +104,8 @@ func testAccCheckAllDestroyed(s *terraform.State) error {
 			_, err = c.GetTag(ctx, id)
 		case "mistershell_role":
 			_, err = c.GetRole(ctx, id)
+		case "mistershell_log_destination":
+			_, err = c.GetLogDestination(ctx, id)
 		default:
 			continue
 		}
@@ -152,6 +180,15 @@ func init() {
 		Name: "mistershell_role",
 		F:    sweepRoles,
 	})
+	// Log destinations have no FK dependents and sweep independently, by name prefix.
+	resource.AddTestSweepers("mistershell_log_destination", &resource.Sweeper{
+		Name: "mistershell_log_destination",
+		F:    sweepLogDestinations,
+	})
+	// NOTE: NO sweeper for mistershell_setting. Settings are predefined registry
+	// keys that cannot be created or deleted; there is nothing to orphan or
+	// sweep. A crashed run leaves a chosen key at a test value (not an orphaned
+	// object); recover by re-running + destroy or a manual reset to default.
 }
 
 // sweepPrefix is the name prefix the sweepers match. It deliberately matches the
@@ -251,6 +288,40 @@ func sweepTags(_ string) error {
 		}
 	}
 	return nil
+}
+
+func sweepLogDestinations(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListLogDestinations(ctx, client.LogDestinationListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing log destinations: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		if err := c.DeleteLogDestination(ctx, it.ID); err != nil && !client.IsNotFound(err) {
+			return fmt.Errorf("sweep: deleting log destination %d (%s): %w", it.ID, it.Name, err)
+		}
+	}
+	return nil
+}
+
+// jsonRawEqual reports whether two raw JSON messages are semantically equal
+// (compact form). Used to assert a setting was reset to its registry default.
+func jsonRawEqual(a, b json.RawMessage) bool {
+	var ab, bb bytes.Buffer
+	if err := json.Compact(&ab, a); err != nil {
+		return false
+	}
+	if err := json.Compact(&bb, b); err != nil {
+		return false
+	}
+	return bytes.Equal(ab.Bytes(), bb.Bytes())
 }
 
 func sweepRoles(_ string) error {

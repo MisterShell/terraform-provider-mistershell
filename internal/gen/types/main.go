@@ -9,11 +9,20 @@
 //     git@github.com:MisterShell/mistershell.git) at MISTERSHELL_REF
 //     (default main) via a minimal shallow sparse checkout of ui/openapi.json.
 //
-// The two enum sets are read from these JSON pointers:
+// The enum sets are read from these JSON pointers:
 //   - components.schemas.NetworkResourceType.enum -> resource types
 //   - components.schemas.CredentialType.enum       -> credential types
+//   - components.schemas.LogDestinationCreate.properties.type.enum         -> log destination types
+//   - components.schemas.LogDestinationCreate.properties.streams.items.enum -> log streams
+//   - components.schemas.LogDestinationCreate.properties.min_severity.enum  -> log severities
+//   - components.schemas.SyslogConfig.properties.protocol.enum  -> syslog protocols
+//   - components.schemas.SyslogConfig.properties.format.enum    -> syslog formats
+//   - components.schemas.SyslogConfig.properties.facility.enum  -> syslog facilities
+//   - components.schemas.WebhookConfig.properties.method.enum       -> webhook methods
+//   - components.schemas.WebhookConfig.properties.body_format.enum  -> webhook body formats
+//   - components.schemas.WebhookConfig.properties.auth.discriminator.mapping (keys) -> webhook auth types
 //
-// If either enum is missing or empty the generator fails loudly (non-zero
+// If any enum is missing or empty the generator fails loudly (non-zero
 // exit) to guard against the upstream schema being renamed.
 package main
 
@@ -37,10 +46,24 @@ const (
 	defaultRef    = "main"
 	resourcePtr   = "components.schemas.NetworkResourceType.enum"
 	credentialPtr = "components.schemas.CredentialType.enum"
+
+	logTypePtr           = "components.schemas.LogDestinationCreate.properties.type.enum"
+	logStreamsPtr        = "components.schemas.LogDestinationCreate.properties.streams.items.enum"
+	logSeverityPtr       = "components.schemas.LogDestinationCreate.properties.min_severity.enum"
+	syslogProtocolPtr    = "components.schemas.SyslogConfig.properties.protocol.enum"
+	syslogFormatPtr      = "components.schemas.SyslogConfig.properties.format.enum"
+	syslogFacilityPtr    = "components.schemas.SyslogConfig.properties.facility.enum"
+	webhookMethodPtr     = "components.schemas.WebhookConfig.properties.method.enum"
+	webhookBodyFormatPtr = "components.schemas.WebhookConfig.properties.body_format.enum"
+	webhookAuthTypePtr   = "components.schemas.WebhookConfig.properties.auth.discriminator.mapping (keys)"
 )
 
 // openAPISpec is a partial view of the OpenAPI document — only the two schemas
 // we care about.
+type enumProp struct {
+	Enum []string `json:"enum"`
+}
+
 type openAPISpec struct {
 	Components struct {
 		Schemas struct {
@@ -50,6 +73,33 @@ type openAPISpec struct {
 			CredentialType struct {
 				Enum []string `json:"enum"`
 			} `json:"CredentialType"`
+			LogDestinationCreate struct {
+				Properties struct {
+					Type    enumProp `json:"type"`
+					Streams struct {
+						Items enumProp `json:"items"`
+					} `json:"streams"`
+					MinSeverity enumProp `json:"min_severity"`
+				} `json:"properties"`
+			} `json:"LogDestinationCreate"`
+			SyslogConfig struct {
+				Properties struct {
+					Protocol enumProp `json:"protocol"`
+					Format   enumProp `json:"format"`
+					Facility enumProp `json:"facility"`
+				} `json:"properties"`
+			} `json:"SyslogConfig"`
+			WebhookConfig struct {
+				Properties struct {
+					Method     enumProp `json:"method"`
+					BodyFormat enumProp `json:"body_format"`
+					Auth       struct {
+						Discriminator struct {
+							Mapping map[string]string `json:"mapping"`
+						} `json:"discriminator"`
+					} `json:"auth"`
+				} `json:"properties"`
+			} `json:"WebhookConfig"`
 		} `json:"schemas"`
 	} `json:"components"`
 }
@@ -75,20 +125,57 @@ func run() error {
 		return fmt.Errorf("parsing OpenAPI spec from %s: %w", source, err)
 	}
 
-	resourceTypes := spec.Components.Schemas.NetworkResourceType.Enum
-	credentialTypes := spec.Components.Schemas.CredentialType.Enum
-
-	if len(resourceTypes) == 0 {
-		return fmt.Errorf("no values found at %s in %s — has the upstream schema been renamed?", resourcePtr, source)
+	s := &spec.Components.Schemas
+	td := templateData{
+		ResourceTypes:       s.NetworkResourceType.Enum,
+		CredentialTypes:     s.CredentialType.Enum,
+		LogDestinationTypes: s.LogDestinationCreate.Properties.Type.Enum,
+		LogStreams:          s.LogDestinationCreate.Properties.Streams.Items.Enum,
+		LogSeverities:       s.LogDestinationCreate.Properties.MinSeverity.Enum,
+		SyslogProtocols:     s.SyslogConfig.Properties.Protocol.Enum,
+		SyslogFormats:       s.SyslogConfig.Properties.Format.Enum,
+		SyslogFacilities:    s.SyslogConfig.Properties.Facility.Enum,
+		WebhookMethods:      s.WebhookConfig.Properties.Method.Enum,
+		WebhookBodyFormats:  s.WebhookConfig.Properties.BodyFormat.Enum,
+		WebhookAuthTypes:    mapKeys(s.WebhookConfig.Properties.Auth.Discriminator.Mapping),
 	}
-	if len(credentialTypes) == 0 {
-		return fmt.Errorf("no values found at %s in %s — has the upstream schema been renamed?", credentialPtr, source)
+
+	// Fail loudly if any pointer is missing/empty (anti-drift guard).
+	for _, check := range []struct {
+		name string
+		ptr  string
+		vals []string
+	}{
+		{"SupportedResourceTypes", resourcePtr, td.ResourceTypes},
+		{"SupportedCredentialTypes", credentialPtr, td.CredentialTypes},
+		{"SupportedLogDestinationTypes", logTypePtr, td.LogDestinationTypes},
+		{"SupportedLogStreams", logStreamsPtr, td.LogStreams},
+		{"SupportedLogSeverities", logSeverityPtr, td.LogSeverities},
+		{"SupportedSyslogProtocols", syslogProtocolPtr, td.SyslogProtocols},
+		{"SupportedSyslogFormats", syslogFormatPtr, td.SyslogFormats},
+		{"SupportedSyslogFacilities", syslogFacilityPtr, td.SyslogFacilities},
+		{"SupportedWebhookMethods", webhookMethodPtr, td.WebhookMethods},
+		{"SupportedWebhookBodyFormats", webhookBodyFormatPtr, td.WebhookBodyFormats},
+		{"SupportedWebhookAuthTypes", webhookAuthTypePtr, td.WebhookAuthTypes},
+	} {
+		if len(check.vals) == 0 {
+			return fmt.Errorf("no values found at %s in %s (for %s) — has the upstream schema been renamed?", check.ptr, source, check.name)
+		}
 	}
 
-	sort.Strings(resourceTypes)
-	sort.Strings(credentialTypes)
+	sort.Strings(td.ResourceTypes)
+	sort.Strings(td.CredentialTypes)
+	sort.Strings(td.LogDestinationTypes)
+	sort.Strings(td.LogStreams)
+	sort.Strings(td.LogSeverities)
+	sort.Strings(td.SyslogProtocols)
+	sort.Strings(td.SyslogFormats)
+	sort.Strings(td.SyslogFacilities)
+	sort.Strings(td.WebhookMethods)
+	sort.Strings(td.WebhookBodyFormats)
+	sort.Strings(td.WebhookAuthTypes)
 
-	out, err := render(resourceTypes, credentialTypes)
+	out, err := render(td)
 	if err != nil {
 		return err
 	}
@@ -97,9 +184,18 @@ func run() error {
 		return fmt.Errorf("writing %s: %w", outputPath, err)
 	}
 
-	fmt.Printf("gen/types: wrote %s from %s (%d resource types, %d credential types)\n",
-		outputPath, source, len(resourceTypes), len(credentialTypes))
+	fmt.Printf("gen/types: wrote %s from %s (%d resource types, %d credential types, %d log destination types, %d log streams, %d log severities)\n",
+		outputPath, source, len(td.ResourceTypes), len(td.CredentialTypes), len(td.LogDestinationTypes), len(td.LogStreams), len(td.LogSeverities))
 	return nil
+}
+
+// mapKeys returns the keys of a string-keyed map.
+func mapKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }
 
 // loadSpec resolves the spec bytes per the documented resolution order and
@@ -163,14 +259,38 @@ func loadSpecFromGit() ([]byte, string, error) {
 	return raw, fmt.Sprintf("%s at %s:%s", specRelPath, repo, ref), nil
 }
 
+// templateData holds every generated enum slice rendered into types_gen.go.
+type templateData struct {
+	ResourceTypes       []string
+	CredentialTypes     []string
+	LogDestinationTypes []string
+	LogStreams          []string
+	LogSeverities       []string
+	SyslogProtocols     []string
+	SyslogFormats       []string
+	SyslogFacilities    []string
+	WebhookMethods      []string
+	WebhookBodyFormats  []string
+	WebhookAuthTypes    []string
+}
+
 var fileTemplate = template.Must(template.New("types_gen").Parse(`// Code generated by internal/gen/types; DO NOT EDIT.
 
 package client
 
 // Supported type lists generated from the MisterShell OpenAPI spec
 // (ui/openapi.json):
-//   - SupportedResourceTypes   <- components.schemas.NetworkResourceType
-//   - SupportedCredentialTypes <- components.schemas.CredentialType
+//   - SupportedResourceTypes          <- components.schemas.NetworkResourceType
+//   - SupportedCredentialTypes        <- components.schemas.CredentialType
+//   - SupportedLogDestinationTypes    <- LogDestinationCreate.properties.type
+//   - SupportedLogStreams             <- LogDestinationCreate.properties.streams.items
+//   - SupportedLogSeverities          <- LogDestinationCreate.properties.min_severity
+//   - SupportedSyslogProtocols        <- SyslogConfig.properties.protocol
+//   - SupportedSyslogFormats          <- SyslogConfig.properties.format
+//   - SupportedSyslogFacilities       <- SyslogConfig.properties.facility
+//   - SupportedWebhookMethods         <- WebhookConfig.properties.method
+//   - SupportedWebhookBodyFormats     <- WebhookConfig.properties.body_format
+//   - SupportedWebhookAuthTypes       <- WebhookConfig.properties.auth.discriminator.mapping
 //
 // Regenerate with: make generate
 
@@ -189,17 +309,73 @@ var SupportedCredentialTypes = []string{
 	{{printf "%q" .}},
 {{- end}}
 }
+
+// SupportedLogDestinationTypes are the log-destination type values.
+var SupportedLogDestinationTypes = []string{
+{{- range .LogDestinationTypes}}
+	{{printf "%q" .}},
+{{- end}}
+}
+
+// SupportedLogStreams are the log-destination stream values.
+var SupportedLogStreams = []string{
+{{- range .LogStreams}}
+	{{printf "%q" .}},
+{{- end}}
+}
+
+// SupportedLogSeverities are the log-destination min_severity values.
+var SupportedLogSeverities = []string{
+{{- range .LogSeverities}}
+	{{printf "%q" .}},
+{{- end}}
+}
+
+// SupportedSyslogProtocols are the syslog config protocol values (docs/anti-drift).
+var SupportedSyslogProtocols = []string{
+{{- range .SyslogProtocols}}
+	{{printf "%q" .}},
+{{- end}}
+}
+
+// SupportedSyslogFormats are the syslog config format values (docs/anti-drift).
+var SupportedSyslogFormats = []string{
+{{- range .SyslogFormats}}
+	{{printf "%q" .}},
+{{- end}}
+}
+
+// SupportedSyslogFacilities are the syslog config facility values (docs/anti-drift).
+var SupportedSyslogFacilities = []string{
+{{- range .SyslogFacilities}}
+	{{printf "%q" .}},
+{{- end}}
+}
+
+// SupportedWebhookMethods are the webhook config method values (docs/anti-drift).
+var SupportedWebhookMethods = []string{
+{{- range .WebhookMethods}}
+	{{printf "%q" .}},
+{{- end}}
+}
+
+// SupportedWebhookBodyFormats are the webhook config body_format values (docs/anti-drift).
+var SupportedWebhookBodyFormats = []string{
+{{- range .WebhookBodyFormats}}
+	{{printf "%q" .}},
+{{- end}}
+}
+
+// SupportedWebhookAuthTypes are the webhook config auth.type values (docs/anti-drift).
+var SupportedWebhookAuthTypes = []string{
+{{- range .WebhookAuthTypes}}
+	{{printf "%q" .}},
+{{- end}}
+}
 `))
 
-func render(resourceTypes, credentialTypes []string) ([]byte, error) {
+func render(data templateData) ([]byte, error) {
 	var buf bytes.Buffer
-	data := struct {
-		ResourceTypes   []string
-		CredentialTypes []string
-	}{
-		ResourceTypes:   resourceTypes,
-		CredentialTypes: credentialTypes,
-	}
 	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("rendering template: %w", err)
 	}
