@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Commits
+
+Do **not** add AI/assistant attribution to commits or PRs — no `Co-Authored-By: Claude …` trailer and no "Generated with Claude Code" line. Commits are authored by the human contributor only.
+
 ## Overview
 
 A Terraform provider (built on the [terraform-plugin-framework](https://github.com/hashicorp/terraform-plugin-framework)) for managing [MisterShell](https://www.mistershell.com) inventory: locations, network resources, and credentials. This repo is the provider (client) only and talks to a running MisterShell instance over its REST API; the backend lives in a separate, private repository.
