@@ -17,7 +17,15 @@ test: build
 fmt:
 	go fmt ./...
 
+# Regenerate the supported resource/credential type lists from the MisterShell
+# OpenAPI spec (internal/client/types_gen.go). By default the generator fetches
+# the spec from git; set MISTERSHELL_OPENAPI to a local ui/openapi.json path to
+# run offline. See internal/gen/types and README "Development".
+generate:
+	go generate ./...
+	go fmt ./...
+
 clean:
 	rm -f terraform-provider-mistershell
 
-.PHONY: default build install test fmt clean
+.PHONY: default build install test fmt generate clean

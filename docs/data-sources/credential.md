@@ -17,7 +17,7 @@ Reads a MisterShell credential. Look up by id for a direct fetch, or use name/cr
 
 ### Optional
 
-- `credential_type` (String) Credential type filter (ssh_password, ssh_key, aws_credentials, azure_service_principal, kubeconfig).
+- `credential_type` (String) Credential type filter (ssh_password, ssh_key, aws_credentials, azure_service_principal, kubeconfig, rdp_password, db_password).
 - `id` (Number) Credential ID. Use for direct lookup.
 - `name` (String) Credential name (unique). Used as a search filter when id is not specified.
 

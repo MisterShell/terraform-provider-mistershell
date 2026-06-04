@@ -24,7 +24,7 @@ Manages a MisterShell network resource (device, cloud account, Kubernetes cluste
 
 ### Optional
 
-- `connector_data` (String) Type-specific connection parameters as JSON. Use jsonencode() in HCL.
+- `connector_data` (String) Type-specific connection parameters as JSON. Use jsonencode() in HCL. Fields vary by resource_type (e.g. host/port for SSH types, rdp_port/nla_required for windows and generic_rdp, engine/host/port for database).
 - `credential_id` (Number) Credential ID for connecting to this resource.
 - `is_enabled` (Boolean) Whether the resource is enabled for operations.
 

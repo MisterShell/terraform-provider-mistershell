@@ -23,7 +23,40 @@ resource "mistershell_credential" "aws_prod" {
   })
 }
 
+# RDP credential (for windows / generic_rdp resources)
+resource "mistershell_credential" "rdp_admin" {
+  name            = "win-rdp-admin"
+  credential_type = "rdp_password"
+
+  credential_data = jsonencode({
+    username = "Administrator"
+    domain   = "CORP"
+    password = var.rdp_password
+  })
+}
+
+# Database credential (for database resources, via usql)
+resource "mistershell_credential" "app_db" {
+  name            = "app-db-user"
+  credential_type = "db_password"
+
+  credential_data = jsonencode({
+    username = "app"
+    password = var.db_password
+  })
+}
+
 variable "ssh_password" {
+  type      = string
+  sensitive = true
+}
+
+variable "rdp_password" {
+  type      = string
+  sensitive = true
+}
+
+variable "db_password" {
   type      = string
   sensitive = true
 }

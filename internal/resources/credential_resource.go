@@ -71,11 +71,7 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf(
-						"ssh_password", "ssh_key",
-						"aws_credentials", "azure_service_principal",
-						"kubeconfig",
-					),
+					stringvalidator.OneOf(client.SupportedCredentialTypes...),
 				},
 			},
 			"credential_data": schema.StringAttribute{

@@ -80,11 +80,7 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf(
-						"cisco_ios", "cisco_iosxe", "cisco_iosxe_sdwan", "cisco_nxos",
-						"infoblox_nios", "generic_ssh", "linux", "panos_ssh",
-						"aws_account", "azure_subscription", "kubernetes_cluster",
-					),
+					stringvalidator.OneOf(client.SupportedResourceTypes...),
 				},
 			},
 			"external_id": schema.StringAttribute{
@@ -96,7 +92,7 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Required:    true,
 			},
 			"connector_data": schema.StringAttribute{
-				Description: "Type-specific connection parameters as JSON. Use jsonencode() in HCL.",
+				Description: "Type-specific connection parameters as JSON. Use jsonencode() in HCL. Fields vary by resource_type (e.g. host/port for SSH types, rdp_port/nla_required for windows and generic_rdp, engine/host/port for database).",
 				Optional:    true,
 				CustomType:  jsontypes.NormalizedType{},
 			},

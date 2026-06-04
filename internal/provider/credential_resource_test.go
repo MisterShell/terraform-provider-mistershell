@@ -83,6 +83,85 @@ func TestAccCredentialResource_typeChange(t *testing.T) {
 	})
 }
 
+func TestAccCredentialResource_rdpPassword(t *testing.T) {
+	testAccPreCheck(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCredentialRDPPasswordConfig("tf-acc-cred-rdp", "RDP credential"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mistershell_credential.test", "name", "tf-acc-cred-rdp"),
+					resource.TestCheckResourceAttr("mistershell_credential.test", "credential_type", "rdp_password"),
+					resource.TestCheckResourceAttrSet("mistershell_credential.test", "id"),
+				),
+			},
+			{
+				ResourceName:            "mistershell_credential.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"credential_data"},
+			},
+		},
+	})
+}
+
+func TestAccCredentialResource_dbPassword(t *testing.T) {
+	testAccPreCheck(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCredentialDBPasswordConfig("tf-acc-cred-db", "Database credential"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mistershell_credential.test", "name", "tf-acc-cred-db"),
+					resource.TestCheckResourceAttr("mistershell_credential.test", "credential_type", "db_password"),
+					resource.TestCheckResourceAttrSet("mistershell_credential.test", "id"),
+				),
+			},
+			{
+				ResourceName:            "mistershell_credential.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"credential_data"},
+			},
+		},
+	})
+}
+
+func testAccCredentialRDPPasswordConfig(name, description string) string {
+	return `
+resource "mistershell_credential" "test" {
+  name            = "` + name + `"
+  credential_type = "rdp_password"
+  description     = "` + description + `"
+
+  credential_data = jsonencode({
+    username = "Administrator"
+    domain   = "CORP"
+    password = "testpass123"
+  })
+}
+`
+}
+
+func testAccCredentialDBPasswordConfig(name, description string) string {
+	return `
+resource "mistershell_credential" "test" {
+  name            = "` + name + `"
+  credential_type = "db_password"
+  description     = "` + description + `"
+
+  credential_data = jsonencode({
+    username = "app"
+    password = "testpass123"
+  })
+}
+`
+}
+
 func testAccCredentialSSHPasswordConfig(name, description string) string {
 	return `
 resource "mistershell_credential" "test" {

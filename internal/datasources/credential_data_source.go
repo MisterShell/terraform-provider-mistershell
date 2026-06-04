@@ -53,7 +53,7 @@ func (d *CredentialDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 				Computed:    true,
 			},
 			"credential_type": schema.StringAttribute{
-				Description: "Credential type filter (ssh_password, ssh_key, aws_credentials, azure_service_principal, kubeconfig).",
+				Description: "Credential type filter (ssh_password, ssh_key, aws_credentials, azure_service_principal, kubeconfig, rdp_password, db_password).",
 				Optional:    true,
 				Computed:    true,
 			},

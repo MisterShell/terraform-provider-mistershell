@@ -98,11 +98,11 @@ All data sources support lookup by `id` or by search filters. Filters must match
 
 ## Supported Resource Types
 
-`cisco_ios`, `cisco_iosxe`, `cisco_iosxe_sdwan`, `cisco_nxos`, `infoblox_nios`, `generic_ssh`, `linux`, `panos_ssh`, `aws_account`, `azure_subscription`, `kubernetes_cluster`
+`cisco_ios`, `cisco_iosxe`, `cisco_iosxe_sdwan`, `cisco_nxos`, `cisco_ise`, `cisco_vbond`, `cisco_vmanage`, `cisco_vsmart`, `infoblox_nios`, `generic_ssh`, `linux`, `windows`, `panos_ssh`, `generic_rdp`, `aws_account`, `azure_subscription`, `kubernetes_cluster`, `database`
 
 ## Supported Credential Types
 
-`ssh_password`, `ssh_key`, `aws_credentials`, `azure_service_principal`, `kubeconfig`
+`ssh_password`, `ssh_key`, `aws_credentials`, `azure_service_principal`, `kubeconfig`, `rdp_password`, `db_password`
 
 ## Development
 
@@ -112,6 +112,35 @@ make build
 
 # Run acceptance tests (requires a running MisterShell instance)
 MISTERSHELL_URL=http://localhost:13000 MISTERSHELL_API_KEY=yami_xxx make test
+```
+
+### Generated type lists
+
+The supported resource and credential type lists are **generated** from the
+MisterShell backend's checked-in OpenAPI spec (`ui/openapi.json`,
+`components.schemas.NetworkResourceType` and `components.schemas.CredentialType`)
+so they never drift behind upstream. The output lives in
+`internal/client/types_gen.go` (`SupportedResourceTypes` /
+`SupportedCredentialTypes`), which is consumed by the `resource_type` and
+`credential_type` validators.
+
+```bash
+# Regenerate (by default fetches the spec from the MisterShell git repo)
+make generate
+```
+
+`internal/client/types_gen.go` is generated — **do not edit it by hand**.
+Environment overrides for the generator:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `MISTERSHELL_OPENAPI` | _(unset)_ | Path to a local `ui/openapi.json`; read directly instead of fetching from git (offline / CI path). |
+| `MISTERSHELL_REPO` | `git@github.com:MisterShell/mistershell.git` | Git repo to fetch the spec from when `MISTERSHELL_OPENAPI` is unset. |
+| `MISTERSHELL_REF` | `main` | Git ref/branch to fetch. |
+
+```bash
+# Regenerate offline from a local backend clone
+MISTERSHELL_OPENAPI=/path/to/mistershell/ui/openapi.json make generate
 ```
 
 ## License
