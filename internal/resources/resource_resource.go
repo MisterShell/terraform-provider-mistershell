@@ -38,6 +38,8 @@ type NetworkResourceResourceModel struct {
 	CredentialID          types.Int64          `tfsdk:"credential_id"`
 	ExtraData             jsontypes.Normalized `tfsdk:"extra_data"`
 	IsEnabled             types.Bool           `tfsdk:"is_enabled"`
+	TagIDs                types.Set            `tfsdk:"tag_ids"`
+	Tags                  types.List           `tfsdk:"tags"`
 	ConnectorID           types.String         `tfsdk:"connector_id"`
 	Status                types.String         `tfsdk:"status"`
 	HealthStatus          types.String         `tfsdk:"health_status"`
@@ -110,6 +112,23 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
+			},
+			"tag_ids": schema.SetAttribute{
+				Description: "Set of tag IDs to assign to this resource (reference them as mistershell_tag.<name>.id). When set, the provider manages the resource's tags **exclusively** (it adds and removes tags to match this set exactly; `[]` clears all tags). When **omitted/null**, the provider does not manage tags at all — leave it unset if you assign this resource's tags from the tag side via mistershell_tag.resource_ids. Own each tag↔resource edge from one side only.",
+				Optional:    true,
+				ElementType: types.Int64Type,
+			},
+			"tags": schema.ListNestedAttribute{
+				Description: "The tags currently assigned to this resource (read-back), as objects with id, name, color, and description. Always reflects server state regardless of whether tag_ids is managed.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id":          schema.Int64Attribute{Computed: true, Description: "Tag ID."},
+						"name":        schema.StringAttribute{Computed: true, Description: "Tag name."},
+						"color":       schema.StringAttribute{Computed: true, Description: "Tag color."},
+						"description": schema.StringAttribute{Computed: true, Description: "Tag description."},
+					},
+				},
 			},
 			"connector_id": schema.StringAttribute{
 				Description: "Connector type, derived by the server from resource_type.",
@@ -197,6 +216,10 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 
 	// Preserve connector_data from plan — the API enriches it with server-side defaults.
 	mapNetworkResourceResponseToModel(res, &plan)
+	if err := r.reconcileTags(ctx, res.ID, &plan); err != nil {
+		resp.Diagnostics.AddError("Error setting resource tags", err.Error())
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -222,6 +245,10 @@ func (r *NetworkResourceResource) Read(ctx context.Context, req resource.ReadReq
 	savedConnectorData := state.ConnectorData
 	mapNetworkResourceResponseToModel(res, &state)
 	state.ConnectorData = savedConnectorData
+	if err := r.readTags(ctx, state.ID.ValueInt64(), &state); err != nil {
+		resp.Diagnostics.AddError("Error reading resource tags", err.Error())
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -265,6 +292,10 @@ func (r *NetworkResourceResource) Update(ctx context.Context, req resource.Updat
 	}
 
 	mapNetworkResourceResponseToModel(res, &plan)
+	if err := r.reconcileTags(ctx, state.ID.ValueInt64(), &plan); err != nil {
+		resp.Diagnostics.AddError("Error updating resource tags", err.Error())
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -287,6 +318,50 @@ func (r *NetworkResourceResource) ImportState(ctx context.Context, req resource.
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.Int64Value(id))...)
+}
+
+// reconcileTags is used by Create/Update. When tag_ids is set (managed), it
+// replaces the resource's tag set exactly via PUT and reflects the server result
+// into both tag_ids and the computed tags. When tag_ids is null (unmanaged), it
+// does NOT modify tags — it only reads the current set into the computed tags and
+// leaves tag_ids null.
+func (r *NetworkResourceResource) reconcileTags(ctx context.Context, resourceID int64, m *NetworkResourceResourceModel) error {
+	managed := !m.TagIDs.IsNull() && !m.TagIDs.IsUnknown()
+	var (
+		tags []client.TagResponse
+		err  error
+	)
+	if managed {
+		tags, err = r.client.SetResourceTags(ctx, resourceID, int64SetToSlice(m.TagIDs))
+	} else {
+		tags, err = r.client.GetResourceTags(ctx, resourceID)
+	}
+	if err != nil {
+		return err
+	}
+	m.Tags = tagsToList(tags)
+	if managed {
+		m.TagIDs = tagIDsToSet(tags)
+	} else {
+		m.TagIDs = types.SetNull(types.Int64Type)
+	}
+	return nil
+}
+
+// readTags is used by Read. It always refreshes the computed tags from the
+// server; it refreshes tag_ids from the server only when tag_ids is already
+// managed (non-null), so drift on managed tags is detected while an unmanaged
+// resource keeps tag_ids null.
+func (r *NetworkResourceResource) readTags(ctx context.Context, resourceID int64, m *NetworkResourceResourceModel) error {
+	tags, err := r.client.GetResourceTags(ctx, resourceID)
+	if err != nil {
+		return err
+	}
+	m.Tags = tagsToList(tags)
+	if !m.TagIDs.IsNull() {
+		m.TagIDs = tagIDsToSet(tags)
+	}
+	return nil
 }
 
 func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *NetworkResourceResourceModel) {

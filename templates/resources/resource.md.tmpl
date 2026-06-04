@@ -96,6 +96,67 @@ resource.
 | `critical` | severely impaired |
 | `unknown` | not yet evaluated |
 
+## Tagging
+
+A resource can carry zero or more tags ([`mistershell_tag`](tag.md)). This
+resource exposes two tag attributes: `tag_ids` (input, optional) and `tags`
+(computed, read-back).
+
+### `tag_ids` — resource-side, exclusive management
+
+| attribute | constraints |
+|---|---|
+| `tag_ids` | Optional. Set of tag IDs (`int64`). Order-independent. |
+
+`tag_ids` is the **complete set** of tags the resource carries, managed from the
+**resource side** via the resource-centric assignment endpoint. On every apply
+the provider adds and removes tags so the live set equals `tag_ids` **exactly** —
+tags assigned out of band (through the UI or another caller) are removed on the
+next apply, and tags you drop from the set are unassigned.
+
+Reference each tag by its **id**, e.g.:
+
+```hcl
+tag_ids = [
+  mistershell_tag.prod.id,
+  mistershell_tag.zurich.id,
+]
+```
+
+Referencing by id (rather than a literal integer) also establishes the correct
+Terraform dependency so the tags are created before they are assigned.
+
+**`null` (omitted) vs. `[]` (empty set)** — these are different:
+
+| value | behavior |
+|---|---|
+| omitted / `null` | **Unmanaged (hands-off).** The provider does not add, remove, or assert tags at all. The live tags are still read back into `tags` (see below). Use this when you manage the tag↔resource edges from the tag side instead. |
+| `[]` (empty set) | **Exclusively empty.** The provider actively clears **all** tags from the resource and keeps it tag-free on every apply. |
+
+**Exclusivity — own each edge from one side only.** A tag↔resource assignment
+can be expressed from either side: from the resource via `tag_ids`, or from the
+tag via [`mistershell_tag`](tag.md)'s `resource_ids`. Both attributes use
+whole-set replace semantics and take exclusive ownership of their side, so
+managing the **same** edge from both sides makes the two resources fight on every
+plan (each apply reverts the other), producing perpetual diffs. **Pick one side
+per edge** — set `tag_ids` here **or** list this resource in the tag's
+`resource_ids`, never both. Leaving `tag_ids` omitted (null) is what makes
+tag-side management safe.
+
+### `tags` — computed read-back
+
+`tags` is a **computed** list reflecting the live tags currently on the resource,
+read back from the server on every refresh. It is always populated from server
+state **regardless of whether `tag_ids` is managed** — including when `tag_ids`
+is omitted and the edges are managed from the tag side. Each element is an object:
+
+| field | description |
+|---|---|
+| `id` | Tag ID (`int64`). |
+| `name` | Tag name. |
+| `color` | Tag color (free-form string; see the [`mistershell_tag`](tag.md) page). |
+| `description` | Tag description (may be null). |
+
 {{ if .HasImport -}}
 ## Import
 

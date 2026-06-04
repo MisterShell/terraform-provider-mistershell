@@ -201,6 +201,43 @@ func aclPatternsToList(patterns []client.AclPattern) types.List {
 	return types.ListValueMust(aclPatternObjectType, elems)
 }
 
+// tagObjectAttrTypes is the element object type for the resource `tags` read-back
+// list ({id, name, color, description}).
+var tagObjectAttrTypes = map[string]attr.Type{
+	"id":          types.Int64Type,
+	"name":        types.StringType,
+	"color":       types.StringType,
+	"description": types.StringType,
+}
+
+// tagObjectType is the object type for one tag in the `tags` list.
+var tagObjectType = types.ObjectType{AttrTypes: tagObjectAttrTypes}
+
+// tagsToList converts []client.TagResponse to a List[Object] of
+// {id, name, color, description} for the computed `tags` read-back attribute.
+func tagsToList(tags []client.TagResponse) types.List {
+	elems := make([]attr.Value, 0, len(tags))
+	for _, t := range tags {
+		obj := types.ObjectValueMust(tagObjectAttrTypes, map[string]attr.Value{
+			"id":          types.Int64Value(t.ID),
+			"name":        types.StringValue(t.Name),
+			"color":       types.StringValue(t.Color),
+			"description": stringPtrToValue(t.Description),
+		})
+		elems = append(elems, obj)
+	}
+	return types.ListValueMust(tagObjectType, elems)
+}
+
+// tagIDsToSet returns the tag ids of the given tags as a types.Set (order-independent).
+func tagIDsToSet(tags []client.TagResponse) types.Set {
+	ids := make([]int64, 0, len(tags))
+	for _, t := range tags {
+		ids = append(ids, t.ID)
+	}
+	return int64SliceToSet(ids)
+}
+
 // diffStrings returns the names present in want but not in have (added) and the
 // names present in have but not in want (removed).
 func diffStrings(have, want []string) (added, removed []string) {
