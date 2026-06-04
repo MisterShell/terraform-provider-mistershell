@@ -1,0 +1,47 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Field reference
+
+| attribute | constraints |
+|---|---|
+| `provider_id` | Required integer. ID of the parent `mistershell_auth_provider`. **Immutable** — changing it forces replacement. |
+| `external_group` | Required. 1-500 characters. The external group identifier: an LDAP DN, an OIDC claim value, or a SAML attribute value, depending on the parent provider's type. |
+| `role_id` | Required integer. ID of the `mistershell_role` granted to members of `external_group`. |
+| `role_name` | Read-only. Name of the mapped role. |
+
+## Notes
+
+- **`(provider_id, external_group)` is unique.** Two mappings with the same
+  provider and external group are rejected by the API (`409`).
+- **License required.** Create and update require an active license; an unlicensed
+  instance returns a `403` error, surfaced verbatim. Delete works unlicensed.
+- **Cascade delete.** Deleting the parent `mistershell_auth_provider` cascades to
+  its mappings; the provider tolerates a mapping that is already gone.
+
+{{ if .HasImport -}}
+## Import
+
+Mappings are nested under a provider, so the import ID is a **compound**
+`"<provider_id>:<mapping_id>"` (not a bare integer).
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

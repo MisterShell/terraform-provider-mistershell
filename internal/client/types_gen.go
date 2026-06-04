@@ -15,6 +15,10 @@ package client
 //   - SupportedWebhookMethods         <- WebhookConfig.properties.method
 //   - SupportedWebhookBodyFormats     <- WebhookConfig.properties.body_format
 //   - SupportedWebhookAuthTypes       <- WebhookConfig.properties.auth.discriminator.mapping
+//   - SupportedAuthProviderTypes      <- AuthProviderCreate.properties.provider_type
+//   - SupportedPolicyRuleActions      <- RuleCreate.properties.action
+//   - SupportedSessionTypes           <- RuleCreate.properties.session_types.items
+//   - SupportedAclPatternTypes        <- AclPattern.properties.type
 //
 // Regenerate with: make generate
 
@@ -120,4 +124,29 @@ var SupportedWebhookAuthTypes = []string{
 	"bearer",
 	"header",
 	"none",
+}
+
+// SupportedAuthProviderTypes are the auth-provider provider_type values.
+var SupportedAuthProviderTypes = []string{
+	"LDAP",
+	"OIDC",
+	"SAML",
+}
+
+// SupportedPolicyRuleActions are the session-policy rule action values.
+var SupportedPolicyRuleActions = []string{
+	"accept",
+	"deny",
+}
+
+// SupportedSessionTypes are the session-policy rule session_types item values.
+var SupportedSessionTypes = []string{
+	"graphical",
+	"shell",
+}
+
+// SupportedAclPatternTypes are the session-policy ACL pattern type values.
+var SupportedAclPatternTypes = []string{
+	"glob",
+	"regex",
 }

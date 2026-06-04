@@ -6,6 +6,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"terraform-provider-mistershell/internal/client"
 )
 
 func rawJSONToNormalized(raw json.RawMessage) jsontypes.Normalized {
@@ -59,4 +61,26 @@ func stringSliceToSet(vals []string) types.Set {
 		elems = append(elems, types.StringValue(v))
 	}
 	return types.SetValueMust(types.StringType, elems)
+}
+
+// aclPatternAttrTypes is the element object type for the ACL patterns list.
+var aclPatternAttrTypes = map[string]attr.Type{
+	"pattern": types.StringType,
+	"type":    types.StringType,
+}
+
+// aclPatternObjectType is the object type for one ACL pattern.
+var aclPatternObjectType = types.ObjectType{AttrTypes: aclPatternAttrTypes}
+
+// aclPatternsToList converts []client.AclPattern to a List[Object] of {pattern, type}.
+func aclPatternsToList(patterns []client.AclPattern) types.List {
+	elems := make([]attr.Value, 0, len(patterns))
+	for _, p := range patterns {
+		obj := types.ObjectValueMust(aclPatternAttrTypes, map[string]attr.Value{
+			"pattern": types.StringValue(p.Pattern),
+			"type":    types.StringValue(p.Type),
+		})
+		elems = append(elems, obj)
+	}
+	return types.ListValueMust(aclPatternObjectType, elems)
 }

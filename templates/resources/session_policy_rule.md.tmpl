@@ -1,0 +1,112 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Field reference
+
+| attribute | constraints |
+|---|---|
+| `name` | Optional. Up to 128 characters. Defaults to `""`. Not required to be unique. |
+| `comment` | Optional. Free-form string (nullable). |
+| `position` | Optional + computed integer `>= 1`. See **`position` semantics** below. |
+| `action` | Optional. One of the `action` values below. Defaults to `accept`. |
+| `session_types` | Optional set. Empty = Any. Items are `session_types` values below. |
+| `resource_types` | Optional set. Empty = Any. Items are `resource_types` values below. |
+| `location_ids` | Optional set of integers. Empty = Any. |
+| `tag_ids` | Optional set of integers. Empty = Any. |
+| `role_ids` | Optional set of integers. Empty = Any. |
+| `command_acl_ids` | Optional set of integers referencing `mistershell_session_policy_acl` IDs. Empty = Any. |
+| `notify` | Optional boolean. Defaults to `false`. |
+| `log` | Optional boolean. Defaults to `false`. |
+| `enabled` | Optional boolean. Defaults to `true`. |
+| `hit_count` | Read-only runtime counter (number of matches). |
+| `last_hit_at` | Read-only timestamp of the last match. |
+
+### `action` values
+
+| action | meaning |
+|---|---|
+| `accept` | Allow the matched session/command (the default). |
+| `deny` | Block the matched session/command. |
+
+### `session_types` values
+
+A set; empty means **Any** session type. Order is irrelevant.
+
+| session_type | meaning |
+|---|---|
+| `shell` | Shell (terminal) sessions. |
+| `graphical` | Graphical (RDP/VNC-style) sessions. |
+
+### `resource_types` values
+
+A set; empty means **Any** resource type. Order is irrelevant. These are the
+inventory resource-type strings; the complete set of valid values is:
+
+| resource_type |
+|---|
+| `aws_account` |
+| `azure_subscription` |
+| `cisco_ios` |
+| `cisco_iosxe` |
+| `cisco_iosxe_sdwan` |
+| `cisco_ise` |
+| `cisco_nxos` |
+| `cisco_vbond` |
+| `cisco_vmanage` |
+| `cisco_vsmart` |
+| `database` |
+| `generic_rdp` |
+| `generic_ssh` |
+| `infoblox_nios` |
+| `kubernetes_cluster` |
+| `linux` |
+| `panos_ssh` |
+| `windows` |
+
+## `position` semantics
+
+Rules form an ordered chain. `position` is a **declarative 1-based integer**
+controlling evaluation order:
+
+- **Lower `position` runs first** (higher priority).
+- **Omit `position`** to append at the end — the server assigns `max + 10`. The
+  assigned value is read back into state (Optional + Computed), so an omitted
+  `position` does not produce a perpetual diff.
+- **Assign distinct values** (the conventional `10, 20, 30, …` with gaps) for
+  deterministic ordering. The backend does **not** enforce unique positions; two
+  rules sharing a `position` break ties by `id` (creation order).
+- The provider sets `position` directly on create and update; it **never** calls
+  the backend's reorder endpoint. To reorder, simply change the `position` values.
+
+## Notes
+
+- **Read is via the list endpoint.** The backend exposes no GET-single route for
+  rules, so the provider reads a rule by listing and filtering on `id`.
+- **The last remaining rule cannot be deleted.** The backend refuses to delete the
+  final rule (the chain is never empty); edit it instead of destroying it.
+- **`hit_count` / `last_hit_at` are runtime telemetry.** They are read-only and
+  do not trigger updates when they change.
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

@@ -1,0 +1,47 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Lookup arguments
+
+Specify exactly one of:
+
+| argument | behavior |
+|---|---|
+| `id` | Direct lookup by integer ID (resolved through the list endpoint; there is no GET-single for ACLs). |
+| `name` | Exact-match lookup by name (fuzzy server search, then exact `name ==` filter). Errors if zero or more than one ACL matches. |
+
+## Returned values
+
+| attribute | description |
+|---|---|
+| `id` | ACL integer ID. |
+| `name` | ACL name. |
+| `description` | ACL description. |
+| `enabled` | Whether the ACL is enabled. |
+| `patterns` | Ordered list of `{pattern, type}` objects (order is significant). |
+| `is_builtin` | Whether this is a built-in ACL. |
+| `created_at` | Creation timestamp. |
+| `updated_at` | Last update timestamp. |
+
+### `patterns[].type` values
+
+| type | meaning |
+|---|---|
+| `glob` | Shell-style glob match (the default). |
+| `regex` | Regular-expression match. |

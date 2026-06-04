@@ -87,6 +87,33 @@ func testAccCheckAllDestroyed(s *terraform.State) error {
 			continue
 		}
 
+		// mistershell_auth_provider_mapping uses a plain int64 mapping id as its
+		// state ID (the compound "<provider_id>:<mapping_id>" form is only the
+		// import format); provider_id is carried as a separate attribute. Handle
+		// it before the generic int64 parse so we can look it up under its parent.
+		if rs.Type == "mistershell_auth_provider_mapping" {
+			mid, merr := strconv.ParseInt(rs.Primary.ID, 10, 64)
+			if merr != nil {
+				continue
+			}
+			pid, perr := strconv.ParseInt(rs.Primary.Attributes["provider_id"], 10, 64)
+			if perr != nil {
+				return fmt.Errorf("auth_provider_mapping %d: cannot parse provider_id %q: %w",
+					mid, rs.Primary.Attributes["provider_id"], perr)
+			}
+			// GetGroupMapping lists the parent's mappings; if the parent provider
+			// was cascade-deleted, the list call 404s -> IsNotFound -> treated as
+			// gone, which is the desired teardown outcome.
+			_, err := c.GetGroupMapping(ctx, pid, mid)
+			if err == nil {
+				return fmt.Errorf("%s %d still exists after destroy", rs.Type, mid)
+			}
+			if !client.IsNotFound(err) {
+				return fmt.Errorf("unexpected error checking %s %d: %w", rs.Type, mid, err)
+			}
+			continue
+		}
+
 		id, perr := strconv.ParseInt(rs.Primary.ID, 10, 64)
 		if perr != nil {
 			continue
@@ -106,6 +133,12 @@ func testAccCheckAllDestroyed(s *terraform.State) error {
 			_, err = c.GetRole(ctx, id)
 		case "mistershell_log_destination":
 			_, err = c.GetLogDestination(ctx, id)
+		case "mistershell_session_policy_acl":
+			_, err = c.GetAcl(ctx, id)
+		case "mistershell_session_policy_rule":
+			_, err = c.GetRule(ctx, id)
+		case "mistershell_auth_provider":
+			_, err = c.GetAuthProvider(ctx, id)
 		default:
 			continue
 		}
@@ -184,6 +217,29 @@ func init() {
 	resource.AddTestSweepers("mistershell_log_destination", &resource.Sweeper{
 		Name: "mistershell_log_destination",
 		F:    sweepLogDestinations,
+	})
+	// Session-policy rules: swept by name prefix. The backend refuses to delete
+	// the LAST remaining rule (count() <= 1 -> 403/422); the sweeper tolerates
+	// that error and leaves the final rule. Rules reference ACLs, so rules must
+	// be swept BEFORE ACLs (a referenced ACL can't be deleted) — hence the ACL
+	// sweeper depends on the rule sweeper.
+	resource.AddTestSweepers("mistershell_session_policy_rule", &resource.Sweeper{
+		Name: "mistershell_session_policy_rule",
+		F:    sweepSessionPolicyRules,
+	})
+	resource.AddTestSweepers("mistershell_session_policy_acl", &resource.Sweeper{
+		Name:         "mistershell_session_policy_acl",
+		Dependencies: []string{"mistershell_session_policy_rule"},
+		F:            sweepSessionPolicyAcls,
+	})
+	// Auth providers: swept by name prefix. DELETE cascades to the provider's
+	// group mappings, so there is NO separate mistershell_auth_provider_mapping
+	// sweeper (and a standalone one is impossible — mappings are only reachable
+	// per-provider). Delete works without a license, so the sweeper runs even on
+	// an unlicensed instance.
+	resource.AddTestSweepers("mistershell_auth_provider", &resource.Sweeper{
+		Name: "mistershell_auth_provider",
+		F:    sweepAuthProviders,
 	})
 	// NOTE: NO sweeper for mistershell_setting. Settings are predefined registry
 	// keys that cannot be created or deleted; there is nothing to orphan or
@@ -322,6 +378,73 @@ func jsonRawEqual(a, b json.RawMessage) bool {
 		return false
 	}
 	return bytes.Equal(ab.Bytes(), bb.Bytes())
+}
+
+func sweepSessionPolicyRules(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListRules(ctx)
+	if err != nil {
+		return fmt.Errorf("sweep: listing session-policy rules: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		if derr := c.DeleteRule(ctx, it.ID); derr != nil && !client.IsNotFound(derr) {
+			// The backend refuses to delete the last remaining rule. Tolerate that
+			// gracefully (a crashed run may leave one test rule that must be edited
+			// or replaced rather than deleted) — do not fail the sweep.
+			fmt.Printf("sweep: skipping rule %d (%s): %v\n", it.ID, it.Name, derr)
+		}
+	}
+	return nil
+}
+
+func sweepSessionPolicyAcls(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListAcls(ctx, client.AclListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing session-policy acls: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) || it.IsBuiltin {
+			continue
+		}
+		if derr := c.DeleteAcl(ctx, it.ID); derr != nil && !client.IsNotFound(derr) {
+			return fmt.Errorf("sweep: deleting acl %d (%s): %w", it.ID, it.Name, derr)
+		}
+	}
+	return nil
+}
+
+func sweepAuthProviders(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListAuthProviders(ctx, client.AuthProviderListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing auth providers: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		// DELETE cascades to the provider's group mappings and works unlicensed.
+		if derr := c.DeleteAuthProvider(ctx, it.ID); derr != nil && !client.IsNotFound(derr) {
+			return fmt.Errorf("sweep: deleting auth provider %d (%s): %w", it.ID, it.Name, derr)
+		}
+	}
+	return nil
 }
 
 func sweepRoles(_ string) error {

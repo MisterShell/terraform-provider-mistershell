@@ -9,6 +9,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"terraform-provider-mistershell/internal/client"
 )
 
 // normalizedToRawJSON converts a jsontypes.Normalized to json.RawMessage for API requests.
@@ -149,6 +151,54 @@ func stringSliceToSet(vals []string) types.Set {
 		elems = append(elems, types.StringValue(v))
 	}
 	return types.SetValueMust(types.StringType, elems)
+}
+
+// aclPatternAttrTypes is the element object type for the ACL patterns list.
+var aclPatternAttrTypes = map[string]attr.Type{
+	"pattern": types.StringType,
+	"type":    types.StringType,
+}
+
+// aclPatternObjectType is the object type for one ACL pattern.
+var aclPatternObjectType = types.ObjectType{AttrTypes: aclPatternAttrTypes}
+
+// aclPatternsToSlice converts a List[Object] of {pattern, type} to []client.AclPattern.
+// Null/unknown yields nil.
+func aclPatternsToSlice(l types.List) []client.AclPattern {
+	if l.IsNull() || l.IsUnknown() {
+		return nil
+	}
+	elems := l.Elements()
+	out := make([]client.AclPattern, 0, len(elems))
+	for _, e := range elems {
+		obj, ok := e.(types.Object)
+		if !ok {
+			continue
+		}
+		attrs := obj.Attributes()
+		var p client.AclPattern
+		if v, ok := attrs["pattern"].(types.String); ok && !v.IsNull() && !v.IsUnknown() {
+			p.Pattern = v.ValueString()
+		}
+		if v, ok := attrs["type"].(types.String); ok && !v.IsNull() && !v.IsUnknown() {
+			p.Type = v.ValueString()
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// aclPatternsToList converts []client.AclPattern to a List[Object] of {pattern, type}.
+func aclPatternsToList(patterns []client.AclPattern) types.List {
+	elems := make([]attr.Value, 0, len(patterns))
+	for _, p := range patterns {
+		obj := types.ObjectValueMust(aclPatternAttrTypes, map[string]attr.Value{
+			"pattern": types.StringValue(p.Pattern),
+			"type":    types.StringValue(p.Type),
+		})
+		elems = append(elems, obj)
+	}
+	return types.ListValueMust(aclPatternObjectType, elems)
 }
 
 // diffStrings returns the names present in want but not in have (added) and the

@@ -1,0 +1,162 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Field reference
+
+| attribute | constraints |
+|---|---|
+| `name` | Required. 1-100 characters. Unique. |
+| `provider_type` | Required. One of the `provider_type` values below. **Immutable** — changing it forces replacement (the `config` shape is type-coupled). |
+| `is_enabled` | Optional boolean. Defaults to `true`. |
+| `display_order` | Optional + computed integer `>= 0`. See **`display_order` semantics** below. |
+| `config` | Required, **sensitive**. Per-`provider_type` JSON blob set with `jsonencode(...)`; see the per-type tables below. |
+| `group_mappings_count` | Read-only. Number of attached group→role mappings. |
+
+### `provider_type` values
+
+| provider_type | meaning |
+|---|---|
+| `LDAP` | LDAP / Active Directory directory provider. |
+| `OIDC` | OpenID Connect provider. |
+| `SAML` | SAML 2.0 identity provider. |
+
+## `display_order` semantics
+
+`display_order` controls the login-page ordering of providers:
+
+- **Omit `display_order`** to keep the server's auto-assigned value (`max + 1` on
+  create). The value is read back into state (Optional + Computed), so omitting it
+  does not produce a perpetual diff.
+- **Assign distinct values** for a deterministic login-page order. The backend
+  does **not** enforce unique `display_order`; duplicates break ties by `id`.
+- **Create cannot set `display_order`** (the server auto-assigns it). When you pin
+  a value, the provider applies it with a follow-up PATCH after create; thereafter
+  it is set on update. The provider **never** calls the backend's reorder endpoint.
+
+## The `config` JSON blob
+
+`config` is an opaque, per-`provider_type` JSON object written with
+`jsonencode(...)`. Its shape is determined by `provider_type` (one table per type
+below). Each type carries at least one **secret** field.
+
+**Secret & drift handling.** Every secret field (LDAP `bind_password`, OIDC
+`client_secret`, SAML `sp_private_key`) is encrypted at rest and **masked to
+`****`** in the API's responses. As with `credential_data`, the provider stores
+the **entire `config` from your configuration** and does **not** read it back from
+the server — for **all** provider types, not just the secret fields. This is
+necessary because the server also **enriches** non-secret defaults (LDAP
+`user_search_filter`/`user_attributes`; OIDC `scopes`/`claims_mapping`/
+`redirect_uri`; SAML `sp_entity_id`/`sp_acs_url`/`attribute_mapping`), so
+reflecting the server value would churn. Consequences:
+
+- After **importing** a provider, `config` is unknown until you re-supply it in
+  HCL — secrets cannot be recovered from the masked server value. `config` is
+  **excluded from import** (only `id` is set on import).
+- Out-of-band changes to the **non-secret** parts of `config` are **not** detected
+  as drift, because the whole `config` is preserved from state. This is the
+  documented trade-off of the stored-from-config rule (identical to
+  `credential_data`).
+
+**License.** `config` create/update (and group-mapping create/update) require an
+active license; an unlicensed instance returns a `403` error, surfaced verbatim.
+Delete works unlicensed.
+
+### `provider_type = "LDAP"` config
+
+| field | type | required | default | secret |
+|---|---|---|---|---|
+| `server_url` | string (`ldap://` or `ldaps://`) | **yes** | — | no |
+| `bind_dn` | string (DN) | **yes** | — | no |
+| `bind_password` | string | **yes** | — | **yes** |
+| `base_dn` | string (DN) | **yes** | — | no |
+| `user_search_filter` | string (must contain `{username}`) | no | `(uid={username})` | no |
+| `user_attributes` | object (string→string map, non-empty) | no | `{email = "mail", first_name = "givenName", last_name = "sn"}` | no |
+| `group_search_base` | string (DN) or null | no | `null` | no |
+| `group_search_filter` | string (parenthesized) | no | `(member={user_dn})` | no |
+| `use_tls` | boolean | no | `true` | no |
+| `connection_timeout` | integer (1-60) | no | `10` | no |
+
+Example:
+
+```hcl
+config = jsonencode({
+  server_url    = "ldaps://ldap.example.com:636"
+  bind_dn       = "cn=svc,dc=example,dc=com"
+  bind_password = var.ldap_bind_password # secret; masked by the API, stored from config
+  base_dn       = "ou=people,dc=example,dc=com"
+  use_tls       = true
+})
+```
+
+### `provider_type = "OIDC"` config
+
+| field | type | required | default | secret |
+|---|---|---|---|---|
+| `issuer_url` | string (https; http allowed for local test hosts) | **yes** | — | no |
+| `client_id` | string | **yes** | — | no |
+| `client_secret` | string | **yes** | — | **yes** |
+| `scopes` | array of string (must include `openid`) | no | `["openid", "profile", "email"]` | no |
+| `claims_mapping` | object (string→string map) | no | `{email = "email", first_name = "given_name", last_name = "family_name", groups = "groups"}` | no |
+| `redirect_uri` | string (http/https) or null | no | auto-generated | no |
+| `additional_params` | object (string→string map) | no | `{}` | no |
+
+Example:
+
+```hcl
+config = jsonencode({
+  issuer_url    = "https://login.example.com"
+  client_id     = "mistershell"
+  client_secret = var.oidc_client_secret # secret; masked by the API, stored from config
+  scopes        = ["openid", "profile", "email"]
+})
+```
+
+### `provider_type = "SAML"` config
+
+| field | type | required | default | secret |
+|---|---|---|---|---|
+| `idp_entity_id` | string | **yes** | — | no |
+| `idp_sso_url` | string (https; http allowed for local test hosts) | **yes** | — | no |
+| `idp_x509_cert` | string (PEM certificate) | **yes** | — | no |
+| `sp_entity_id` | string or null | no | auto-generated | no |
+| `sp_acs_url` | string (http/https) or null | no | auto-generated | no |
+| `attribute_mapping` | object (string→string map) | no | `{email = "urn:oid:0.9.2342.19200300.100.1.3", first_name = "urn:oid:2.5.4.42", last_name = "urn:oid:2.5.4.4", groups = "memberOf"}` | no |
+| `sign_requests` | boolean | no | `false` | no |
+| `want_assertions_signed` | boolean | no | `true` | no |
+| `sp_private_key` | string (PEM key) or null | no | `null` | **yes** |
+| `sp_x509_cert` | string (PEM certificate) or null | no | `null` | no |
+
+Example:
+
+```hcl
+config = jsonencode({
+  idp_entity_id  = "https://idp.example.com/metadata"
+  idp_sso_url    = "https://idp.example.com/sso"
+  idp_x509_cert  = file("idp.crt")
+  sp_private_key = var.saml_sp_private_key # secret; masked by the API, stored from config
+})
+```
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

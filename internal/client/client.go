@@ -951,3 +951,504 @@ func (c *Client) ListSettings(ctx context.Context, filter SettingListFilter) ([]
 	}
 	return settings, nil
 }
+
+// ---------------------------------------------------------------------------
+// Session-Policy ACL API models
+// ---------------------------------------------------------------------------
+
+// AclPattern is one ordered match pattern within an ACL.
+type AclPattern struct {
+	Pattern string `json:"pattern"`        // 1..512
+	Type    string `json:"type,omitempty"` // "glob" (default) | "regex"
+}
+
+type AclCreateInput struct {
+	Name        string       `json:"name"`                  // 1..128
+	Description string       `json:"description,omitempty"` // default "", <=255
+	Patterns    []AclPattern `json:"patterns"`              // default []
+}
+
+// AclUpdateInput is a partial PATCH-style PUT: the resource always sends name +
+// description + patterns + enabled because it manages all of them.
+type AclUpdateInput struct {
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Patterns    []AclPattern `json:"patterns"`
+	Enabled     bool         `json:"enabled"`
+}
+
+type AclResponse struct {
+	ID          int64        `json:"id"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Patterns    []AclPattern `json:"patterns"`
+	IsBuiltin   bool         `json:"is_builtin"`
+	Enabled     bool         `json:"enabled"`
+	CreatedAt   string       `json:"created_at"`
+	UpdatedAt   string       `json:"updated_at"`
+}
+
+type AclListFilter struct{ Search string }
+
+func (c *Client) CreateAcl(ctx context.Context, input AclCreateInput) (*AclResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, "/api/v1/session-policy/acls", input)
+	if err != nil {
+		return nil, err
+	}
+	var acl AclResponse
+	if err := json.Unmarshal(data, &acl); err != nil {
+		return nil, fmt.Errorf("decoding acl: %w", err)
+	}
+	return &acl, nil
+}
+
+func (c *Client) UpdateAcl(ctx context.Context, id int64, input AclUpdateInput) (*AclResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/session-policy/acls/%d", id), input)
+	if err != nil {
+		return nil, err
+	}
+	var acl AclResponse
+	if err := json.Unmarshal(data, &acl); err != nil {
+		return nil, fmt.Errorf("decoding acl: %w", err)
+	}
+	return &acl, nil
+}
+
+func (c *Client) DeleteAcl(ctx context.Context, id int64) error {
+	_, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/session-policy/acls/%d", id), nil)
+	return err
+}
+
+func (c *Client) ListAcls(ctx context.Context, filter AclListFilter) ([]AclResponse, error) {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("size", "1000")
+	if filter.Search != "" {
+		params.Set("search", filter.Search)
+	}
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/session-policy/acls?"+params.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var acls []AclResponse
+	if err := json.Unmarshal(data, &acls); err != nil {
+		return nil, fmt.Errorf("decoding acls: %w", err)
+	}
+	return acls, nil
+}
+
+// GetAcl is synthetic: the backend has no GET /acls/{id}, so it lists and filters
+// by id, returning *NotFoundError if the id is absent.
+func (c *Client) GetAcl(ctx context.Context, id int64) (*AclResponse, error) {
+	acls, err := c.ListAcls(ctx, AclListFilter{})
+	if err != nil {
+		return nil, err
+	}
+	for i := range acls {
+		if acls[i].ID == id {
+			return &acls[i], nil
+		}
+	}
+	return nil, &NotFoundError{Path: fmt.Sprintf("/api/v1/session-policy/acls/%d", id)}
+}
+
+// ---------------------------------------------------------------------------
+// Session-Policy Rule API models
+// ---------------------------------------------------------------------------
+
+// RuleCreateInput: empty selector lists mean "Any". resource_types reuse the
+// inventory type strings.
+type RuleCreateInput struct {
+	Name          string   `json:"name,omitempty"`     // <=128, default ""
+	Comment       *string  `json:"comment,omitempty"`  //
+	Position      *int64   `json:"position,omitempty"` // 1-based; omit -> append at max+10
+	ResourceTypes []string `json:"resource_types"`     // [] = Any
+	SessionTypes  []string `json:"session_types"`      // [] = Any; items shell|graphical
+	LocationIDs   []int64  `json:"location_ids"`
+	TagIDs        []int64  `json:"tag_ids"`
+	RoleIDs       []int64  `json:"role_ids"`
+	CommandAclIDs []int64  `json:"command_acl_ids"`
+	Action        string   `json:"action,omitempty"` // accept|deny, default accept
+	Notify        bool     `json:"notify"`
+	Log           bool     `json:"log"`
+	Enabled       bool     `json:"enabled"`
+}
+
+// RuleUpdateInput is a full-replace PUT (RuleUpdate == RuleCreate). Comment uses
+// *string with NO omitempty so clearing sends explicit null. Position is *int64
+// (omit leaves it unchanged server-side: update only sets it if non-None).
+type RuleUpdateInput struct {
+	Name          string   `json:"name"`
+	Comment       *string  `json:"comment"` // no omitempty: explicit null clears
+	Position      *int64   `json:"position,omitempty"`
+	ResourceTypes []string `json:"resource_types"`
+	SessionTypes  []string `json:"session_types"`
+	LocationIDs   []int64  `json:"location_ids"`
+	TagIDs        []int64  `json:"tag_ids"`
+	RoleIDs       []int64  `json:"role_ids"`
+	CommandAclIDs []int64  `json:"command_acl_ids"`
+	Action        string   `json:"action"`
+	Notify        bool     `json:"notify"`
+	Log           bool     `json:"log"`
+	Enabled       bool     `json:"enabled"`
+}
+
+type RuleResponse struct {
+	ID            int64    `json:"id"`
+	Position      int64    `json:"position"`
+	Name          string   `json:"name"`
+	Comment       *string  `json:"comment"`
+	ResourceTypes []string `json:"resource_types"`
+	SessionTypes  []string `json:"session_types"`
+	LocationIDs   []int64  `json:"location_ids"`
+	TagIDs        []int64  `json:"tag_ids"`
+	RoleIDs       []int64  `json:"role_ids"`
+	CommandAclIDs []int64  `json:"command_acl_ids"`
+	Action        string   `json:"action"`
+	Notify        bool     `json:"notify"`
+	Log           bool     `json:"log"`
+	Enabled       bool     `json:"enabled"`
+	HitCount      int64    `json:"hit_count"`
+	LastHitAt     *string  `json:"last_hit_at"`
+	CreatedAt     string   `json:"created_at"`
+	UpdatedAt     string   `json:"updated_at"`
+}
+
+// RuleReorderInput is the whole-collection reorder payload (TESTS ONLY).
+type RuleReorderInput struct {
+	OrderedIDs []int64 `json:"ordered_ids"`
+}
+
+func (c *Client) CreateRule(ctx context.Context, input RuleCreateInput) (*RuleResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, "/api/v1/session-policy/rules", input)
+	if err != nil {
+		return nil, err
+	}
+	var rule RuleResponse
+	if err := json.Unmarshal(data, &rule); err != nil {
+		return nil, fmt.Errorf("decoding rule: %w", err)
+	}
+	return &rule, nil
+}
+
+func (c *Client) UpdateRule(ctx context.Context, id int64, input RuleUpdateInput) (*RuleResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/session-policy/rules/%d", id), input)
+	if err != nil {
+		return nil, err
+	}
+	var rule RuleResponse
+	if err := json.Unmarshal(data, &rule); err != nil {
+		return nil, fmt.Errorf("decoding rule: %w", err)
+	}
+	return &rule, nil
+}
+
+func (c *Client) DeleteRule(ctx context.Context, id int64) error {
+	_, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/session-policy/rules/%d", id), nil)
+	return err
+}
+
+// ListRules returns the full ordered list (not paginated).
+func (c *Client) ListRules(ctx context.Context) ([]RuleResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/session-policy/rules", nil)
+	if err != nil {
+		return nil, err
+	}
+	var rules []RuleResponse
+	if err := json.Unmarshal(data, &rules); err != nil {
+		return nil, fmt.Errorf("decoding rules: %w", err)
+	}
+	return rules, nil
+}
+
+// GetRule is synthetic: the backend has no GET /rules/{id}, so it lists and
+// filters by id, returning *NotFoundError if the id is absent.
+func (c *Client) GetRule(ctx context.Context, id int64) (*RuleResponse, error) {
+	rules, err := c.ListRules(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range rules {
+		if rules[i].ID == id {
+			return &rules[i], nil
+		}
+	}
+	return nil, &NotFoundError{Path: fmt.Sprintf("/api/v1/session-policy/rules/%d", id)}
+}
+
+// ReorderRules rewrites positions for the listed ids (TESTS ONLY — no resource
+// lifecycle uses this; ordering is declarative via the position field).
+func (c *Client) ReorderRules(ctx context.Context, orderedIDs []int64) error {
+	if orderedIDs == nil {
+		orderedIDs = []int64{}
+	}
+	_, err := c.doRequest(ctx, http.MethodPost, "/api/v1/session-policy/rules/reorder", RuleReorderInput{OrderedIDs: orderedIDs})
+	return err
+}
+
+// ClearRuleHits resets a rule's hit counter (TESTS ONLY — not surfaced as a
+// resource/data source).
+func (c *Client) ClearRuleHits(ctx context.Context, id int64) (*RuleResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/session-policy/rules/%d/clear-hits", id), nil)
+	if err != nil {
+		return nil, err
+	}
+	var rule RuleResponse
+	if err := json.Unmarshal(data, &rule); err != nil {
+		return nil, fmt.Errorf("decoding rule: %w", err)
+	}
+	return &rule, nil
+}
+
+// ---------------------------------------------------------------------------
+// Auth-Provider API models
+// ---------------------------------------------------------------------------
+
+// AuthProviderCreateInput: config is an opaque per-provider_type blob; secrets
+// are masked **** in the GET-single response and ABSENT from create/patch/list
+// responses.
+type AuthProviderCreateInput struct {
+	Name         string          `json:"name"`                 // 1..100
+	ProviderType string          `json:"provider_type"`        // LDAP|OIDC|SAML
+	IsEnabled    *bool           `json:"is_enabled,omitempty"` // default true
+	Config       json.RawMessage `json:"config"`               // LDAPConfig|OIDCConfig|SAMLConfig
+}
+
+// AuthProviderUpdateInput is a PATCH: all fields optional. display_order is
+// settable here (NOT on create). Pointers so we only send changed fields.
+type AuthProviderUpdateInput struct {
+	Name         *string         `json:"name,omitempty"`
+	IsEnabled    *bool           `json:"is_enabled,omitempty"`
+	DisplayOrder *int64          `json:"display_order,omitempty"`
+	Config       json.RawMessage `json:"config,omitempty"` // omit to leave config untouched
+}
+
+// AuthProviderResponse is the create/list/patch response: NO config.
+type AuthProviderResponse struct {
+	ID           int64  `json:"id"`
+	Name         string `json:"name"`
+	ProviderType string `json:"provider_type"`
+	IsEnabled    bool   `json:"is_enabled"`
+	DisplayOrder int64  `json:"display_order"`
+	CreatedAt    string `json:"created_at"`
+	UpdatedAt    string `json:"updated_at"`
+}
+
+// AuthProviderDetailResponse is the GET-single response: adds masked config +
+// mappings count.
+type AuthProviderDetailResponse struct {
+	AuthProviderResponse
+	Config             json.RawMessage `json:"config"` // secrets masked ****
+	GroupMappingsCount int64           `json:"group_mappings_count"`
+}
+
+type AuthProviderListFilter struct{ Search string }
+
+type AuthProviderReorderItem struct {
+	ID           int64 `json:"id"`
+	DisplayOrder int64 `json:"display_order"`
+}
+
+// AuthProviderReorderInput is the whole-set reorder payload (TESTS ONLY).
+type AuthProviderReorderInput struct {
+	Items []AuthProviderReorderItem `json:"items"`
+}
+
+type AuthProviderTestResult struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Details json.RawMessage `json:"details,omitempty"`
+}
+
+func (c *Client) CreateAuthProvider(ctx context.Context, input AuthProviderCreateInput) (*AuthProviderResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, "/api/v1/auth-providers/", input)
+	if err != nil {
+		return nil, err
+	}
+	var ap AuthProviderResponse
+	if err := json.Unmarshal(data, &ap); err != nil {
+		return nil, fmt.Errorf("decoding auth provider: %w", err)
+	}
+	return &ap, nil
+}
+
+// GetAuthProvider is a real GET-single returning the masked config.
+func (c *Client) GetAuthProvider(ctx context.Context, id int64) (*AuthProviderDetailResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/auth-providers/%d", id), nil)
+	if err != nil {
+		return nil, err
+	}
+	var ap AuthProviderDetailResponse
+	if err := json.Unmarshal(data, &ap); err != nil {
+		return nil, fmt.Errorf("decoding auth provider: %w", err)
+	}
+	return &ap, nil
+}
+
+func (c *Client) UpdateAuthProvider(ctx context.Context, id int64, input AuthProviderUpdateInput) (*AuthProviderResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPatch, fmt.Sprintf("/api/v1/auth-providers/%d", id), input)
+	if err != nil {
+		return nil, err
+	}
+	var ap AuthProviderResponse
+	if err := json.Unmarshal(data, &ap); err != nil {
+		return nil, fmt.Errorf("decoding auth provider: %w", err)
+	}
+	return &ap, nil
+}
+
+func (c *Client) DeleteAuthProvider(ctx context.Context, id int64) error {
+	_, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/auth-providers/%d", id), nil)
+	return err
+}
+
+func (c *Client) ListAuthProviders(ctx context.Context, filter AuthProviderListFilter) ([]AuthProviderResponse, error) {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("size", "1000")
+	if filter.Search != "" {
+		params.Set("search", filter.Search)
+	}
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/auth-providers/?"+params.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var aps []AuthProviderResponse
+	if err := json.Unmarshal(data, &aps); err != nil {
+		return nil, fmt.Errorf("decoding auth providers: %w", err)
+	}
+	return aps, nil
+}
+
+// ReorderAuthProviders rewrites the whole contiguous order set (TESTS ONLY — no
+// resource lifecycle uses this; ordering is declarative via display_order).
+func (c *Client) ReorderAuthProviders(ctx context.Context, items []AuthProviderReorderItem) error {
+	if items == nil {
+		items = []AuthProviderReorderItem{}
+	}
+	_, err := c.doRequest(ctx, http.MethodPost, "/api/v1/auth-providers/reorder", AuthProviderReorderInput{Items: items})
+	return err
+}
+
+// TestAuthProvider triggers a connection test (TESTS ONLY — not surfaced as a
+// resource/data source).
+func (c *Client) TestAuthProvider(ctx context.Context, id int64) (*AuthProviderTestResult, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/auth-providers/%d/test", id), nil)
+	if err != nil {
+		return nil, err
+	}
+	var result AuthProviderTestResult
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("decoding auth provider test result: %w", err)
+	}
+	return &result, nil
+}
+
+// ---------------------------------------------------------------------------
+// Auth-Provider Group Mapping API models
+// ---------------------------------------------------------------------------
+
+type GroupMappingCreateInput struct {
+	ExternalGroup string `json:"external_group"` // 1..500
+	RoleID        int64  `json:"role_id"`
+}
+
+// GroupMappingUpdateInput is a PATCH: both optional.
+type GroupMappingUpdateInput struct {
+	ExternalGroup *string `json:"external_group,omitempty"`
+	RoleID        *int64  `json:"role_id,omitempty"`
+}
+
+type GroupMappingResponse struct {
+	ID             int64  `json:"id"`
+	AuthProviderID int64  `json:"auth_provider_id"`
+	ExternalGroup  string `json:"external_group"`
+	RoleID         int64  `json:"role_id"`
+	RoleName       string `json:"role_name"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
+// BulkMappingResult is the /mappings/bulk response (TESTS ONLY).
+type BulkMappingResult struct {
+	Created []GroupMappingResponse `json:"created"`
+}
+
+// BulkMappingCreateInput is the /mappings/bulk request (TESTS ONLY).
+type BulkMappingCreateInput struct {
+	Mappings []GroupMappingCreateInput `json:"mappings"`
+}
+
+func (c *Client) CreateGroupMapping(ctx context.Context, providerID int64, input GroupMappingCreateInput) (*GroupMappingResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/auth-providers/%d/mappings/", providerID), input)
+	if err != nil {
+		return nil, err
+	}
+	var m GroupMappingResponse
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, fmt.Errorf("decoding group mapping: %w", err)
+	}
+	return &m, nil
+}
+
+func (c *Client) UpdateGroupMapping(ctx context.Context, providerID, mappingID int64, input GroupMappingUpdateInput) (*GroupMappingResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPatch, fmt.Sprintf("/api/v1/auth-providers/%d/mappings/%d", providerID, mappingID), input)
+	if err != nil {
+		return nil, err
+	}
+	var m GroupMappingResponse
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, fmt.Errorf("decoding group mapping: %w", err)
+	}
+	return &m, nil
+}
+
+func (c *Client) DeleteGroupMapping(ctx context.Context, providerID, mappingID int64) error {
+	_, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/auth-providers/%d/mappings/%d", providerID, mappingID), nil)
+	return err
+}
+
+func (c *Client) ListGroupMappings(ctx context.Context, providerID int64) ([]GroupMappingResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/auth-providers/%d/mappings/", providerID), nil)
+	if err != nil {
+		return nil, err
+	}
+	var ms []GroupMappingResponse
+	if err := json.Unmarshal(data, &ms); err != nil {
+		return nil, fmt.Errorf("decoding group mappings: %w", err)
+	}
+	return ms, nil
+}
+
+// GetGroupMapping is synthetic: the backend has no GET-single mapping, so it
+// lists the provider's mappings and filters by id, returning *NotFoundError if
+// absent (or if the parent provider is gone).
+func (c *Client) GetGroupMapping(ctx context.Context, providerID, mappingID int64) (*GroupMappingResponse, error) {
+	ms, err := c.ListGroupMappings(ctx, providerID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range ms {
+		if ms[i].ID == mappingID {
+			return &ms[i], nil
+		}
+	}
+	return nil, &NotFoundError{Path: fmt.Sprintf("/api/v1/auth-providers/%d/mappings/%d", providerID, mappingID)}
+}
+
+// BulkCreateGroupMappings inserts several mappings at once (TESTS ONLY — not a
+// resource; it is an imperative batch insert).
+func (c *Client) BulkCreateGroupMappings(ctx context.Context, providerID int64, inputs []GroupMappingCreateInput) (*BulkMappingResult, error) {
+	if inputs == nil {
+		inputs = []GroupMappingCreateInput{}
+	}
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/auth-providers/%d/mappings/bulk", providerID), BulkMappingCreateInput{Mappings: inputs})
+	if err != nil {
+		return nil, err
+	}
+	var result BulkMappingResult
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("decoding bulk mapping result: %w", err)
+	}
+	return &result, nil
+}
