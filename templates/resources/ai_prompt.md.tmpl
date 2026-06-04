@@ -1,0 +1,134 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Top-level field values
+
+| attribute | constraints |
+|---|---|
+| `name` | Required. 1-255 characters. Must be unique across all prompts (user and builtin). |
+| `type` | Optional, computed. Defaults to `user`. **Only `user` is allowed** — see the table below. **Immutable**; changing it forces replacement. |
+| `content` | Required. The prompt text (minLength 1). May contain Jinja2 `{{`{{`}} variable {{`}}`}}` placeholders — see Template variables below. |
+| `description` | Optional. Up to 2000 characters. |
+| `variable_schema` | Optional. JSON Schema object set with `jsonencode(...)`, documenting the template variables the prompt expects. Stored from configuration; informational. See the note below. |
+
+Computed (read-only) attributes: `id` (integer), `created_at`, `updated_at`.
+
+### `type` values
+
+| type | meaning |
+|---|---|
+| `user` | The only type you can create or manage with this resource. The default; the schema rejects any other value. |
+| `system` | Builtin, **read-only**. Created at startup from the backend prompt registry. Cannot be created, edited, or deleted through the API (the backend returns **HTTP 403**). System prompts are only available through the [`mistershell_ai_prompt` data source](../data-sources/ai_prompt.md). |
+
+## Builtin (system) prompts
+
+The backend seeds a fixed set of `type = "system"` prompts from its prompt
+registry on startup and keeps them in sync. These are read-only: any attempt to
+create, modify, or delete them returns **HTTP 403**. You can read them by name
+through the data source. The builtin system prompt names are:
+
+| name | purpose |
+|---|---|
+| `builtin.general_assistant` | Default system prompt for the General Assistant chat agent. |
+| `builtin.resource_summary` | Health summary prompt for a MisterShell resource. |
+| `builtin.config_analysis` | Configuration analysis (diff between two snapshot versions, or initial-config description). |
+| `builtin.session_assist` | Live remote-session assistant prompt. |
+| `builtin.session_analysis` | Analysis of a completed remote session recording. |
+| `builtin.executive_summary` | Executive summary at the top of an operational report. |
+
+## Template variables
+
+`content` is rendered as a Jinja2 template at agent-run time, so it may contain
+`{{`{{`}} variable {{`}}`}}` placeholders (and Jinja2 control blocks such as
+`{{`{%`}} if snapshot_id {{`%}`}} ... {{`{% endif %}`}}`). Substitution happens
+when an agent executes the prompt; the value of each variable comes from that
+agent's run context. **The set of available variables therefore depends on which
+agent the prompt is attached to** — a variable that is undefined in a given
+context simply renders empty (guard optional variables with `{{`{% if ... %}`}}`).
+
+Two **universal** variables are injected for every prompt regardless of agent:
+
+| variable | type | description |
+|---|---|---|
+| `current_date` | datetime | Current ISO date at agent-preparation time (UTC). |
+| `current_time` | datetime | Current ISO time at agent-preparation time (UTC). |
+
+The remaining variables are contributed by the builtin agents. The table below
+lists every variable each builtin agent supplies; a `user` prompt attached to an
+agent (via that agent's `system_prompt`) may reference the variables for that
+agent plus the universal ones above.
+
+| agent (capability) | variable | type | description |
+|---|---|---|---|
+| General Assistant (`general_assistant`) | _(none beyond universal)_ | — | Free-form chat; no fixed context variables. |
+| Resource Summary (`resource_summary`) | `resource_id` | number | Target resource ID. |
+| Resource Summary (`resource_summary`) | `resource_type` | text | Target resource type descriptor key. |
+| Resource Summary (`resource_summary`) | `resource_name` | text | Target resource display name. |
+| Resource Summary (`resource_summary`) | `snapshot_id` | number | Snapshot ID; empty when none selected (guard with `{{`{% if snapshot_id %}`}}`). |
+| Config Analysis (`config_analysis`) | `resource_id` | number | Target resource ID. |
+| Config Analysis (`config_analysis`) | `resource_type` | text | Target resource type descriptor key. |
+| Config Analysis (`config_analysis`) | `resource_name` | text | Target resource display name. |
+| Config Analysis (`config_analysis`) | `version_a_id` | number | Earlier snapshot version ID; empty on initial config (single-version mode). |
+| Config Analysis (`config_analysis`) | `version_b_id` | number | Later (current) snapshot version ID. |
+| Session Analysis (`session_analysis`) | `session_id` | text | Completed session ID (UUID). |
+| Session Analysis (`session_analysis`) | `resource_id` | number | Target resource ID. |
+| Session Analysis (`session_analysis`) | `resource_type` | text | Target resource type descriptor key. |
+| Session Analysis (`session_analysis`) | `resource_name` | text | Target resource display name. |
+| Session Assist (`session_assist`) | `resource_id` | number | Target resource ID. |
+| Session Assist (`session_assist`) | `resource_type` | text | Target resource type descriptor key. |
+| Session Assist (`session_assist`) | `resource_name` | text | Target resource display name. |
+| Session Assist (`session_assist`) | `session_id` | text | Live session ID (UUID). |
+| Executive Summary (`executive_summary`) | `report_name` | text | Report template name. |
+| Executive Summary (`executive_summary`) | `report_type` | text | Report type identifier. |
+| Executive Summary (`executive_summary`) | `report_date` | text | Formatted report date (`YYYY-MM-DD HH:MM UTC`). |
+| Executive Summary (`executive_summary`) | `scope_label` | text | Human-readable scope description. |
+| Executive Summary (`executive_summary`) | `report_summary` | text | JSON-stringified summary blob for the current run. |
+| Executive Summary (`executive_summary`) | `previous_summary` | text | JSON-stringified summary blob from the prior run; empty when no prior run. |
+| Executive Summary (`executive_summary`) | `previous_report_date` | text | Prior run's report date; empty when no prior run. |
+| Executive Summary (`executive_summary`) | `previous_ai_summary` | text | Prior run's AI summary text; empty when no prior run. |
+
+The authoritative, live list is exposed by the backend at
+`GET /api/v1/ai/prompt-variables` (universal variables plus one block per
+builtin agent).
+
+## The `variable_schema` field
+
+`variable_schema` is an **optional** JSON Schema (a JSON object set with
+`jsonencode(...)`) that documents the variables a prompt expects — names, types,
+and which are required. It is advisory metadata for the prompt editor; it does
+**not** gate rendering (an undeclared variable still renders, and a missing
+optional one renders empty).
+
+As with other stored-from-config JSON fields, the provider stores
+`variable_schema` **from your configuration** and does not read it back from the
+server. Consequently it is **excluded from import** (only `id` is set on import);
+re-supply it in HCL after importing so the next plan shows no diff.
+
+**Deletion is blocked while referenced.** Deleting a prompt that is still
+attached to one or more agents (as their `system_prompt`) returns **HTTP 403**
+("Cannot delete prompt linked to agents: ..."). Detach the prompt from every
+agent first.
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

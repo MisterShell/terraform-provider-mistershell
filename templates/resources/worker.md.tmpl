@@ -1,0 +1,134 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Top-level field values
+
+| attribute | constraints |
+|---|---|
+| `name` | Required. 1-255 characters. Must be unique. |
+| `description` | Optional. Free-form text. |
+| `location_id` | Required. Integer ID of the location this worker is bound to. **Updatable** — changing it re-routes the worker, it does not force replacement. |
+| `config` | Optional, opaque JSON blob set with `jsonencode(...)`. Stored-from-config (see below). Excluded from import. |
+| `config_schema` | Optional, opaque JSON blob (a JSON Schema) set with `jsonencode(...)`. Stored-from-config. Excluded from import. |
+| `is_enabled` | Optional. Boolean. Defaults to `true`. Admin intent — whether the worker is allowed to connect and accept tasks. Distinct from the operational `status` below. |
+| `id` | Read-only. Integer worker ID. |
+| `token` | Read-only, **sensitive**. Returned only once at creation (see below). |
+| `status` | Read-only. Operational state. One of the values below. |
+| `is_default` | Read-only. `true` for the bootstrap default worker (see below). |
+| `active_task_count` | Read-only. Number of currently active tasks. |
+| `total_task_count` | Read-only. Total tasks ever assigned. |
+| `last_heartbeat_at` | Read-only. Timestamp of the last heartbeat. |
+| `connected_at` | Read-only. Timestamp the worker last connected. |
+| `presence_ip` | Read-only. IP the worker is connected from (or the manual override, see `config`). |
+| `presence_ip_source` | Read-only. `detected` or `manual`. |
+| `config_version` | Read-only. SHA-256-derived version hash of the applied `config`. |
+| `created_at` | Read-only. Creation timestamp. |
+| `updated_at` | Read-only. Last-update timestamp. |
+
+### `status` values
+
+`status` is read-only and tracks the worker's **operational** state (what is
+actually happening), independent of the `is_enabled` admin intent.
+
+| status | meaning |
+|---|---|
+| `pending` | Created but has never connected to the broker yet. The initial state of every newly created worker. |
+| `online` | Connected to the broker and accepting tasks. |
+| `offline` | Was connected but is now disconnected (no recent heartbeat). |
+| `error` | In a connection error state. |
+
+## The default worker
+
+MisterShell bootstraps a single **default worker** (`is_default = true`) at
+startup for the all-in-one container, bound to the root location. This worker is
+system-managed:
+
+- It **cannot be created** via the API (`POST /workers` with `is_default = true`
+  returns **403**), so you cannot reproduce it with this resource.
+- It **cannot be edited or deleted** (PATCH / DELETE return **403**).
+
+Do **not** manage the default worker with `mistershell_worker`. Use this resource
+only for additional, user-created workers.
+
+## The `token`
+
+`token` is the worker's authentication token (format `wkr_<id>_<random>`). It is:
+
+- **Returned only once**, in the creation response. The server stores only a hash
+  and never returns the token again — not on `Read`, the data source, or import.
+- **Stored in Terraform state** and marked **sensitive**. Treat your state as a
+  secret. Surface it with a `sensitive = true` output (see the example) if you
+  need to capture it.
+- **Not populated on import.** After importing a worker, `token` is empty in
+  state and cannot be recovered from the server.
+
+If the token is lost, **regenerate it out of band** with
+`POST /workers/{id}/regenerate-token`; the old token is invalidated immediately.
+
+## `config` and `config_schema`
+
+Both are opaque JSON blobs written with `jsonencode(...)` and sent to the backend
+as JSON objects.
+
+- **`config`** is the worker's free-form **task-handler configuration**. The
+  backend does not impose a fixed shape: keys are pushed to the worker via the
+  heartbeat and read by task handlers as needed (`get_config_value(key, default)`).
+  The only key the backend itself interprets today is
+  `manual_worker_presence_ip` (a string IP that overrides the auto-detected
+  `presence_ip`, surfacing `presence_ip_source = "manual"`); every other key is
+  consumed by your task handlers. Because it is free-form, **document your own
+  keys** for your deployment. A representative example:
+
+  ```hcl
+  config = jsonencode({
+    manual_worker_presence_ip = "203.0.113.10" # optional admin override for presence_ip
+    # ...any additional keys your task handlers read...
+  })
+  ```
+
+- **`config_schema`** is an optional **JSON Schema** the backend uses to validate
+  `config`. It too is free-form JSON:
+
+  ```hcl
+  config_schema = jsonencode({
+    type = "object"
+    properties = {
+      manual_worker_presence_ip = { type = "string" }
+    }
+    additionalProperties = true
+  })
+  ```
+
+**Stored-from-config.** As with `credential_data` and log-destination `config`,
+the provider stores `config` and `config_schema` **from your configuration** and
+does not read them back from the server (the server normalizes/reorders keys and
+derives `config_version`). Two consequences:
+
+- **Out-of-band, non-secret changes are not detected as drift** — the whole blob
+  is preserved from state. Manage these values exclusively through Terraform.
+- Both are **excluded from import** (only `id` is set on import); re-supply them
+  in HCL after importing, exactly like `credential_data`.
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

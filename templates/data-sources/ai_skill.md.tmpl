@@ -1,0 +1,50 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Lookup arguments
+
+Specify exactly one of:
+
+| argument | behavior |
+|---|---|
+| `id` | Direct lookup by integer ID. |
+| `name` | Exact-match lookup by name (fuzzy server search, then exact `name ==` filter). Errors if zero or more than one skill matches. |
+
+This data source reads **both** custom skills and builtin
+(MisterShell-managed) skills. Builtin skills (`is_builtin = true`) are read-only
+and can only be read here — they cannot be created or managed as a resource.
+
+## Returned values
+
+| attribute | description |
+|---|---|
+| `id` | AI skill integer ID. |
+| `name` | Skill name. |
+| `description` | Short purpose line shown in `list_skills` (may be empty). |
+| `body` | Markdown platform-brief body, possibly containing Jinja2 variables. |
+| `agent_types` | Set of agent type values the skill's discovery is restricted to, or empty if unrestricted. Values: `chat`, `background`, `builtin_chat`, `builtin_background`, `builtin_quick_action`, `builtin_session_assist`. |
+| `resource_types` | Set of resource-type descriptor keys the skill's discovery is restricted to (a discovery filter, not an auth gate), or empty if unrestricted. |
+| `is_enabled` | Whether the skill appears in `list_skills`. |
+| `is_builtin` | Whether MisterShell manages this skill from its registry (read-only; only `is_enabled` is mutable for builtins). |
+| `created_at` | Creation timestamp. |
+| `updated_at` | Last update timestamp. |
+
+For the full meaning of `agent_types` / `resource_types`, the omit-vs-empty-list
+rule, and the list of builtin skills, see the
+[`mistershell_ai_skill` resource](../resources/ai_skill.md) page.

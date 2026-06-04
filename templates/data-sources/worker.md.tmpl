@@ -1,0 +1,58 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Lookup arguments
+
+Specify exactly one of:
+
+| argument | behavior |
+|---|---|
+| `id` | Direct lookup by integer ID. |
+| `name` | Exact-match lookup by name (fuzzy server search, then exact `name ==` filter). Errors if zero or more than one worker matches. |
+
+## Returned values
+
+The data source exposes every read field of a worker. The authentication
+`token` is **never** returned by reads — it is shown only once at creation (see
+the [`mistershell_worker` resource](../resources/worker.md) page).
+
+| attribute | description |
+|---|---|
+| `id` | Worker integer ID. |
+| `name` | Worker name. |
+| `description` | Worker description. |
+| `location_id` | Integer ID of the location the worker is bound to. |
+| `status` | Operational state: `pending`, `online`, `offline`, or `error`. See the resource page. |
+| `is_default` | `true` for the system-managed bootstrap default worker. |
+| `is_enabled` | Whether the worker is enabled (admin intent). |
+| `active_task_count` | Number of currently active tasks. |
+| `total_task_count` | Total tasks ever assigned. |
+| `last_heartbeat_at` | Timestamp of the last heartbeat. |
+| `connected_at` | Timestamp the worker last connected. |
+| `presence_ip` | IP the worker is connected from (or the manual override). |
+| `presence_ip_source` | `detected` or `manual`. |
+| `config` | Opaque task-handler config JSON (free-form). See the resource page. |
+| `config_version` | SHA-256-derived version hash of the applied `config`. |
+| `config_schema` | JSON Schema used to validate `config`, as JSON. |
+| `created_at` | Creation timestamp. |
+| `updated_at` | Last-update timestamp. |
+
+For the `status` value meanings, the default-worker constraints, and the full
+`config` / `config_schema` semantics, see the
+[`mistershell_worker` resource](../resources/worker.md) page.

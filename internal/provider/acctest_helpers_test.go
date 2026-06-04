@@ -139,6 +139,16 @@ func testAccCheckAllDestroyed(s *terraform.State) error {
 			_, err = c.GetRule(ctx, id)
 		case "mistershell_auth_provider":
 			_, err = c.GetAuthProvider(ctx, id)
+		case "mistershell_worker":
+			_, err = c.GetWorker(ctx, id)
+		case "mistershell_ai_model":
+			_, err = c.GetAIModel(ctx, id)
+		case "mistershell_ai_prompt":
+			_, err = c.GetAIPrompt(ctx, id)
+		case "mistershell_ai_agent":
+			_, err = c.GetAIAgent(ctx, id)
+		case "mistershell_ai_skill":
+			_, err = c.GetAISkill(ctx, id)
 		default:
 			continue
 		}
@@ -199,8 +209,9 @@ func init() {
 		F:            sweepCredentials,
 	})
 	resource.AddTestSweepers("mistershell_location", &resource.Sweeper{
-		Name:         "mistershell_location",
-		Dependencies: []string{"mistershell_resource"},
+		Name: "mistershell_location",
+		// Workers reference locations with RESTRICT, so sweep workers first.
+		Dependencies: []string{"mistershell_resource", "mistershell_worker"},
 		F:            sweepLocations,
 	})
 	// Tags reference resources, so sweep tags before resources (assignment owner
@@ -240,6 +251,34 @@ func init() {
 	resource.AddTestSweepers("mistershell_auth_provider", &resource.Sweeper{
 		Name: "mistershell_auth_provider",
 		F:    sweepAuthProviders,
+	})
+	// Workers: swept by name prefix. They reference locations with RESTRICT (the
+	// location sweeper depends on this one). The default worker is never prefixed,
+	// so it is never targeted.
+	resource.AddTestSweepers("mistershell_worker", &resource.Sweeper{
+		Name: "mistershell_worker",
+		F:    sweepWorkers,
+	})
+	// AI entities: agents reference models and prompts. Sweep agents first, so the
+	// model and prompt sweepers depend on the agent sweeper. Skills are
+	// independent.
+	resource.AddTestSweepers("mistershell_ai_agent", &resource.Sweeper{
+		Name: "mistershell_ai_agent",
+		F:    sweepAIAgents,
+	})
+	resource.AddTestSweepers("mistershell_ai_model", &resource.Sweeper{
+		Name:         "mistershell_ai_model",
+		Dependencies: []string{"mistershell_ai_agent"},
+		F:            sweepAIModels,
+	})
+	resource.AddTestSweepers("mistershell_ai_prompt", &resource.Sweeper{
+		Name:         "mistershell_ai_prompt",
+		Dependencies: []string{"mistershell_ai_agent"},
+		F:            sweepAIPrompts,
+	})
+	resource.AddTestSweepers("mistershell_ai_skill", &resource.Sweeper{
+		Name: "mistershell_ai_skill",
+		F:    sweepAISkills,
 	})
 	// NOTE: NO sweeper for mistershell_setting. Settings are predefined registry
 	// keys that cannot be created or deleted; there is nothing to orphan or
@@ -442,6 +481,116 @@ func sweepAuthProviders(_ string) error {
 		// DELETE cascades to the provider's group mappings and works unlicensed.
 		if derr := c.DeleteAuthProvider(ctx, it.ID); derr != nil && !client.IsNotFound(derr) {
 			return fmt.Errorf("sweep: deleting auth provider %d (%s): %w", it.ID, it.Name, derr)
+		}
+	}
+	return nil
+}
+
+func sweepWorkers(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListWorkers(ctx, client.WorkerListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing workers: %w", err)
+	}
+	for _, it := range items {
+		// The default worker is never prefixed, so it is never targeted here.
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		if err := c.DeleteWorker(ctx, it.ID); err != nil && !client.IsNotFound(err) {
+			return fmt.Errorf("sweep: deleting worker %d (%s): %w", it.ID, it.Name, err)
+		}
+	}
+	return nil
+}
+
+func sweepAIAgents(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListAIAgents(ctx, client.AIAgentListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing ai agents: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		if err := c.DeleteAIAgent(ctx, it.ID); err != nil && !client.IsNotFound(err) {
+			return fmt.Errorf("sweep: deleting ai agent %d (%s): %w", it.ID, it.Name, err)
+		}
+	}
+	return nil
+}
+
+func sweepAIModels(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListAIModels(ctx, client.AIModelListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing ai models: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		// A model still referenced by a not-yet-swept agent returns 409/403.
+		// Tolerate it: print and continue rather than hard-fail the sweep.
+		if derr := c.DeleteAIModel(ctx, it.ID); derr != nil && !client.IsNotFound(derr) {
+			fmt.Printf("sweep: skipping ai model %d (%s): %v\n", it.ID, it.Name, derr)
+		}
+	}
+	return nil
+}
+
+func sweepAIPrompts(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListAIPrompts(ctx, client.AIPromptListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing ai prompts: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		// A prompt still referenced by a not-yet-swept agent returns 409/403.
+		// Tolerate it: print and continue rather than hard-fail the sweep.
+		if derr := c.DeleteAIPrompt(ctx, it.ID); derr != nil && !client.IsNotFound(derr) {
+			fmt.Printf("sweep: skipping ai prompt %d (%s): %v\n", it.ID, it.Name, derr)
+		}
+	}
+	return nil
+}
+
+func sweepAISkills(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListAISkills(ctx, client.AISkillListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing ai skills: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		if err := c.DeleteAISkill(ctx, it.ID); err != nil && !client.IsNotFound(err) {
+			return fmt.Errorf("sweep: deleting ai skill %d (%s): %w", it.ID, it.Name, err)
 		}
 	}
 	return nil

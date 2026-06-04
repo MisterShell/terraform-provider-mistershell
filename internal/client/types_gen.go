@@ -19,6 +19,10 @@ package client
 //   - SupportedPolicyRuleActions      <- RuleCreate.properties.action
 //   - SupportedSessionTypes           <- RuleCreate.properties.session_types.items
 //   - SupportedAclPatternTypes        <- AclPattern.properties.type
+//   - SupportedWorkerStatuses         <- WorkerStatus
+//   - SupportedAIModelProviders       <- AIModelProvider
+//   - SupportedAIPromptTypes          <- AIPromptType
+//   - SupportedAIAgentTypes           <- AIAgentType
 //
 // Regenerate with: make generate
 
@@ -149,4 +153,42 @@ var SupportedSessionTypes = []string{
 var SupportedAclPatternTypes = []string{
 	"glob",
 	"regex",
+}
+
+// SupportedWorkerStatuses are the worker status values (read-only; docs/anti-drift).
+var SupportedWorkerStatuses = []string{
+	"error",
+	"offline",
+	"online",
+	"pending",
+}
+
+// SupportedAIModelProviders are the ai_model provider values.
+var SupportedAIModelProviders = []string{
+	"anthropic",
+	"azure_openai",
+	"bedrock",
+	"cohere",
+	"google",
+	"mistral",
+	"ollama",
+	"openai",
+	"openrouter",
+	"xai",
+}
+
+// SupportedAIPromptTypes are the ai_prompt type values (system, user).
+var SupportedAIPromptTypes = []string{
+	"system",
+	"user",
+}
+
+// SupportedAIAgentTypes are the ai_agent type values (user-defined and builtin_*).
+var SupportedAIAgentTypes = []string{
+	"background",
+	"builtin_background",
+	"builtin_chat",
+	"builtin_quick_action",
+	"builtin_session_assist",
+	"chat",
 }
