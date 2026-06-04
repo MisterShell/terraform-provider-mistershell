@@ -75,7 +75,7 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				},
 			},
 			"credential_data": schema.StringAttribute{
-				Description: "Credential secret data as JSON. Use jsonencode() in HCL. Fields vary by credential_type. Note: the API masks secret values in responses, so this value is stored from config, not read back from the server.",
+				Description: "Credential secret data as JSON. Use jsonencode() in HCL. Fields vary by credential_type; see the Credential Types guide for the fields per type. Note: the API masks secret values in responses, so this value is stored from config, not read back from the server.",
 				Required:    true,
 				Sensitive:   true,
 				CustomType:  jsontypes.NormalizedType{},

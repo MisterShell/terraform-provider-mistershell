@@ -32,7 +32,13 @@ generate:
 	go generate ./...
 	go fmt ./...
 
+# Regenerate the Terraform Registry docs (docs/) from the schema Description
+# fields, the examples/ directory, and templates/guides/ via tfplugindocs.
+# Requires terraform on PATH (it builds a temporary provider schema).
+docs:
+	PATH="/usr/local/bin:/home/lionel/go/bin:$$PATH" /home/lionel/gopath/bin/tfplugindocs generate
+
 clean:
 	rm -f terraform-provider-mistershell
 
-.PHONY: default build install test test-e2e sweep fmt generate clean
+.PHONY: default build install test test-e2e sweep fmt generate docs clean

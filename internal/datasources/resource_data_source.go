@@ -76,7 +76,7 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Computed:    true,
 			},
 			"connector_data": schema.StringAttribute{
-				Description: "Connection parameters as JSON.",
+				Description: "Connection parameters as JSON. Fields vary by resource_type; see the Resource Types guide.",
 				Computed:    true,
 				CustomType:  jsontypes.NormalizedType{},
 			},
