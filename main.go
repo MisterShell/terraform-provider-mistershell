@@ -13,7 +13,7 @@ var version string = "dev"
 
 func main() {
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/mistershell/mistershell",
+		Address: "registry.terraform.io/MisterShell/mistershell",
 	}
 	err := providerserver.Serve(context.Background(), provider.New(version), opts)
 	if err != nil {

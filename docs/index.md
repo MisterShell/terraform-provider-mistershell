@@ -15,7 +15,7 @@ Terraform provider for managing MisterShell resources (locations, network resour
 terraform {
   required_providers {
     mistershell = {
-      source = "mistershell/mistershell"
+      source = "MisterShell/mistershell"
     }
   }
   required_version = ">= 1.5.0"

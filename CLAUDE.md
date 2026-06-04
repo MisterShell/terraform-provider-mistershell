@@ -41,7 +41,7 @@ Three layers, each its own package under `internal/`:
 - **`internal/resources`** — managed resources (`mistershell_location`, `mistershell_resource`, `mistershell_credential`). Each implements full CRUD + `ImportState` (import by integer ID).
 - **`internal/datasources`** — read-only data sources mirroring the three entities, supporting lookup by `id` (direct GET) or by search filters (list + exact-match client-side filtering).
 
-`internal/provider/provider.go` is the wiring: resolves config (`url`, `api_key`, `insecure`) from attributes or `MISTERSHELL_*` env vars, builds the `Client`, and hands it to every resource/data source via `resp.ResourceData` / `resp.DataSourceData`. Each resource/data source picks it up in `Configure` by type-asserting `req.ProviderData.(*client.Client)`. `main.go` serves the provider under address `registry.terraform.io/mistershell/mistershell`.
+`internal/provider/provider.go` is the wiring: resolves config (`url`, `api_key`, `insecure`) from attributes or `MISTERSHELL_*` env vars, builds the `Client`, and hands it to every resource/data source via `resp.ResourceData` / `resp.DataSourceData`. Each resource/data source picks it up in `Configure` by type-asserting `req.ProviderData.(*client.Client)`. `main.go` serves the provider under address `registry.terraform.io/MisterShell/mistershell`.
 
 ### Key conventions when adding/editing entities
 
