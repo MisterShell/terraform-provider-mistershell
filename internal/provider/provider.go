@@ -42,7 +42,7 @@ func (p *MisterShellProvider) Metadata(_ context.Context, _ provider.MetadataReq
 
 func (p *MisterShellProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Terraform provider for managing MisterShell resources (locations, network resources, credentials).",
+		Description: "Terraform provider for managing MisterShell resources (locations, network resources, credentials, tags, roles, permissions).",
 		Attributes: map[string]schema.Attribute{
 			"url": schema.StringAttribute{
 				Description: "MisterShell base URL (e.g. https://mistershell.example.com). Can also be set with the MISTERSHELL_URL environment variable.",
@@ -119,6 +119,8 @@ func (p *MisterShellProvider) Resources(_ context.Context) []func() resource.Res
 		resources.NewLocationResource,
 		resources.NewNetworkResourceResource,
 		resources.NewCredentialResource,
+		resources.NewTagResource,
+		resources.NewRoleResource,
 	}
 }
 
@@ -127,5 +129,8 @@ func (p *MisterShellProvider) DataSources(_ context.Context) []func() datasource
 		datasources.NewLocationDataSource,
 		datasources.NewNetworkResourceDataSource,
 		datasources.NewCredentialDataSource,
+		datasources.NewTagDataSource,
+		datasources.NewRoleDataSource,
+		datasources.NewPermissionsDataSource,
 	}
 }

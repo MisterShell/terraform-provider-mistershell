@@ -439,3 +439,295 @@ func (c *Client) ListCredentials(ctx context.Context, filter CredentialListFilte
 	}
 	return creds, nil
 }
+
+// ---------------------------------------------------------------------------
+// Tag API models
+// ---------------------------------------------------------------------------
+
+type TagCreateInput struct {
+	Name        string  `json:"name"`
+	Color       string  `json:"color,omitempty"` // backend defaults "grey"
+	Description *string `json:"description,omitempty"`
+}
+
+type TagUpdateInput struct {
+	Name        *string `json:"name,omitempty"`
+	Color       *string `json:"color,omitempty"` // color min_length 1: never send null
+	Description *string `json:"description"`     // no omitempty: explicit null clears
+}
+
+type TagResponse struct {
+	ID          int64   `json:"id"`
+	Name        string  `json:"name"`
+	Color       string  `json:"color"`
+	Description *string `json:"description"`
+	CreatedAt   string  `json:"created_at"`
+	UpdatedAt   string  `json:"updated_at"`
+}
+
+// TagListItem is the List endpoint shape (resource_count, no timestamps).
+type TagListItem struct {
+	ID            int64   `json:"id"`
+	Name          string  `json:"name"`
+	Color         string  `json:"color"`
+	Description   *string `json:"description"`
+	ResourceCount int64   `json:"resource_count"`
+}
+
+type TagListFilter struct {
+	Search string
+}
+
+// TagAssignmentInput is the resource_ids assignment body for the whole-list PUT.
+type TagAssignmentInput struct {
+	ResourceIDs []int64 `json:"resource_ids"`
+}
+
+func (c *Client) CreateTag(ctx context.Context, input TagCreateInput) (*TagResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, "/api/v1/tags/", input)
+	if err != nil {
+		return nil, err
+	}
+	var tag TagResponse
+	if err := json.Unmarshal(data, &tag); err != nil {
+		return nil, fmt.Errorf("decoding tag: %w", err)
+	}
+	return &tag, nil
+}
+
+func (c *Client) GetTag(ctx context.Context, id int64) (*TagResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/tags/%d", id), nil)
+	if err != nil {
+		return nil, err
+	}
+	var tag TagResponse
+	if err := json.Unmarshal(data, &tag); err != nil {
+		return nil, fmt.Errorf("decoding tag: %w", err)
+	}
+	return &tag, nil
+}
+
+func (c *Client) UpdateTag(ctx context.Context, id int64, input TagUpdateInput) (*TagResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPatch, fmt.Sprintf("/api/v1/tags/%d", id), input)
+	if err != nil {
+		return nil, err
+	}
+	var tag TagResponse
+	if err := json.Unmarshal(data, &tag); err != nil {
+		return nil, fmt.Errorf("decoding tag: %w", err)
+	}
+	return &tag, nil
+}
+
+func (c *Client) DeleteTag(ctx context.Context, id int64) error {
+	_, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/tags/%d", id), nil)
+	return err
+}
+
+func (c *Client) ListTags(ctx context.Context, filter TagListFilter) ([]TagListItem, error) {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("size", "10000")
+	if filter.Search != "" {
+		params.Set("search", filter.Search)
+	}
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/tags/?"+params.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var tags []TagListItem
+	if err := json.Unmarshal(data, &tags); err != nil {
+		return nil, fmt.Errorf("decoding tags: %w", err)
+	}
+	return tags, nil
+}
+
+// SetTagAssignments replaces the whole set of resource ids assigned to the tag.
+// An empty slice clears all assignments (sends [], not null).
+func (c *Client) SetTagAssignments(ctx context.Context, id int64, resourceIDs []int64) error {
+	if resourceIDs == nil {
+		resourceIDs = []int64{}
+	}
+	_, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/tags/%d/assignments", id), TagAssignmentInput{ResourceIDs: resourceIDs})
+	return err
+}
+
+func (c *Client) GetTagResourceIDs(ctx context.Context, id int64) ([]int64, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/tags/%d/resource-ids", id), nil)
+	if err != nil {
+		return nil, err
+	}
+	var ids []int64
+	if err := json.Unmarshal(data, &ids); err != nil {
+		return nil, fmt.Errorf("decoding tag resource ids: %w", err)
+	}
+	return ids, nil
+}
+
+// ---------------------------------------------------------------------------
+// Role API models
+// ---------------------------------------------------------------------------
+
+type RoleCreateInput struct {
+	Name             string  `json:"name"`
+	Description      *string `json:"description,omitempty"`
+	ScopeLocationIDs []int64 `json:"scope_location_ids,omitempty"` // empty = all locations
+}
+
+type RoleUpdateInput struct {
+	Name             *string  `json:"name,omitempty"`
+	Description      *string  `json:"description"`        // no omitempty: explicit null clears
+	ScopeLocationIDs *[]int64 `json:"scope_location_ids"` // no omitempty: pointer-to-slice so we can send [] to clear scope, or omit
+}
+
+type RoleResponse struct { // POST/PATCH
+	ID               int64   `json:"id"`
+	Name             string  `json:"name"`
+	Description      *string `json:"description"`
+	ScopeLocationIDs []int64 `json:"scope_location_ids"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at"`
+}
+
+type RoleDetailResponse struct { // GET + List
+	RoleResponse
+	Permissions []string `json:"permissions"`
+}
+
+type RoleListFilter struct {
+	Search string
+}
+
+func (c *Client) CreateRole(ctx context.Context, input RoleCreateInput) (*RoleResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, "/api/v1/roles/", input)
+	if err != nil {
+		return nil, err
+	}
+	var role RoleResponse
+	if err := json.Unmarshal(data, &role); err != nil {
+		return nil, fmt.Errorf("decoding role: %w", err)
+	}
+	return &role, nil
+}
+
+func (c *Client) GetRole(ctx context.Context, id int64) (*RoleDetailResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/roles/%d", id), nil)
+	if err != nil {
+		return nil, err
+	}
+	var role RoleDetailResponse
+	if err := json.Unmarshal(data, &role); err != nil {
+		return nil, fmt.Errorf("decoding role: %w", err)
+	}
+	return &role, nil
+}
+
+func (c *Client) UpdateRole(ctx context.Context, id int64, input RoleUpdateInput) (*RoleResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPatch, fmt.Sprintf("/api/v1/roles/%d", id), input)
+	if err != nil {
+		return nil, err
+	}
+	var role RoleResponse
+	if err := json.Unmarshal(data, &role); err != nil {
+		return nil, fmt.Errorf("decoding role: %w", err)
+	}
+	return &role, nil
+}
+
+func (c *Client) DeleteRole(ctx context.Context, id int64) error {
+	_, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/roles/%d", id), nil)
+	return err
+}
+
+func (c *Client) ListRoles(ctx context.Context, filter RoleListFilter) ([]RoleDetailResponse, error) {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("size", "10000")
+	if filter.Search != "" {
+		params.Set("search", filter.Search)
+	}
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/roles/?"+params.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var roles []RoleDetailResponse
+	if err := json.Unmarshal(data, &roles); err != nil {
+		return nil, fmt.Errorf("decoding roles: %w", err)
+	}
+	return roles, nil
+}
+
+// AddRolePermission assigns a single permission name to a role. The name is a
+// path param containing dots and '*', so it is URL-path-escaped.
+func (c *Client) AddRolePermission(ctx context.Context, id int64, name string) error {
+	_, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/roles/%d/permissions/%s", id, url.PathEscape(name)), nil)
+	return err
+}
+
+// RemoveRolePermission unassigns a single permission name from a role. Idempotent server-side.
+func (c *Client) RemoveRolePermission(ctx context.Context, id int64, name string) error {
+	_, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/roles/%d/permissions/%s", id, url.PathEscape(name)), nil)
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// Permission API models (read-only registry)
+// ---------------------------------------------------------------------------
+
+type PermissionInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Module      string `json:"module"`
+	Action      string `json:"action"`
+}
+
+type PermissionListFilter struct {
+	Module string
+	Search string
+}
+
+func (c *Client) ListPermissions(ctx context.Context, filter PermissionListFilter) ([]PermissionInfo, error) {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("size", "10000")
+	if filter.Module != "" {
+		params.Set("module", filter.Module)
+	}
+	if filter.Search != "" {
+		params.Set("search", filter.Search)
+	}
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/permissions/?"+params.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	// PermissionWithRolesInfo is a superset; we only decode the exposed fields.
+	var perms []PermissionInfo
+	if err := json.Unmarshal(data, &perms); err != nil {
+		return nil, fmt.Errorf("decoding permissions: %w", err)
+	}
+	return perms, nil
+}
+
+func (c *Client) GetPermission(ctx context.Context, name string) (*PermissionInfo, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/permissions/%s", url.PathEscape(name)), nil)
+	if err != nil {
+		return nil, err
+	}
+	var perm PermissionInfo
+	if err := json.Unmarshal(data, &perm); err != nil {
+		return nil, fmt.Errorf("decoding permission: %w", err)
+	}
+	return &perm, nil
+}
+
+func (c *Client) ListPermissionModules(ctx context.Context) ([]string, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/permissions/modules", nil)
+	if err != nil {
+		return nil, err
+	}
+	var modules []string
+	if err := json.Unmarshal(data, &modules); err != nil {
+		return nil, fmt.Errorf("decoding permission modules: %w", err)
+	}
+	return modules, nil
+}

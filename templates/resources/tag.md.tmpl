@@ -1,0 +1,58 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Field reference
+
+| attribute | constraints |
+|---|---|
+| `name` | Required. 1-64 characters. |
+| `color` | Optional. 1-16 characters. Defaults to `grey`. |
+| `description` | Optional. Up to 2000 characters. |
+| `resource_ids` | Optional. Set of network-resource IDs (`int64`) assigned this tag. |
+
+### `color`
+
+`color` is a **free-form string**, 1-16 characters, defaulting to `grey`. There
+is **no fixed palette and no enum** — any string within the length limit is
+accepted (a named color such as `grey`, `blue`, `red`, or a hex value such as
+`#e53935`). Because it has a server-side default, `color` is Optional and
+Computed: omit it and it resolves to `grey`.
+
+### `resource_ids`
+
+`resource_ids` is the **complete set** of network-resource IDs that carry this
+tag. It maps to the tag's assignment endpoint, which uses **whole-set replace
+semantics**: on every apply Terraform sends the entire planned set, replacing
+whatever was assigned before. Managing this attribute therefore takes
+**exclusive ownership** of the tag's resource membership — IDs added out of band
+(through the UI or another caller) are removed on the next apply, and IDs you
+remove from the set are unassigned.
+
+Every ID must reference an existing network resource; an unknown ID is rejected
+by the server. The attribute is a Set (order-independent). Omit it entirely to
+leave membership unmanaged — the provider reads the current set back into state
+but never writes it.
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

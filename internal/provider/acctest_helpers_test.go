@@ -74,6 +74,10 @@ func testAccCheckAllDestroyed(s *terraform.State) error {
 			_, err = c.GetNetworkResource(ctx, id)
 		case "mistershell_credential":
 			_, err = c.GetCredential(ctx, id)
+		case "mistershell_tag":
+			_, err = c.GetTag(ctx, id)
+		case "mistershell_role":
+			_, err = c.GetRole(ctx, id)
 		default:
 			continue
 		}
@@ -124,7 +128,9 @@ func discoverRootLocationID(t *testing.T) int64 {
 func init() {
 	resource.AddTestSweepers("mistershell_resource", &resource.Sweeper{
 		Name: "mistershell_resource",
-		F:    sweepNetworkResources,
+		// Tags reference resources via assignments; sweep tags first.
+		Dependencies: []string{"mistershell_tag"},
+		F:            sweepNetworkResources,
 	})
 	resource.AddTestSweepers("mistershell_credential", &resource.Sweeper{
 		Name:         "mistershell_credential",
@@ -135,6 +141,16 @@ func init() {
 		Name:         "mistershell_location",
 		Dependencies: []string{"mistershell_resource"},
 		F:            sweepLocations,
+	})
+	// Tags reference resources, so sweep tags before resources (assignment owner
+	// first). Roles have no Wave-1 FK dependents and sweep independently.
+	resource.AddTestSweepers("mistershell_tag", &resource.Sweeper{
+		Name: "mistershell_tag",
+		F:    sweepTags,
+	})
+	resource.AddTestSweepers("mistershell_role", &resource.Sweeper{
+		Name: "mistershell_role",
+		F:    sweepRoles,
 	})
 }
 
@@ -211,6 +227,48 @@ func sweepLocations(_ string) error {
 	for _, it := range append(withParent, withoutParent...) {
 		if err := c.DeleteLocation(ctx, it.ID); err != nil && !client.IsNotFound(err) {
 			return fmt.Errorf("sweep: deleting location %d (%s): %w", it.ID, it.Name, err)
+		}
+	}
+	return nil
+}
+
+func sweepTags(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListTags(ctx, client.TagListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing tags: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		if err := c.DeleteTag(ctx, it.ID); err != nil && !client.IsNotFound(err) {
+			return fmt.Errorf("sweep: deleting tag %d (%s): %w", it.ID, it.Name, err)
+		}
+	}
+	return nil
+}
+
+func sweepRoles(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListRoles(ctx, client.RoleListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing roles: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		if err := c.DeleteRole(ctx, it.ID); err != nil && !client.IsNotFound(err) {
+			return fmt.Errorf("sweep: deleting role %d (%s): %w", it.ID, it.Name, err)
 		}
 	}
 	return nil

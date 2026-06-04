@@ -1,0 +1,40 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Lookup
+
+Provide exactly one of:
+
+| argument | behavior |
+|---|---|
+| `id` | Direct fetch by integer tag ID. |
+| `name` | Exact-match search by name. Must resolve to exactly one tag, otherwise an error is raised. |
+
+## Returned values
+
+| attribute | description |
+|---|---|
+| `id` | Tag ID (`int64`). |
+| `name` | Tag name. |
+| `color` | Tag color. A free-form string (1-16 characters); there is no fixed palette or enum. |
+| `description` | Tag description (may be null). |
+| `resource_ids` | Set of network-resource IDs (`int64`) currently assigned this tag. |
+| `resource_count` | Number of resources assigned this tag. When looked up by `id`, this equals the size of `resource_ids`. |
+| `created_at` | Creation timestamp (RFC 3339). |
+| `updated_at` | Last-update timestamp (RFC 3339). |

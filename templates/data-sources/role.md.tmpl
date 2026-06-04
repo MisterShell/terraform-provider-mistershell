@@ -1,0 +1,39 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Lookup
+
+Provide exactly one of:
+
+| argument | behavior |
+|---|---|
+| `id` | Direct fetch by integer role ID. |
+| `name` | Exact-match search by name. Must resolve to exactly one role, otherwise an error is raised. |
+
+## Returned values
+
+| attribute | description |
+|---|---|
+| `id` | Role ID (`int64`). |
+| `name` | Role name. |
+| `description` | Role description (may be null). |
+| `scope_location_ids` | Set of location IDs (`int64`) scoping the role. An empty set means the role is global (applies to all locations). |
+| `permissions` | Set of permission names assigned to the role (pattern `module.resource.action`, or `*.*.*` for superuser). For the full list of valid names, see the [`mistershell_permissions`](permissions.md) data source. |
+| `created_at` | Creation timestamp (RFC 3339). |
+| `updated_at` | Last-update timestamp (RFC 3339). |

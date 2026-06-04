@@ -3,8 +3,10 @@ package resources
 import (
 	"context"
 	"encoding/json"
+	"sort"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -99,6 +101,80 @@ func optStringPtrToValue(s *string) types.String {
 		return types.StringNull()
 	}
 	return types.StringValue(*s)
+}
+
+// int64SetToSlice converts a types.Set of Int64 to []int64. Null/unknown yields nil.
+func int64SetToSlice(s types.Set) []int64 {
+	if s.IsNull() || s.IsUnknown() {
+		return nil
+	}
+	elems := s.Elements()
+	out := make([]int64, 0, len(elems))
+	for _, e := range elems {
+		if v, ok := e.(types.Int64); ok && !v.IsNull() && !v.IsUnknown() {
+			out = append(out, v.ValueInt64())
+		}
+	}
+	return out
+}
+
+// int64SliceToSet converts []int64 to a types.Set of Int64.
+func int64SliceToSet(ids []int64) types.Set {
+	elems := make([]attr.Value, 0, len(ids))
+	for _, id := range ids {
+		elems = append(elems, types.Int64Value(id))
+	}
+	return types.SetValueMust(types.Int64Type, elems)
+}
+
+// stringSetToSlice converts a types.Set of String to []string. Null/unknown yields nil.
+func stringSetToSlice(s types.Set) []string {
+	if s.IsNull() || s.IsUnknown() {
+		return nil
+	}
+	elems := s.Elements()
+	out := make([]string, 0, len(elems))
+	for _, e := range elems {
+		if v, ok := e.(types.String); ok && !v.IsNull() && !v.IsUnknown() {
+			out = append(out, v.ValueString())
+		}
+	}
+	return out
+}
+
+// stringSliceToSet converts []string to a types.Set of String.
+func stringSliceToSet(vals []string) types.Set {
+	elems := make([]attr.Value, 0, len(vals))
+	for _, v := range vals {
+		elems = append(elems, types.StringValue(v))
+	}
+	return types.SetValueMust(types.StringType, elems)
+}
+
+// diffStrings returns the names present in want but not in have (added) and the
+// names present in have but not in want (removed).
+func diffStrings(have, want []string) (added, removed []string) {
+	haveSet := make(map[string]struct{}, len(have))
+	for _, h := range have {
+		haveSet[h] = struct{}{}
+	}
+	wantSet := make(map[string]struct{}, len(want))
+	for _, w := range want {
+		wantSet[w] = struct{}{}
+	}
+	for w := range wantSet {
+		if _, ok := haveSet[w]; !ok {
+			added = append(added, w)
+		}
+	}
+	for h := range haveSet {
+		if _, ok := wantSet[h]; !ok {
+			removed = append(removed, h)
+		}
+	}
+	sort.Strings(added)
+	sort.Strings(removed)
+	return added, removed
 }
 
 // int64UseStateForUnknown returns a plan modifier that copies the prior state value

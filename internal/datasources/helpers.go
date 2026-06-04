@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -40,4 +41,22 @@ func optStringPtrToValue(s *string) types.String {
 		return types.StringNull()
 	}
 	return types.StringValue(*s)
+}
+
+// int64SliceToSet converts []int64 to a types.Set of Int64.
+func int64SliceToSet(ids []int64) types.Set {
+	elems := make([]attr.Value, 0, len(ids))
+	for _, id := range ids {
+		elems = append(elems, types.Int64Value(id))
+	}
+	return types.SetValueMust(types.Int64Type, elems)
+}
+
+// stringSliceToSet converts []string to a types.Set of String.
+func stringSliceToSet(vals []string) types.Set {
+	elems := make([]attr.Value, 0, len(vals))
+	for _, v := range vals {
+		elems = append(elems, types.StringValue(v))
+	}
+	return types.SetValueMust(types.StringType, elems)
 }
