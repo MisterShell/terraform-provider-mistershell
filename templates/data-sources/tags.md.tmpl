@@ -1,0 +1,51 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Overview
+
+This is a **list** data source: it returns every tag the instance defines,
+optionally narrowed by a name substring. It takes no primary key and always
+returns a (possibly empty) list — it never errors on zero matches.
+
+To fetch exactly one tag (by `id` or exact `name`), use the singular
+[`mistershell_tag`](tag.md) data source instead; that one resolves to a single
+tag and errors if the lookup is ambiguous or empty.
+
+## Argument
+
+| argument | behavior |
+|---|---|
+| `search` | Optional. Case-insensitive **substring** match against the tag name. Returns only tags whose name contains this value. **Omit it to return all tags.** |
+
+## Returned values
+
+| attribute | description |
+|---|---|
+| `id` | Synthetic constant (`tags`); this is a list data source with no primary key. |
+| `tags` | List of matching tags. Each element is an object with the fields below. |
+
+Each element of `tags` has:
+
+| field | description |
+|---|---|
+| `id` | Tag ID (`int64`). |
+| `name` | Tag name. |
+| `color` | Tag color. A free-form string (1-16 characters); there is no fixed palette or enum (see the [`mistershell_tag`](tag.md) page). |
+| `description` | Tag description (may be null). |
+| `resource_count` | Number of network resources currently assigned this tag. |

@@ -30,6 +30,7 @@ type NetworkResourceDataSourceModel struct {
 	Status                types.String         `tfsdk:"status"`
 	HealthStatus          types.String         `tfsdk:"health_status"`
 	IsEnabled             types.Bool           `tfsdk:"is_enabled"`
+	Tags                  types.List           `tfsdk:"tags"`
 	ExtraData             jsontypes.Normalized `tfsdk:"extra_data"`
 	CreatedAt             types.String         `tfsdk:"created_at"`
 	UpdatedAt             types.String         `tfsdk:"updated_at"`
@@ -102,6 +103,18 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 			"is_enabled": schema.BoolAttribute{
 				Description: "Whether the resource is enabled.",
 				Computed:    true,
+			},
+			"tags": schema.ListNestedAttribute{
+				Description: "Tags assigned to this resource, as objects with id, name, color, and description.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id":          schema.Int64Attribute{Computed: true, Description: "Tag ID."},
+						"name":        schema.StringAttribute{Computed: true, Description: "Tag name."},
+						"color":       schema.StringAttribute{Computed: true, Description: "Tag color."},
+						"description": schema.StringAttribute{Computed: true, Description: "Tag description."},
+					},
+				},
 			},
 			"extra_data": schema.StringAttribute{
 				Description: "Discovered metadata as JSON.",
@@ -242,6 +255,14 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 	config.Status = types.StringValue(res.Status)
 	config.HealthStatus = types.StringValue(res.HealthStatus)
 	config.IsEnabled = types.BoolValue(res.IsEnabled)
+
+	tags, terr := d.client.GetResourceTags(ctx, res.ID)
+	if terr != nil {
+		resp.Diagnostics.AddError("Error reading resource tags", terr.Error())
+		return
+	}
+	config.Tags = tagsToList(tags)
+
 	config.ExtraData = rawJSONToNormalized(res.ExtraData)
 	config.CreatedAt = types.StringValue(res.CreatedAt)
 	config.UpdatedAt = types.StringValue(res.UpdatedAt)

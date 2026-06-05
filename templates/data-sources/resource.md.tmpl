@@ -63,3 +63,18 @@ values:
 | `degraded` | partially impaired |
 | `critical` | severely impaired |
 | `unknown` | not yet evaluated |
+
+## Computed `tags`
+
+`tags` is a **computed** list reflecting the live tags currently assigned to the
+matched resource, read back from the server. Each element is an object:
+
+| field | description |
+|---|---|
+| `id` | Tag ID (`int64`). |
+| `name` | Tag name. |
+| `color` | Tag color (free-form string; see the [`mistershell_tag`](tag.md) data source). |
+| `description` | Tag description (may be null). |
+
+To list or search across all tags, see the
+[`mistershell_tags`](tags.md) data source.

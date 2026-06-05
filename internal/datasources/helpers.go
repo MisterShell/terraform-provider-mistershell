@@ -63,6 +63,34 @@ func stringSliceToSet(vals []string) types.Set {
 	return types.SetValueMust(types.StringType, elems)
 }
 
+// tagObjectAttrTypes is the element object type for the resource `tags` list
+// ({id, name, color, description}).
+var tagObjectAttrTypes = map[string]attr.Type{
+	"id":          types.Int64Type,
+	"name":        types.StringType,
+	"color":       types.StringType,
+	"description": types.StringType,
+}
+
+// tagObjectType is the object type for one tag in the `tags` list.
+var tagObjectType = types.ObjectType{AttrTypes: tagObjectAttrTypes}
+
+// tagsToList converts []client.TagResponse to a List[Object] of
+// {id, name, color, description}.
+func tagsToList(tags []client.TagResponse) types.List {
+	elems := make([]attr.Value, 0, len(tags))
+	for _, t := range tags {
+		obj := types.ObjectValueMust(tagObjectAttrTypes, map[string]attr.Value{
+			"id":          types.Int64Value(t.ID),
+			"name":        types.StringValue(t.Name),
+			"color":       types.StringValue(t.Color),
+			"description": stringPtrToValue(t.Description),
+		})
+		elems = append(elems, obj)
+	}
+	return types.ListValueMust(tagObjectType, elems)
+}
+
 // aclPatternAttrTypes is the element object type for the ACL patterns list.
 var aclPatternAttrTypes = map[string]attr.Type{
 	"pattern": types.StringType,

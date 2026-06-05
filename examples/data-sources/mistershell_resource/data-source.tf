@@ -18,3 +18,9 @@ data "mistershell_resource" "switch" {
 output "switch_extra_data" {
   value = data.mistershell_resource.by_id.extra_data
 }
+
+# The live tags assigned to the resource (computed read-back): a list of
+# objects { id, name, color, description }.
+output "switch_tags" {
+  value = data.mistershell_resource.by_id.tags
+}

@@ -564,6 +564,42 @@ func (c *Client) GetTagResourceIDs(ctx context.Context, id int64) ([]int64, erro
 	return ids, nil
 }
 
+// ResourceTagAssignment is the body of PUT /resources/{id}/tags — the
+// resource-centric counterpart to TagAssignmentInput. It replaces the resource's
+// tag set exactly (an empty slice clears all tags).
+type ResourceTagAssignment struct {
+	TagIDs []int64 `json:"tag_ids"`
+}
+
+// SetResourceTags replaces the whole set of tag ids assigned to a resource via
+// PUT /api/v1/resources/{id}/tags. An empty slice clears all tags (sends [], not
+// null). This is the resource-centric ownership direction (vs SetTagAssignments,
+// which is tag-centric); own each tag<->resource edge from one side only.
+func (c *Client) SetResourceTags(ctx context.Context, resourceID int64, tagIDs []int64) ([]TagResponse, error) {
+	if tagIDs == nil {
+		tagIDs = []int64{}
+	}
+	// PUT returns an empty (NoneType) body, so re-read the authoritative tag set.
+	if _, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/resources/%d/tags", resourceID), ResourceTagAssignment{TagIDs: tagIDs}); err != nil {
+		return nil, err
+	}
+	return c.GetResourceTags(ctx, resourceID)
+}
+
+// GetResourceTags returns the full tag objects assigned to a resource via
+// GET /api/v1/resources/{id}/tags.
+func (c *Client) GetResourceTags(ctx context.Context, resourceID int64) ([]TagResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/resources/%d/tags", resourceID), nil)
+	if err != nil {
+		return nil, err
+	}
+	var tags []TagResponse
+	if err := json.Unmarshal(data, &tags); err != nil {
+		return nil, fmt.Errorf("decoding resource tags: %w", err)
+	}
+	return tags, nil
+}
+
 // ---------------------------------------------------------------------------
 // Role API models
 // ---------------------------------------------------------------------------
