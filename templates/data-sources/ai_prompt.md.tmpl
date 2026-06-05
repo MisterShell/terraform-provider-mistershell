@@ -1,0 +1,51 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Lookup arguments
+
+Specify exactly one of:
+
+| argument | behavior |
+|---|---|
+| `id` | Direct lookup by integer ID. |
+| `name` | Exact-match lookup by name (fuzzy server search, then exact `name ==` filter). Errors if zero or more than one prompt matches. |
+
+The data source reads **both** `user` prompts and builtin `system` prompts. The
+builtin system prompts (read-only, created from the backend prompt registry) can
+only be inspected this way — they are not manageable through the
+[`mistershell_ai_prompt` resource](../resources/ai_prompt.md). Their names are
+`builtin.general_assistant`, `builtin.resource_summary`, `builtin.config_analysis`,
+`builtin.session_assist`, `builtin.session_analysis`, and `builtin.executive_summary`.
+
+## Returned values
+
+| attribute | description |
+|---|---|
+| `id` | Prompt integer ID. |
+| `name` | Prompt name. |
+| `type` | `user` for user-defined prompts, or `system` for builtin prompts. |
+| `content` | The prompt text. May contain Jinja2 `{{`{{`}} variable {{`}}`}}` placeholders. |
+| `description` | Optional prompt description. |
+| `variable_schema` | Optional JSON Schema documenting the prompt's template variables, as stored on the server. |
+| `created_at` | Creation timestamp. |
+| `updated_at` | Last update timestamp. |
+
+For the full set of `type` values, the builtin prompt catalog, and the Jinja2
+template variables `content` may reference (universal and per-agent), see the
+[`mistershell_ai_prompt` resource](../resources/ai_prompt.md) page.

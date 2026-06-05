@@ -42,7 +42,7 @@ func (p *MisterShellProvider) Metadata(_ context.Context, _ provider.MetadataReq
 
 func (p *MisterShellProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Terraform provider for managing MisterShell resources (locations, network resources, credentials, tags, roles, permissions, log destinations, application settings, session-policy ACLs and rules, and external authentication providers with group mappings).",
+		Description: "Terraform provider for managing MisterShell resources (locations, network resources, credentials, tags, roles, permissions, log destinations, application settings, session-policy ACLs and rules, external authentication providers with group mappings, workers, and AI models, prompts, agents, and skills).",
 		Attributes: map[string]schema.Attribute{
 			"url": schema.StringAttribute{
 				Description: "MisterShell base URL (e.g. https://mistershell.example.com). Can also be set with the MISTERSHELL_URL environment variable.",
@@ -127,6 +127,11 @@ func (p *MisterShellProvider) Resources(_ context.Context) []func() resource.Res
 		resources.NewSessionPolicyRuleResource,
 		resources.NewAuthProviderResource,
 		resources.NewAuthProviderMappingResource,
+		resources.NewWorkerResource,
+		resources.NewAIModelResource,
+		resources.NewAIPromptResource,
+		resources.NewAIAgentResource,
+		resources.NewAISkillResource,
 	}
 }
 
@@ -144,5 +149,11 @@ func (p *MisterShellProvider) DataSources(_ context.Context) []func() datasource
 		datasources.NewSessionPolicyAclDataSource,
 		datasources.NewSessionPolicyRuleDataSource,
 		datasources.NewAuthProviderDataSource,
+		datasources.NewWorkerDataSource,
+		datasources.NewAIModelDataSource,
+		datasources.NewAIPromptDataSource,
+		datasources.NewAIAgentDataSource,
+		datasources.NewAISkillDataSource,
+		datasources.NewAIToolDataSource,
 	}
 }

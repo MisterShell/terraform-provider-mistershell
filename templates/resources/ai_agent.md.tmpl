@@ -1,0 +1,181 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Top-level field values
+
+| attribute | constraints |
+|---|---|
+| `name` | Required. 1-255 characters. Unique across agents. |
+| `type` | Optional + Computed. One of `chat`, `background`. Defaults to `chat`. **Immutable** — changing it forces replacement. Only these two are creatable; `builtin_*` types are managed by MisterShell (read-only). See the `type` table below. |
+| `description` | Optional. Up to 2000 characters. |
+| `model_id` | Optional. Integer ID of a `mistershell_ai_model`. If omitted, the default model is used. See the note below. |
+| `system_prompt_id` | **Required.** Integer ID of a `mistershell_ai_prompt`. See the note below. |
+| `config` | Optional, **not sensitive**. Agent execution config as JSON via `jsonencode(...)`; see the `config` blob table below. Stored from configuration and **excluded from import**. |
+| `tool_ids` | Optional + Computed. Set of integer tool IDs. Empty or unset = **all tools allowed**. A non-empty set restricts the agent to those tools. See the tools section. |
+| `id` | Read-only. Agent integer ID. |
+| `is_builtin` | Read-only. `true` for `builtin_*` agents (always `false` for agents managed by this resource). |
+| `is_functional` | Read-only. Whether the agent has a usable model. See the note below. |
+| `created_at` | Read-only. Creation timestamp. |
+| `updated_at` | Read-only. Last update timestamp. |
+
+### `type` values
+
+Only `chat` and `background` are creatable with this resource. Attempting to
+create or delete a `builtin_*` agent returns **HTTP 403**. The `builtin_*`
+types exist only on agents managed by MisterShell and are exposed read-only via
+the [`mistershell_ai_agent` data source](../data-sources/ai_agent.md).
+
+| type | creatable | managed by | meaning |
+|---|---|---|---|
+| `chat` | **yes** (default) | this resource | Interactive chat agent. |
+| `background` | **yes** | this resource | Non-interactive / background-execution agent. |
+| `builtin_chat` | no (403) | MisterShell | Builtin interactive chat agent. |
+| `builtin_background` | no (403) | MisterShell | Builtin background agent. |
+| `builtin_quick_action` | no (403) | MisterShell | Builtin one-shot "quick action" agent (UI buttons). |
+| `builtin_session_assist` | no (403) | MisterShell | Builtin live remote-session assistant. |
+
+## Builtin agents
+
+MisterShell ships and maintains a fixed set of builtin agents. They are
+**created and synced automatically** by the backend agent registry and
+**cannot be created or deleted** through this resource (both return HTTP 403).
+The current builtin agents are:
+
+| name | type | capability | label / icon |
+|---|---|---|---|
+| `General Assistant` | `builtin_chat` | _(none)_ | — |
+| `Resource Summary` | `builtin_quick_action` | `resource_summary` | `Resource Summary` / `auto_awesome` |
+| `Config Analysis` | `builtin_quick_action` | `config_analysis` | `Config Analysis` / `analytics` |
+| `Session Analysis` | `builtin_quick_action` | `session_analysis` | `Session Analysis` / `smart_display` |
+| `Session Assist` | `builtin_session_assist` | `session_assist` | — |
+| `Executive Summary` | `builtin_background` | `executive_summary` | — |
+
+Builtin agents **can** be patched server-side (model, system prompt, config,
+and tool restrictions are all editable). **This resource manages user agents
+only** and does not adopt or reconcile builtin agents — manage their
+customizations out of band (option (c): operator-side). When a builtin agent's
+`config` is patched server-side, the new keys are **merged** into the
+registry-defined config (the backend preserves identity keys such as
+`capability`, `label`, and `icon`), **not** replaced wholesale. To read a
+builtin agent's current settings from Terraform, use the data source.
+
+## The `config` JSON blob
+
+`config` is an agent-execution config object written with `jsonencode(...)`. It
+is **not sensitive**. It tunes how the agent's model is invoked and how the run
+is bounded. All keys are optional; an empty/omitted `config` uses the defaults
+below.
+
+**Agent-side vs. model-side.** `max_tokens`, `temperature`, and `top_p` here are
+**agent-side** config — they override the inference settings for *this agent's*
+runs and are distinct from any model-level config on the `mistershell_ai_model`.
+
+| field | type | meaning | default |
+|---|---|---|---|
+| `token_budget` | integer | Max total tokens a single run may consume (request + response across all steps). `0` / unset = no explicit limit. | `0` (unlimited) |
+| `max_steps` | integer | Max number of model request steps (tool-call rounds) per run. `0` / unset = no explicit limit. | `0` (unlimited) |
+| `max_tokens` | integer | Max output tokens per model call (agent-side override). `0` / unset = the backend's default output reserve. | `0` (server default) |
+| `temperature` | number | Sampling temperature override (agent-side). | `0.7` |
+| `top_p` | number | Nucleus sampling `top_p` override (agent-side). | `1.0` |
+| `max_execution_time_seconds` | integer | Wall-clock budget for a run; clamped server-side to a sane min/max range. | server default |
+| `capability` | string | Stable builtin capability identifier. **Builtin agents only** — do not set on user agents. | _(none)_ |
+| `label` | string | Display label for quick-action UI buttons. **Builtin quick-action agents only.** | _(none)_ |
+| `icon` | string | UI icon name. **Builtin agents only.** | _(none)_ |
+
+**Stored-from-config handling.** The server may enrich or reorder this blob, so
+the provider stores `config` **from your configuration**, not from the server
+read-back. Two consequences, identical to other stored-from-config fields:
+
+- Out-of-band changes to `config` on the server are **not** detected as drift
+  (the whole blob is preserved from state).
+- `config` is **excluded from import** (only `id` and the server-managed fields
+  are set on import). Re-supply the full `config` in HCL after importing.
+
+Example:
+
+```hcl
+config = jsonencode({
+  token_budget = 120000 # max total tokens per run
+  max_steps    = 12     # max tool-call rounds per run
+  max_tokens   = 4096   # max output tokens per model call (agent-side)
+  temperature  = 0.2    # agent-side override (not model-side)
+  top_p        = 0.9    # agent-side override (not model-side)
+})
+```
+
+## Tools (`tool_ids`)
+
+`tool_ids` restricts which backend tools the agent may call.
+
+- **Empty or unset = all tools allowed.** The agent can call every backend tool.
+- A **non-empty** set restricts the agent to exactly those tool IDs.
+
+Tools are **backend-builtin and read-only** — they cannot be created through the
+provider. Resolve a tool's integer ID by name with the
+[`mistershell_ai_tool` data source](../data-sources/ai_tool.md):
+
+```hcl
+data "mistershell_ai_tool" "list_resources" {
+  name = "list_resources"
+}
+
+resource "mistershell_ai_agent" "example" {
+  # ...
+  tool_ids = [data.mistershell_ai_tool.list_resources.id]
+}
+```
+
+`tool_ids` is `Computed`, so if you omit it the provider tracks the server's
+resolved set (all tools) without producing perpetual drift.
+
+## `model_id` and `system_prompt_id`
+
+Both are foreign keys to other MisterShell AI objects:
+
+- **`system_prompt_id` is required.** It must reference an existing
+  `mistershell_ai_prompt`. The agent renders this prompt (with its template
+  variables) on every run.
+- **`model_id` is optional.** If omitted, the agent uses the **default model**
+  (the `mistershell_ai_model` with `is_default = true`). If `model_id` is unset
+  **and** there is no usable default model, the agent's `is_functional` becomes
+  `false` and runs will fail until a model is available. **Removing `model_id`
+  from an existing agent clears the override** (the agent reverts to the default
+  model) — the provider sends an explicit `null` on update.
+
+**Delete returns HTTP 409** if the agent still has associated chat sessions.
+Remove or reassign the agent's chat sessions before destroying it.
+
+## `is_builtin` and `is_functional`
+
+- **`is_builtin`** (read-only) — `true` when the agent's `type` starts with
+  `builtin_`. Agents created by this resource are never builtin, so this is
+  always `false` for managed agents; it is meaningful primarily on the data
+  source.
+- **`is_functional`** (read-only) — `true` when the agent has a usable model:
+  either an explicit `model_id`, or a default model exists for it to fall back
+  to. It becomes `false` when neither is present, signalling the agent cannot
+  currently run.
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

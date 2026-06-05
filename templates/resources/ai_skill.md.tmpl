@@ -1,0 +1,142 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Top-level field values
+
+| attribute | constraints |
+|---|---|
+| `name` | Required. 1-255 characters. Unique across skills. |
+| `description` | Optional. Up to 2000 characters. Short purpose line shown in `list_skills`. |
+| `body` | Required. Non-empty markdown (see [The `body` field](#the-body-field) below). |
+| `agent_types` | Optional. Set of agent type values (see [`agent_types` values](#agent_types-values)). Omit, `null`, or `[]` all mean "no restriction"; clearing a previously-set restriction is supported. |
+| `resource_types` | Optional. Set of resource-type descriptor keys (see [`resource_types`](#resource_types)). Omit, `null`, or `[]` all mean "no restriction"; clearing is supported. |
+| `is_enabled` | Optional + Computed. Boolean. Defaults to `true`. |
+| `id` | Computed. Integer skill ID. |
+| `is_builtin` | Computed. See [Builtin skills](#builtin-skills). Always `false` for skills created by this resource. |
+| `created_at` | Computed. Creation timestamp. |
+| `updated_at` | Computed. Last update timestamp. |
+
+### The `body` field
+
+`body` is free-form **markdown** — a platform brief / playbook the agent loads
+on demand. It is surfaced to agents through the `list_skills` and `load_skill`
+tools. The body may contain **Jinja2 template variables** (`{{ "{{ variable }}" }}`)
+that the backend substitutes at prep time (for example a resource name or the
+current date). Because it is markdown, write it with a heredoc (`<<-EOT ... EOT`)
+rather than `jsonencode(...)`.
+
+### `agent_types` values
+
+`agent_types` restricts skill **discovery** to the listed agent types. When set
+to `null` (the default — achieved by **omitting** the attribute) the skill is
+discoverable by agents of any type. Each value must be a valid agent type:
+
+| agent_type | meaning |
+|---|---|
+| `chat` | User-defined chat agents |
+| `background` | User-defined background agents |
+| `builtin_chat` | The builtin chat agent (MisterShell-managed) |
+| `builtin_background` | The builtin background agent (MisterShell-managed) |
+| `builtin_quick_action` | The builtin quick-action agent (MisterShell-managed) |
+| `builtin_session_assist` | The builtin session-assist agent (MisterShell-managed) |
+
+All six are valid filter values here regardless of whether you manage agents of
+that type yourself.
+
+> **Omit vs. empty list.** The backend canonicalizes an empty list to `null`
+> ("unrestricted"), and the provider preserves whichever form you configured, so
+> **omitting the attribute and setting `agent_types = []` are equivalent** and
+> both round-trip cleanly. Clearing a previously-set restriction (by omitting
+> the attribute or setting `[]`) is fully supported.
+
+### `resource_types`
+
+`resource_types` restricts skill **discovery** to agents operating on the listed
+resource-type descriptor keys (e.g. `linux`, `cisco_ios`, `kubernetes_cluster`,
+`aws_account`). When `null` (omitted) the skill is offered for any resource type.
+
+- This is a **discovery filter only — not an authorization gate.** It controls
+  whether the skill is *offered* to an agent; it does not grant or restrict any
+  access.
+- Values are validated by the backend against its resource-type **registry** at
+  save time (an unknown key is rejected). They are **not** `OneOf`-validated by
+  the provider, so the authoritative list is whatever your MisterShell instance's
+  registry supports.
+- The same **omit vs. `[]`** equivalence as `agent_types` applies: an empty list
+  is canonicalized to `null` server-side and the provider preserves your
+  configured form, so omitting the attribute and passing `[]` both mean "all
+  types" and clearing is supported.
+
+## Builtin skills
+
+MisterShell ships a set of **builtin** skills (`is_builtin = true`) seeded from
+the backend skill registry. They are projections of code: they are **re-synced
+from the registry on every startup**, so any out-of-band edit to their content is
+reverted.
+
+- They **cannot be created or deleted** through this resource (the backend
+  returns `403 Forbidden` on delete).
+- Only their **`is_enabled`** flag is mutable server-side. Attempting to change
+  `name`, `description`, `body`, `agent_types`, or `resource_types` of a builtin
+  skill returns `403 Forbidden` (those fields are frozen by the registry).
+- Because they are read-only in practice, manage them through the
+  [`mistershell_ai_skill` data source](../data-sources/ai_skill.md) rather than
+  this resource. `is_builtin` on any skill created by this resource is always
+  `false`.
+
+A representative set of builtin skills (the per-platform briefs) is:
+
+| builtin skill name | resource_types |
+|---|---|
+| `cisco-ios-platform-brief` | `cisco_ios`, `cisco_iosxe` |
+| `cisco-nxos-platform-brief` | `cisco_nxos` |
+| `cisco-sdwan-edge-platform-brief` | `cisco_iosxe_sdwan` |
+| `cisco-sdwan-vmanage-platform-brief` | `cisco_vmanage` |
+| `cisco-sdwan-vsmart-platform-brief` | `cisco_vsmart` |
+| `cisco-sdwan-vbond-platform-brief` | `cisco_vbond` |
+| `cisco-ise-platform-brief` | `cisco_ise` |
+| `panos-platform-brief` | `panos_ssh` |
+| `infoblox-platform-brief` | `infoblox_nios` |
+| `linux-platform-brief` | `linux` |
+| `windows-platform-brief` | `windows` |
+| `kubernetes-platform-brief` | `kubernetes_cluster` |
+| `aws-platform-brief` | `aws_account` |
+| `azure-platform-brief` | `azure_subscription` |
+| `database-platform-brief` | `database` |
+| `generic-ssh-platform-brief` | `generic_ssh` |
+
+The builtin platform briefs are scoped to the `builtin_session_assist` and
+`builtin_quick_action` agent types. This list is instance- and version-dependent
+(it is seeded from backend code); query your instance with the data source for
+the authoritative set.
+
+## The `is_builtin` computed field
+
+`is_builtin` reports whether MisterShell manages the skill from its registry. It
+is **always `false`** for skills created by this resource, and it cannot be set —
+the backend assigns it. Use it (via the data source) to tell apart admin-authored
+custom skills from registry-seeded ones.
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}
