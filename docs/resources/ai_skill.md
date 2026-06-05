@@ -71,10 +71,10 @@ resource "mistershell_ai_skill" "linux_disk_pressure" {
 
 ### Optional
 
-- `agent_types` (Set of String) Restrict skill discovery to these agent types; omit for no restriction. The backend converts an empty list to null, so OMIT this attribute rather than passing an empty list ([]) to avoid drift.
+- `agent_types` (Set of String) Restrict skill discovery to these agent types. Omit (or set null/[]) for no restriction — the backend canonicalizes an empty list to null, and clearing a previously-set restriction is supported.
 - `description` (String) Optional human-readable description of the skill.
 - `is_enabled` (Boolean) Whether the skill is enabled. Defaults to true.
-- `resource_types` (Set of String) Restrict skill discovery to these resource-type keys (a discovery filter only, not an auth gate); omit for no restriction. The backend validates these against its resource-type registry (not OneOf-validated here) and converts an empty list to null, so OMIT this attribute rather than passing an empty list ([]) to avoid drift.
+- `resource_types` (Set of String) Restrict skill discovery to these resource-type keys (a discovery filter only, not an auth gate). The backend validates these against its resource-type registry (not OneOf-validated here). Omit (or set null/[]) for no restriction — the backend canonicalizes an empty list to null, and clearing a previously-set restriction is supported.
 
 ### Read-Only
 
@@ -90,8 +90,8 @@ resource "mistershell_ai_skill" "linux_disk_pressure" {
 | `name` | Required. 1-255 characters. Unique across skills. |
 | `description` | Optional. Up to 2000 characters. Short purpose line shown in `list_skills`. |
 | `body` | Required. Non-empty markdown (see [The `body` field](#the-body-field) below). |
-| `agent_types` | Optional. Set of agent type values (see [`agent_types` values](#agent_types-values)). **Omit** rather than passing `[]`. |
-| `resource_types` | Optional. Set of resource-type descriptor keys (see [`resource_types`](#resource_types)). **Omit** rather than passing `[]`. |
+| `agent_types` | Optional. Set of agent type values (see [`agent_types` values](#agent_types-values)). Omit, `null`, or `[]` all mean "no restriction"; clearing a previously-set restriction is supported. |
+| `resource_types` | Optional. Set of resource-type descriptor keys (see [`resource_types`](#resource_types)). Omit, `null`, or `[]` all mean "no restriction"; clearing is supported. |
 | `is_enabled` | Optional + Computed. Boolean. Defaults to `true`. |
 | `id` | Computed. Integer skill ID. |
 | `is_builtin` | Computed. See [Builtin skills](#builtin-skills). Always `false` for skills created by this resource. |
@@ -125,10 +125,11 @@ discoverable by agents of any type. Each value must be a valid agent type:
 All six are valid filter values here regardless of whether you manage agents of
 that type yourself.
 
-> **Omit vs. empty list.** The backend treats an empty list as "unrestricted"
-> and stores it as `null`. If you pass `agent_types = []`, the server returns
-> `null` and the next plan shows perpetual drift. To mean "no restriction",
-> **omit the attribute entirely** — do not set it to `[]`.
+> **Omit vs. empty list.** The backend canonicalizes an empty list to `null`
+> ("unrestricted"), and the provider preserves whichever form you configured, so
+> **omitting the attribute and setting `agent_types = []` are equivalent** and
+> both round-trip cleanly. Clearing a previously-set restriction (by omitting
+> the attribute or setting `[]`) is fully supported.
 
 ### `resource_types`
 
@@ -143,9 +144,10 @@ resource-type descriptor keys (e.g. `linux`, `cisco_ios`, `kubernetes_cluster`,
   save time (an unknown key is rejected). They are **not** `OneOf`-validated by
   the provider, so the authoritative list is whatever your MisterShell instance's
   registry supports.
-- The same **omit vs. `[]`** rule as `agent_types` applies: an empty list is
-  stored as `null` server-side, so **omit** the attribute to mean "all types"
-  rather than passing `[]` (which causes drift).
+- The same **omit vs. `[]`** equivalence as `agent_types` applies: an empty list
+  is canonicalized to `null` server-side and the provider preserves your
+  configured form, so omitting the attribute and passing `[]` both mean "all
+  types" and clearing is supported.
 
 ## Builtin skills
 

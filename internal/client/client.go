@@ -1554,7 +1554,7 @@ func (c *Client) DeleteWorker(ctx context.Context, id int64) error {
 func (c *Client) ListWorkers(ctx context.Context, filter WorkerListFilter) ([]WorkerResponse, error) {
 	params := url.Values{}
 	params.Set("page", "1")
-	params.Set("size", "1000")
+	params.Set("size", "10000")
 	if filter.Search != "" {
 		params.Set("search", filter.Search)
 	}
@@ -1667,7 +1667,7 @@ func (c *Client) DeleteAIModel(ctx context.Context, id int64) error {
 func (c *Client) ListAIModels(ctx context.Context, filter AIModelListFilter) ([]AIModelResponse, error) {
 	params := url.Values{}
 	params.Set("page", "1")
-	params.Set("size", "1000")
+	params.Set("size", "10000")
 	if filter.Search != "" {
 		params.Set("search", filter.Search)
 	}
@@ -1769,7 +1769,7 @@ func (c *Client) DeleteAIPrompt(ctx context.Context, id int64) error {
 func (c *Client) ListAIPrompts(ctx context.Context, filter AIPromptListFilter) ([]AIPromptResponse, error) {
 	params := url.Values{}
 	params.Set("page", "1")
-	params.Set("size", "1000")
+	params.Set("size", "10000")
 	if filter.Search != "" {
 		params.Set("search", filter.Search)
 	}
@@ -1884,7 +1884,7 @@ func (c *Client) DeleteAIAgent(ctx context.Context, id int64) error {
 func (c *Client) ListAIAgents(ctx context.Context, filter AIAgentListFilter) ([]AIAgentResponse, error) {
 	params := url.Values{}
 	params.Set("page", "1")
-	params.Set("size", "1000")
+	params.Set("size", "10000")
 	if filter.Search != "" {
 		params.Set("search", filter.Search)
 	}
@@ -2010,7 +2010,7 @@ func (c *Client) DeleteAISkill(ctx context.Context, id int64) error {
 func (c *Client) ListAISkills(ctx context.Context, filter AISkillListFilter) ([]AISkillResponse, error) {
 	params := url.Values{}
 	params.Set("page", "1")
-	params.Set("size", "1000")
+	params.Set("size", "10000")
 	if filter.Search != "" {
 		params.Set("search", filter.Search)
 	}
@@ -2060,7 +2060,7 @@ func (c *Client) GetAITool(ctx context.Context, id int64) (*AIToolResponse, erro
 func (c *Client) ListAITools(ctx context.Context, filter AIToolListFilter) ([]AIToolResponse, error) {
 	params := url.Values{}
 	params.Set("page", "1")
-	params.Set("size", "1000")
+	params.Set("size", "10000")
 	if filter.Search != "" {
 		params.Set("search", filter.Search)
 	}

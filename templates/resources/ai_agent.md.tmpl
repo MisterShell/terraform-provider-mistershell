@@ -154,7 +154,9 @@ Both are foreign keys to other MisterShell AI objects:
 - **`model_id` is optional.** If omitted, the agent uses the **default model**
   (the `mistershell_ai_model` with `is_default = true`). If `model_id` is unset
   **and** there is no usable default model, the agent's `is_functional` becomes
-  `false` and runs will fail until a model is available.
+  `false` and runs will fail until a model is available. **Removing `model_id`
+  from an existing agent clears the override** (the agent reverts to the default
+  model) — the provider sends an explicit `null` on update.
 
 **Delete returns HTTP 409** if the agent still has associated chat sessions.
 Remove or reassign the agent's chat sessions before destroying it.

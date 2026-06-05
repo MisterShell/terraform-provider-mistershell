@@ -79,7 +79,7 @@ func (r *AISkillResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				},
 			},
 			"agent_types": schema.SetAttribute{
-				Description: "Restrict skill discovery to these agent types; omit for no restriction. The backend converts an empty list to null, so OMIT this attribute rather than passing an empty list ([]) to avoid drift.",
+				Description: "Restrict skill discovery to these agent types. Omit (or set null/[]) for no restriction — the backend canonicalizes an empty list to null, and clearing a previously-set restriction is supported.",
 				Optional:    true,
 				ElementType: types.StringType,
 				Validators: []validator.Set{
@@ -87,7 +87,7 @@ func (r *AISkillResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				},
 			},
 			"resource_types": schema.SetAttribute{
-				Description: "Restrict skill discovery to these resource-type keys (a discovery filter only, not an auth gate); omit for no restriction. The backend validates these against its resource-type registry (not OneOf-validated here) and converts an empty list to null, so OMIT this attribute rather than passing an empty list ([]) to avoid drift.",
+				Description: "Restrict skill discovery to these resource-type keys (a discovery filter only, not an auth gate). The backend validates these against its resource-type registry (not OneOf-validated here). Omit (or set null/[]) for no restriction — the backend canonicalizes an empty list to null, and clearing a previously-set restriction is supported.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
@@ -150,7 +150,10 @@ func (r *AISkillResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	cfgAgentTypes, cfgResourceTypes := plan.AgentTypes, plan.ResourceTypes
 	mapAISkillResponseToModel(skill, &plan)
+	plan.AgentTypes = preserveConfiguredEmptySet(cfgAgentTypes, plan.AgentTypes)
+	plan.ResourceTypes = preserveConfiguredEmptySet(cfgResourceTypes, plan.ResourceTypes)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -171,7 +174,10 @@ func (r *AISkillResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
+	stAgentTypes, stResourceTypes := state.AgentTypes, state.ResourceTypes
 	mapAISkillResponseToModel(skill, &state)
+	state.AgentTypes = preserveConfiguredEmptySet(stAgentTypes, state.AgentTypes)
+	state.ResourceTypes = preserveConfiguredEmptySet(stResourceTypes, state.ResourceTypes)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -207,7 +213,10 @@ func (r *AISkillResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	cfgAgentTypes, cfgResourceTypes := plan.AgentTypes, plan.ResourceTypes
 	mapAISkillResponseToModel(skill, &plan)
+	plan.AgentTypes = preserveConfiguredEmptySet(cfgAgentTypes, plan.AgentTypes)
+	plan.ResourceTypes = preserveConfiguredEmptySet(cfgResourceTypes, plan.ResourceTypes)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -232,6 +241,19 @@ func (r *AISkillResource) ImportState(ctx context.Context, req resource.ImportSt
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.Int64Value(id))...)
+}
+
+// preserveConfiguredEmptySet returns the configured/prior value when it is a
+// known EMPTY set and the server-mapped value is null. The backend
+// canonicalizes an empty restriction list to null ([] -> null), so a configured
+// [] and the server's null are semantically identical; preserving the
+// configured shape keeps Terraform's apply-consistency contract for an explicit
+// empty set while an omitted attribute stays null.
+func preserveConfiguredEmptySet(configured, mapped types.Set) types.Set {
+	if mapped.IsNull() && !configured.IsNull() && !configured.IsUnknown() && len(configured.Elements()) == 0 {
+		return configured
+	}
+	return mapped
 }
 
 // stringSliceToSetOrNull converts []string to a types.Set of String, yielding a

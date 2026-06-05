@@ -514,10 +514,9 @@ resource "mistershell_ai_model" "b" {
 // previous one, Step2 will surface a provider-produced-inconsistent-result
 // error or a perpetual diff in Step3 — flagged in the report, verify live.
 // TestAccEdgeAI_AgentModelIDUpdate proves the agent's model_id FK is updatable
-// (repointing to a different model). NOTE: clearing model_id to null is NOT
-// honored by the backend (the PATCH ignores a null model_id and retains the old
-// value, producing "inconsistent result after apply" — see api-bug-register), so
-// this test repoints between two real models rather than clearing.
+// (repointing to a different model) AND clearable: PATCH {"model_id": null} now
+// clears the override so the agent falls back to the default model (backend fix
+// for api-bug-register #19).
 func TestAccEdgeAI_AgentModelIDUpdate(t *testing.T) {
 	testAccPreCheck(t)
 
@@ -526,7 +525,8 @@ func TestAccEdgeAI_AgentModelIDUpdate(t *testing.T) {
 	promptName := acctestPrefix + "modelid-prompt"
 	agentName := acctestPrefix + "modelid-agent"
 
-	cfg := func(target string) string {
+	// modelIDLine is the full HCL line for model_id ("" = omitted -> cleared).
+	cfg := func(modelIDLine string) string {
 		return fmt.Sprintf(`
 resource "mistershell_ai_model" "a" {
   name           = %q
@@ -548,26 +548,40 @@ resource "mistershell_ai_prompt" "test" {
 resource "mistershell_ai_agent" "test" {
   name             = %q
   type             = "chat"
-  model_id         = %s
+  %s
   system_prompt_id = mistershell_ai_prompt.test.id
 }
-`, modelAName, modelBName, promptName, agentName, target)
+`, modelAName, modelBName, promptName, agentName, modelIDLine)
 	}
+
+	cleared := cfg("")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: cfg("mistershell_ai_model.a.id"),
+				Config: cfg("model_id         = mistershell_ai_model.a.id"),
 				Check: resource.TestCheckResourceAttrPair(
 					"mistershell_ai_agent.test", "model_id", "mistershell_ai_model.a", "id"),
 			},
 			// Repoint the FK to model b -> updatable in place.
 			{
-				Config: cfg("mistershell_ai_model.b.id"),
+				Config: cfg("model_id         = mistershell_ai_model.b.id"),
 				Check: resource.TestCheckResourceAttrPair(
 					"mistershell_ai_agent.test", "model_id", "mistershell_ai_model.b", "id"),
+			},
+			// Clear the FK (omit model_id) -> explicit null PATCH -> agent falls
+			// back to the default model.
+			{
+				Config: cleared,
+				Check:  resource.TestCheckNoResourceAttr("mistershell_ai_agent.test", "model_id"),
+			},
+			// No perpetual diff after clearing.
+			{
+				Config:             cleared,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
 			},
 		},
 	})
@@ -598,37 +612,37 @@ func TestAccEdgeAI_ModelConfigStable(t *testing.T) {
 	})
 }
 
-// TestAccEdgeAI_SkillAgentTypesSetModify exercises the SUPPORTED agent_types
-// lifecycle: set a non-empty restriction, modify it to a different set, and
-// confirm idempotency. The set is order-independent.
-//
-// NOTE: CLEARING agent_types once set is not cleanly supported and is therefore
-// NOT exercised here — omitting it leaves the backend value unchanged (the PATCH
-// ignores a null agent_types), and passing an explicit [] makes the backend
-// store null while the config is an empty set, both yielding "inconsistent
-// result after apply". Tracked in api-bug-register; to remove a restriction,
-// replace the skill rather than clearing the field.
+// TestAccEdgeAI_SkillAgentTypesSetModify exercises the full agent_types
+// lifecycle: set a non-empty restriction, modify it, clear it by OMITTING the
+// attribute (explicit-null PATCH, honored since the backend fix for
+// api-bug-register #20), and set an EXPLICIT empty list (the backend
+// canonicalizes [] to null; the provider preserves the configured empty-set
+// shape so both forms round-trip cleanly).
 func TestAccEdgeAI_SkillAgentTypesSetModify(t *testing.T) {
 	testAccPreCheck(t)
 
 	name := acctestPrefix + "skill-types-mod"
 
-	cfg := func(agentTypes string) string {
+	// agentTypesLine is the full HCL line ("" = omitted -> no restriction).
+	cfg := func(agentTypesLine string) string {
 		return fmt.Sprintf(`
 resource "mistershell_ai_skill" "test" {
   name        = %q
   body        = "# Skill with agent_types"
-  agent_types = %s
+  %s
 }
-`, name, agentTypes)
+`, name, agentTypesLine)
 	}
+
+	omitted := cfg("")
+	explicitEmpty := cfg(`agent_types = []`)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: cfg(`["chat"]`),
+				Config: cfg(`agent_types = ["chat"]`),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mistershell_ai_skill.test", "agent_types.#", "1"),
 					resource.TestCheckTypeSetElemAttr("mistershell_ai_skill.test", "agent_types.*", "chat"),
@@ -636,15 +650,31 @@ resource "mistershell_ai_skill" "test" {
 			},
 			// Modify the set in place.
 			{
-				Config: cfg(`["chat", "background"]`),
+				Config: cfg(`agent_types = ["chat", "background"]`),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mistershell_ai_skill.test", "agent_types.#", "2"),
 					resource.TestCheckTypeSetElemAttr("mistershell_ai_skill.test", "agent_types.*", "background"),
 				),
 			},
-			// Idempotency: re-plan is clean.
+			// Clear by omitting -> explicit null PATCH -> no restriction.
 			{
-				Config:             cfg(`["chat", "background"]`),
+				Config: omitted,
+				Check:  resource.TestCheckNoResourceAttr("mistershell_ai_skill.test", "agent_types"),
+			},
+			// No perpetual diff after clearing.
+			{
+				Config:             omitted,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+			// Explicit empty list: backend canonicalizes [] -> null, provider
+			// preserves the configured empty-set shape -> consistent + stable.
+			{
+				Config: explicitEmpty,
+				Check:  resource.TestCheckResourceAttr("mistershell_ai_skill.test", "agent_types.#", "0"),
+			},
+			{
+				Config:             explicitEmpty,
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
 			},
