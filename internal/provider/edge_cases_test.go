@@ -593,10 +593,12 @@ resource "mistershell_resource" "test" {
 // P2 — subtle bug classes
 // ---------------------------------------------------------------------------
 
-// TestAccEdge_ClearToNull proves the explicit-null PATCH path: a credential
-// created WITH a description, then re-applied WITHOUT one, must clear the
-// description (not leave it set), and the cleared state must be stable (no
-// perpetual diff).
+// TestAccEdge_ClearToNull proves the explicit-null PATCH path: a tag AND a
+// credential created WITH a description, then re-applied WITHOUT one, must
+// clear the description (not leave it set), and the cleared state must be
+// stable (no perpetual diff). The credential path was a backend bug (PATCH
+// ignored explicit null — register #17), fixed backend-side via
+// model_dump(exclude_unset=True); both entities now clear correctly.
 func TestAccEdge_ClearToNull(t *testing.T) {
 	testAccPreCheck(t)
 
@@ -606,11 +608,32 @@ resource "mistershell_tag" "test" {
   color       = "blue"
   description = "initial description"
 }
+
+resource "mistershell_credential" "test" {
+  name            = "` + acctestPrefix + `edge-clear-cred"
+  credential_type = "ssh_password"
+  description     = "initial description"
+
+  credential_data = jsonencode({
+    username = "testuser"
+    password = "testpass123"
+  })
+}
 `
 	withoutDesc := `
 resource "mistershell_tag" "test" {
   name  = "` + acctestPrefix + `edge-clear"
   color = "blue"
+}
+
+resource "mistershell_credential" "test" {
+  name            = "` + acctestPrefix + `edge-clear-cred"
+  credential_type = "ssh_password"
+
+  credential_data = jsonencode({
+    username = "testuser"
+    password = "testpass123"
+  })
 }
 `
 
@@ -618,17 +641,23 @@ resource "mistershell_tag" "test" {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
-			// Step 1: description set.
+			// Step 1: descriptions set on both entities.
 			{
 				Config: withDesc,
-				Check:  resource.TestCheckResourceAttr("mistershell_tag.test", "description", "initial description"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mistershell_tag.test", "description", "initial description"),
+					resource.TestCheckResourceAttr("mistershell_credential.test", "description", "initial description"),
+				),
 			},
-			// Step 2: description cleared -> explicit null PATCH -> unset. This
+			// Step 2: descriptions cleared -> explicit null PATCH -> unset. This
 			// exercises the deliberate "omit omitempty on *UpdateInput" design so a
 			// cleared value sends explicit null to the PATCH endpoint.
 			{
 				Config: withoutDesc,
-				Check:  resource.TestCheckNoResourceAttr("mistershell_tag.test", "description"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr("mistershell_tag.test", "description"),
+					resource.TestCheckNoResourceAttr("mistershell_credential.test", "description"),
+				),
 			},
 			// Step 3: re-apply identical config -> no perpetual diff.
 			{
