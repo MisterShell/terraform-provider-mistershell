@@ -1037,19 +1037,18 @@ func (c *Client) ListAcls(ctx context.Context, filter AclListFilter) ([]AclRespo
 	return acls, nil
 }
 
-// GetAcl is synthetic: the backend has no GET /acls/{id}, so it lists and filters
-// by id, returning *NotFoundError if the id is absent.
+// GetAcl fetches a single ACL via GET /session-policy/acls/{id}. (Previously
+// synthesized from the list endpoint; the backend added GET-single.)
 func (c *Client) GetAcl(ctx context.Context, id int64) (*AclResponse, error) {
-	acls, err := c.ListAcls(ctx, AclListFilter{})
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/session-policy/acls/%d", id), nil)
 	if err != nil {
 		return nil, err
 	}
-	for i := range acls {
-		if acls[i].ID == id {
-			return &acls[i], nil
-		}
+	var acl AclResponse
+	if err := json.Unmarshal(data, &acl); err != nil {
+		return nil, fmt.Errorf("decoding acl: %w", err)
 	}
-	return nil, &NotFoundError{Path: fmt.Sprintf("/api/v1/session-policy/acls/%d", id)}
+	return &acl, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -1161,19 +1160,18 @@ func (c *Client) ListRules(ctx context.Context) ([]RuleResponse, error) {
 	return rules, nil
 }
 
-// GetRule is synthetic: the backend has no GET /rules/{id}, so it lists and
-// filters by id, returning *NotFoundError if the id is absent.
+// GetRule fetches a single rule via GET /session-policy/rules/{id}. (Previously
+// synthesized from the list endpoint; the backend added GET-single.)
 func (c *Client) GetRule(ctx context.Context, id int64) (*RuleResponse, error) {
-	rules, err := c.ListRules(ctx)
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/session-policy/rules/%d", id), nil)
 	if err != nil {
 		return nil, err
 	}
-	for i := range rules {
-		if rules[i].ID == id {
-			return &rules[i], nil
-		}
+	var rule RuleResponse
+	if err := json.Unmarshal(data, &rule); err != nil {
+		return nil, fmt.Errorf("decoding rule: %w", err)
 	}
-	return nil, &NotFoundError{Path: fmt.Sprintf("/api/v1/session-policy/rules/%d", id)}
+	return &rule, nil
 }
 
 // ReorderRules rewrites positions for the listed ids (TESTS ONLY — no resource
@@ -1208,10 +1206,11 @@ func (c *Client) ClearRuleHits(ctx context.Context, id int64) (*RuleResponse, er
 // are masked **** in the GET-single response and ABSENT from create/patch/list
 // responses.
 type AuthProviderCreateInput struct {
-	Name         string          `json:"name"`                 // 1..100
-	ProviderType string          `json:"provider_type"`        // LDAP|OIDC|SAML
-	IsEnabled    *bool           `json:"is_enabled,omitempty"` // default true
-	Config       json.RawMessage `json:"config"`               // LDAPConfig|OIDCConfig|SAMLConfig
+	Name         string          `json:"name"`                    // 1..100
+	ProviderType string          `json:"provider_type"`           // LDAP|OIDC|SAML
+	IsEnabled    *bool           `json:"is_enabled,omitempty"`    // default true
+	DisplayOrder *int64          `json:"display_order,omitempty"` // >=0; omitted -> appended at max+1
+	Config       json.RawMessage `json:"config"`                  // LDAPConfig|OIDCConfig|SAMLConfig
 }
 
 // AuthProviderUpdateInput is a PATCH: all fields optional. display_order is
@@ -1420,20 +1419,20 @@ func (c *Client) ListGroupMappings(ctx context.Context, providerID int64) ([]Gro
 	return ms, nil
 }
 
-// GetGroupMapping is synthetic: the backend has no GET-single mapping, so it
-// lists the provider's mappings and filters by id, returning *NotFoundError if
-// absent (or if the parent provider is gone).
+// GetGroupMapping fetches a single mapping via the provider-scoped
+// GET /auth-providers/{provider_id}/mappings/{mapping_id}. (Previously
+// synthesized from the list endpoint; the backend added GET-single.) A 404 —
+// whether the mapping or the parent provider is gone — maps to *NotFoundError.
 func (c *Client) GetGroupMapping(ctx context.Context, providerID, mappingID int64) (*GroupMappingResponse, error) {
-	ms, err := c.ListGroupMappings(ctx, providerID)
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/auth-providers/%d/mappings/%d", providerID, mappingID), nil)
 	if err != nil {
 		return nil, err
 	}
-	for i := range ms {
-		if ms[i].ID == mappingID {
-			return &ms[i], nil
-		}
+	var m GroupMappingResponse
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, fmt.Errorf("decoding group mapping: %w", err)
 	}
-	return nil, &NotFoundError{Path: fmt.Sprintf("/api/v1/auth-providers/%d/mappings/%d", providerID, mappingID)}
+	return &m, nil
 }
 
 // BulkCreateGroupMappings inserts several mappings at once (TESTS ONLY — not a

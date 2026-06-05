@@ -51,7 +51,7 @@ func (r *AuthProviderResource) Metadata(_ context.Context, req resource.Metadata
 
 func (r *AuthProviderResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is an opaque per-provider_type JSON blob carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively via a post-create PATCH (create cannot set it). Create and update require an active license.",
+		Description: "Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is an opaque per-provider_type JSON blob carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Auth provider ID.",
@@ -142,6 +142,10 @@ func (r *AuthProviderResource) Create(ctx context.Context, req resource.CreateRe
 		Name:         plan.Name.ValueString(),
 		ProviderType: plan.ProviderType.ValueString(),
 		Config:       normalizedToRawJSON(plan.Config),
+		// display_order is honored on create since the backend gained the field
+		// (previously the server always assigned max+1 and the provider had to
+		// PATCH it afterwards); omitted -> appended at max+1, as before.
+		DisplayOrder: int64ValueToPtr(plan.DisplayOrder),
 	}
 	if !plan.IsEnabled.IsNull() && !plan.IsEnabled.IsUnknown() {
 		v := plan.IsEnabled.ValueBool()
@@ -152,16 +156,6 @@ func (r *AuthProviderResource) Create(ctx context.Context, req resource.CreateRe
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating auth provider", err.Error())
 		return
-	}
-
-	// display_order cannot be set on create (server assigns max+1). If the plan
-	// pins a value that differs, PATCH it.
-	if !plan.DisplayOrder.IsNull() && !plan.DisplayOrder.IsUnknown() && plan.DisplayOrder.ValueInt64() != created.DisplayOrder {
-		v := plan.DisplayOrder.ValueInt64()
-		if _, err := r.client.UpdateAuthProvider(ctx, created.ID, client.AuthProviderUpdateInput{DisplayOrder: &v}); err != nil {
-			resp.Diagnostics.AddError("Error setting auth provider display_order", err.Error())
-			return
-		}
 	}
 
 	// GET-single to read the final display_order, group_mappings_count, timestamps.

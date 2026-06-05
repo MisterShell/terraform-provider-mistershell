@@ -145,6 +145,11 @@ back from the server. Two consequences:
   stored-from-config rule (identical to `credential_data`).
 - `config` is **excluded from import** (only `id` is set on import); re-supply it
   in HCL, exactly like `credential_data`.
+- The literal mask placeholder **`"****"` is rejected (HTTP 400) as a webhook
+  auth secret** on **create** and when **changing `auth.type`** — there is no
+  stored secret to preserve in those cases, so always supply the real secret.
+  (Re-sending `"****"` on an update with an *unchanged* `auth.type` still means
+  "keep the stored secret".)
 
 ### `type = "syslog"` config
 
