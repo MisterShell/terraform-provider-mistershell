@@ -263,25 +263,23 @@ type NetworkResourceUpdateInput struct {
 }
 
 type NetworkResourceResponse struct {
-	ID                    int64           `json:"id"`
-	Name                  string          `json:"name"`
-	ResourceType          string          `json:"resource_type"`
-	ConnectorID           string          `json:"connector_id"`
-	ExternalID            string          `json:"external_id"`
-	ConnectorData         json.RawMessage `json:"connector_data"`
-	CredentialID          *int64          `json:"credential_id"`
-	LocationID            *int64          `json:"location_id"`
-	Status                string          `json:"status"`
-	HealthStatus          string          `json:"health_status"`
-	IsEnabled             bool            `json:"is_enabled"`
-	ExtraData             json.RawMessage `json:"extra_data"`
-	CreatedAt             string          `json:"created_at"`
-	UpdatedAt             string          `json:"updated_at"`
-	LastConnectivityCheck *string         `json:"last_connectivity_check"`
-	LastCollectionAt      *string         `json:"last_collection_at"`
-	NextCollectionAt      *string         `json:"next_collection_at"`
-	LastSnapshotAt        *string         `json:"last_snapshot_at"`
-	LastHealthAt          *string         `json:"last_health_at"`
+	ID                     int64           `json:"id"`
+	Name                   string          `json:"name"`
+	ResourceType           string          `json:"resource_type"`
+	ConnectorID            string          `json:"connector_id"`
+	ExternalID             string          `json:"external_id"`
+	ConnectorData          json.RawMessage `json:"connector_data"`
+	CredentialID           *int64          `json:"credential_id"`
+	LocationID             *int64          `json:"location_id"`
+	Status                 string          `json:"status"`
+	IsEnabled              bool            `json:"is_enabled"`
+	ExtraData              json.RawMessage `json:"extra_data"`
+	CreatedAt              string          `json:"created_at"`
+	UpdatedAt              string          `json:"updated_at"`
+	LastConnectivityCheck  *string         `json:"last_connectivity_check"`
+	LastConnectivityResult json.RawMessage `json:"last_connectivity_result"`
+	LastCollectionAt       *string         `json:"last_collection_at"`
+	NextCollectionAt       *string         `json:"next_collection_at"`
 }
 
 func (c *Client) CreateNetworkResource(ctx context.Context, input NetworkResourceCreateInput) (*NetworkResourceResponse, error) {

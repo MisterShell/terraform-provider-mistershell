@@ -19,26 +19,24 @@ type NetworkResourceDataSource struct {
 }
 
 type NetworkResourceDataSourceModel struct {
-	ID                    types.Int64          `tfsdk:"id"`
-	Name                  types.String         `tfsdk:"name"`
-	ResourceType          types.String         `tfsdk:"resource_type"`
-	ConnectorID           types.String         `tfsdk:"connector_id"`
-	ExternalID            types.String         `tfsdk:"external_id"`
-	ConnectorData         jsontypes.Normalized `tfsdk:"connector_data"`
-	CredentialID          types.Int64          `tfsdk:"credential_id"`
-	LocationID            types.Int64          `tfsdk:"location_id"`
-	Status                types.String         `tfsdk:"status"`
-	HealthStatus          types.String         `tfsdk:"health_status"`
-	IsEnabled             types.Bool           `tfsdk:"is_enabled"`
-	Tags                  types.List           `tfsdk:"tags"`
-	ExtraData             jsontypes.Normalized `tfsdk:"extra_data"`
-	CreatedAt             types.String         `tfsdk:"created_at"`
-	UpdatedAt             types.String         `tfsdk:"updated_at"`
-	LastConnectivityCheck types.String         `tfsdk:"last_connectivity_check"`
-	LastCollectionAt      types.String         `tfsdk:"last_collection_at"`
-	NextCollectionAt      types.String         `tfsdk:"next_collection_at"`
-	LastSnapshotAt        types.String         `tfsdk:"last_snapshot_at"`
-	LastHealthAt          types.String         `tfsdk:"last_health_at"`
+	ID                     types.Int64          `tfsdk:"id"`
+	Name                   types.String         `tfsdk:"name"`
+	ResourceType           types.String         `tfsdk:"resource_type"`
+	ConnectorID            types.String         `tfsdk:"connector_id"`
+	ExternalID             types.String         `tfsdk:"external_id"`
+	ConnectorData          jsontypes.Normalized `tfsdk:"connector_data"`
+	CredentialID           types.Int64          `tfsdk:"credential_id"`
+	LocationID             types.Int64          `tfsdk:"location_id"`
+	Status                 types.String         `tfsdk:"status"`
+	IsEnabled              types.Bool           `tfsdk:"is_enabled"`
+	Tags                   types.List           `tfsdk:"tags"`
+	ExtraData              jsontypes.Normalized `tfsdk:"extra_data"`
+	CreatedAt              types.String         `tfsdk:"created_at"`
+	UpdatedAt              types.String         `tfsdk:"updated_at"`
+	LastConnectivityCheck  types.String         `tfsdk:"last_connectivity_check"`
+	LastConnectivityResult jsontypes.Normalized `tfsdk:"last_connectivity_result"`
+	LastCollectionAt       types.String         `tfsdk:"last_collection_at"`
+	NextCollectionAt       types.String         `tfsdk:"next_collection_at"`
 }
 
 func NewNetworkResourceDataSource() datasource.DataSource {
@@ -51,7 +49,7 @@ func (d *NetworkResourceDataSource) Metadata(_ context.Context, req datasource.M
 
 func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Reads a MisterShell network resource. Look up by id for a direct fetch, or use name/resource_type/location_id/status/health_status to search. Search filters must match exactly one resource.",
+		Description: "Reads a MisterShell network resource. Look up by id for a direct fetch, or use name/resource_type/location_id/status to search. Search filters must match exactly one resource.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Resource ID. Use for direct lookup.",
@@ -95,11 +93,6 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Optional:    true,
 				Computed:    true,
 			},
-			"health_status": schema.StringAttribute{
-				Description: "Health status filter (healthy, degraded, critical, unknown).",
-				Optional:    true,
-				Computed:    true,
-			},
 			"is_enabled": schema.BoolAttribute{
 				Description: "Whether the resource is enabled.",
 				Computed:    true,
@@ -133,20 +126,17 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Description: "Timestamp of last connectivity check.",
 				Computed:    true,
 			},
+			"last_connectivity_result": schema.StringAttribute{
+				Description: "Structured result of the most recent connectivity check (read-only).",
+				Computed:    true,
+				CustomType:  jsontypes.NormalizedType{},
+			},
 			"last_collection_at": schema.StringAttribute{
 				Description: "Timestamp of last data collection.",
 				Computed:    true,
 			},
 			"next_collection_at": schema.StringAttribute{
 				Description: "Scheduled time for next data collection.",
-				Computed:    true,
-			},
-			"last_snapshot_at": schema.StringAttribute{
-				Description: "Timestamp of last configuration snapshot.",
-				Computed:    true,
-			},
-			"last_health_at": schema.StringAttribute{
-				Description: "Timestamp of last health check.",
 				Computed:    true,
 			},
 		},
@@ -188,11 +178,10 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 		hasType := !config.ResourceType.IsNull() && !config.ResourceType.IsUnknown()
 		hasLocationID := !config.LocationID.IsNull() && !config.LocationID.IsUnknown()
 		hasStatus := !config.Status.IsNull() && !config.Status.IsUnknown()
-		hasHealthStatus := !config.HealthStatus.IsNull() && !config.HealthStatus.IsUnknown()
 
-		if !hasName && !hasType && !hasLocationID && !hasStatus && !hasHealthStatus {
+		if !hasName && !hasType && !hasLocationID && !hasStatus {
 			resp.Diagnostics.AddError("Missing lookup criteria",
-				"Specify 'id' for direct lookup, or at least one of 'name', 'resource_type', 'location_id', 'status', 'health_status' to search.")
+				"Specify 'id' for direct lookup, or at least one of 'name', 'resource_type', 'location_id', 'status' to search.")
 			return
 		}
 
@@ -209,9 +198,6 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 		}
 		if hasStatus {
 			filter.Status = config.Status.ValueString()
-		}
-		if hasHealthStatus {
-			filter.HealthStatus = config.HealthStatus.ValueString()
 		}
 
 		results, err := d.client.ListNetworkResources(ctx, filter)
@@ -260,7 +246,6 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 	config.CredentialID = int64PtrToValue(res.CredentialID)
 	config.LocationID = int64PtrToValue(res.LocationID)
 	config.Status = types.StringValue(res.Status)
-	config.HealthStatus = types.StringValue(res.HealthStatus)
 	config.IsEnabled = types.BoolValue(res.IsEnabled)
 
 	tags, terr := d.client.GetResourceTags(ctx, res.ID)
@@ -274,10 +259,9 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 	config.CreatedAt = types.StringValue(res.CreatedAt)
 	config.UpdatedAt = types.StringValue(res.UpdatedAt)
 	config.LastConnectivityCheck = optStringPtrToValue(res.LastConnectivityCheck)
+	config.LastConnectivityResult = rawJSONToNormalized(res.LastConnectivityResult)
 	config.LastCollectionAt = optStringPtrToValue(res.LastCollectionAt)
 	config.NextCollectionAt = optStringPtrToValue(res.NextCollectionAt)
-	config.LastSnapshotAt = optStringPtrToValue(res.LastSnapshotAt)
-	config.LastHealthAt = optStringPtrToValue(res.LastHealthAt)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

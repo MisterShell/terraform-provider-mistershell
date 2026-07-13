@@ -29,27 +29,25 @@ type NetworkResourceResource struct {
 }
 
 type NetworkResourceResourceModel struct {
-	ID                    types.Int64          `tfsdk:"id"`
-	Name                  types.String         `tfsdk:"name"`
-	ResourceType          types.String         `tfsdk:"resource_type"`
-	ExternalID            types.String         `tfsdk:"external_id"`
-	LocationID            types.Int64          `tfsdk:"location_id"`
-	ConnectorData         jsontypes.Normalized `tfsdk:"connector_data"`
-	CredentialID          types.Int64          `tfsdk:"credential_id"`
-	ExtraData             jsontypes.Normalized `tfsdk:"extra_data"`
-	IsEnabled             types.Bool           `tfsdk:"is_enabled"`
-	TagIDs                types.Set            `tfsdk:"tag_ids"`
-	Tags                  types.List           `tfsdk:"tags"`
-	ConnectorID           types.String         `tfsdk:"connector_id"`
-	Status                types.String         `tfsdk:"status"`
-	HealthStatus          types.String         `tfsdk:"health_status"`
-	CreatedAt             types.String         `tfsdk:"created_at"`
-	UpdatedAt             types.String         `tfsdk:"updated_at"`
-	LastConnectivityCheck types.String         `tfsdk:"last_connectivity_check"`
-	LastCollectionAt      types.String         `tfsdk:"last_collection_at"`
-	NextCollectionAt      types.String         `tfsdk:"next_collection_at"`
-	LastSnapshotAt        types.String         `tfsdk:"last_snapshot_at"`
-	LastHealthAt          types.String         `tfsdk:"last_health_at"`
+	ID                     types.Int64          `tfsdk:"id"`
+	Name                   types.String         `tfsdk:"name"`
+	ResourceType           types.String         `tfsdk:"resource_type"`
+	ExternalID             types.String         `tfsdk:"external_id"`
+	LocationID             types.Int64          `tfsdk:"location_id"`
+	ConnectorData          jsontypes.Normalized `tfsdk:"connector_data"`
+	CredentialID           types.Int64          `tfsdk:"credential_id"`
+	ExtraData              jsontypes.Normalized `tfsdk:"extra_data"`
+	IsEnabled              types.Bool           `tfsdk:"is_enabled"`
+	TagIDs                 types.Set            `tfsdk:"tag_ids"`
+	Tags                   types.List           `tfsdk:"tags"`
+	ConnectorID            types.String         `tfsdk:"connector_id"`
+	Status                 types.String         `tfsdk:"status"`
+	CreatedAt              types.String         `tfsdk:"created_at"`
+	UpdatedAt              types.String         `tfsdk:"updated_at"`
+	LastConnectivityCheck  types.String         `tfsdk:"last_connectivity_check"`
+	LastConnectivityResult jsontypes.Normalized `tfsdk:"last_connectivity_result"`
+	LastCollectionAt       types.String         `tfsdk:"last_collection_at"`
+	NextCollectionAt       types.String         `tfsdk:"next_collection_at"`
 }
 
 func NewNetworkResourceResource() resource.Resource {
@@ -141,10 +139,6 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Description: "Connectivity status (unknown, verified, unreachable, auth_failed, error, identity_mismatch, snapshot_truncated).",
 				Computed:    true,
 			},
-			"health_status": schema.StringAttribute{
-				Description: "Health status (healthy, degraded, critical, unknown).",
-				Computed:    true,
-			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
 				Computed:    true,
@@ -160,20 +154,17 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Description: "Timestamp of last connectivity check.",
 				Computed:    true,
 			},
+			"last_connectivity_result": schema.StringAttribute{
+				Description: "Structured result of the most recent connectivity check (read-only).",
+				Computed:    true,
+				CustomType:  jsontypes.NormalizedType{},
+			},
 			"last_collection_at": schema.StringAttribute{
 				Description: "Timestamp of last data collection.",
 				Computed:    true,
 			},
 			"next_collection_at": schema.StringAttribute{
 				Description: "Scheduled time for next data collection.",
-				Computed:    true,
-			},
-			"last_snapshot_at": schema.StringAttribute{
-				Description: "Timestamp of last configuration snapshot.",
-				Computed:    true,
-			},
-			"last_health_at": schema.StringAttribute{
-				Description: "Timestamp of last health check.",
 				Computed:    true,
 			},
 		},
@@ -377,12 +368,10 @@ func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *N
 	m.IsEnabled = types.BoolValue(res.IsEnabled)
 	m.ConnectorID = types.StringValue(res.ConnectorID)
 	m.Status = types.StringValue(res.Status)
-	m.HealthStatus = types.StringValue(res.HealthStatus)
 	m.CreatedAt = types.StringValue(res.CreatedAt)
 	m.UpdatedAt = types.StringValue(res.UpdatedAt)
 	m.LastConnectivityCheck = optStringPtrToValue(res.LastConnectivityCheck)
+	m.LastConnectivityResult = rawJSONToNormalized(res.LastConnectivityResult)
 	m.LastCollectionAt = optStringPtrToValue(res.LastCollectionAt)
 	m.NextCollectionAt = optStringPtrToValue(res.NextCollectionAt)
-	m.LastSnapshotAt = optStringPtrToValue(res.LastSnapshotAt)
-	m.LastHealthAt = optStringPtrToValue(res.LastHealthAt)
 }
