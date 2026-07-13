@@ -162,7 +162,14 @@ func (d *CredentialDataSource) Read(ctx context.Context, req datasource.ReadRequ
 				fmt.Sprintf("Found %d credentials matching the criteria. Add more filters to narrow to exactly one.", len(creds)))
 			return
 		}
-		cred = &creds[0]
+		// List returns the slim list shape; re-fetch the full object by id so
+		// name lookups match id lookups (see auth_provider for the reference pattern).
+		full, err := d.client.GetCredential(ctx, creds[0].ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading credential", err.Error())
+			return
+		}
+		cred = full
 	}
 
 	config.ID = types.Int64Value(cred.ID)

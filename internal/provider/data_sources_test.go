@@ -165,6 +165,7 @@ data "mistershell_resource" "lookup" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_resource.lookup", "id", "mistershell_resource.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "resource_type", "linux"),
+					resource.TestCheckResourceAttrSet("data.mistershell_resource.lookup", "connector_data"),
 				),
 			},
 		},
@@ -229,6 +230,7 @@ data "mistershell_credential" "lookup" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_credential.lookup", "id", "mistershell_credential.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "credential_type", "ssh_password"),
+					resource.TestCheckResourceAttrSet("data.mistershell_credential.lookup", "credential_data"),
 				),
 			},
 		},

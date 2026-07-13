@@ -241,7 +241,14 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 				fmt.Sprintf("Found %d resources matching the criteria. Add more filters to narrow to exactly one.", len(results)))
 			return
 		}
-		res = &results[0]
+		// List returns the slim list shape; re-fetch the full object by id so
+		// name lookups match id lookups (see auth_provider for the reference pattern).
+		full, err := d.client.GetNetworkResource(ctx, results[0].ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading network resource", err.Error())
+			return
+		}
+		res = full
 	}
 
 	config.ID = types.Int64Value(res.ID)

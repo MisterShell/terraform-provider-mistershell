@@ -87,6 +87,7 @@ func TestAccAIModel_dataSource(t *testing.T) {
 					// by name
 					resource.TestCheckResourceAttrPair("data.mistershell_ai_model.by_name", "id", "mistershell_ai_model.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_ai_model.by_name", "model_id", "llama3"),
+					resource.TestCheckResourceAttrSet("data.mistershell_ai_model.by_name", "config"),
 				),
 			},
 		},
@@ -156,6 +157,7 @@ func TestAccAIPrompt_dataSource(t *testing.T) {
 					// by name
 					resource.TestCheckResourceAttrPair("data.mistershell_ai_prompt.by_name", "id", "mistershell_ai_prompt.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_ai_prompt.by_name", "type", "user"),
+					resource.TestCheckResourceAttrSet("data.mistershell_ai_prompt.by_name", "content"),
 				),
 			},
 		},
@@ -301,6 +303,7 @@ func TestAccAISkill_dataSource(t *testing.T) {
 					// by name
 					resource.TestCheckResourceAttrPair("data.mistershell_ai_skill.by_name", "id", "mistershell_ai_skill.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_ai_skill.by_name", "is_enabled", "true"),
+					resource.TestCheckResourceAttrSet("data.mistershell_ai_skill.by_name", "body"),
 				),
 			},
 		},
@@ -339,6 +342,7 @@ func TestAccAITool_dataSource(t *testing.T) {
 					// looked up by name -> id matches
 					resource.TestCheckResourceAttr("data.mistershell_ai_tool.by_name", "name", tool.Name),
 					resource.TestCheckResourceAttr("data.mistershell_ai_tool.by_name", "id", fmt.Sprintf("%d", tool.ID)),
+					resource.TestCheckResourceAttrSet("data.mistershell_ai_tool.by_name", "handler"),
 					// looked up by id -> name matches
 					resource.TestCheckResourceAttr("data.mistershell_ai_tool.by_id", "id", fmt.Sprintf("%d", tool.ID)),
 					resource.TestCheckResourceAttr("data.mistershell_ai_tool.by_id", "name", tool.Name),

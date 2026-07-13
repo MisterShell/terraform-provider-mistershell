@@ -140,7 +140,14 @@ func (d *AIPromptDataSource) Read(ctx context.Context, req datasource.ReadReques
 				fmt.Sprintf("Found %d AI prompts matching name %q.", len(filtered), name))
 			return
 		}
-		prompt = &filtered[0]
+		// List returns the slim list shape; re-fetch the full object by id so
+		// name lookups match id lookups (see auth_provider for the reference pattern).
+		full, err := d.client.GetAIPrompt(ctx, filtered[0].ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading AI prompt", err.Error())
+			return
+		}
+		prompt = full
 	}
 
 	config.ID = types.Int64Value(prompt.ID)
