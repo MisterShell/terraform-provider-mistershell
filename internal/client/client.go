@@ -19,6 +19,32 @@ type Client struct {
 	BaseURL    string
 	APIKey     string
 	HTTPClient *http.Client
+	// sleep waits for d or until ctx is cancelled, returning ctx.Err() if it
+	// is. It is overridable in tests to make retry timing deterministic; nil
+	// selects the default real-time implementation (see waitRetry).
+	sleep func(ctx context.Context, d time.Duration) error
+}
+
+// retryMaxAttempts bounds how many times doRequest re-issues a request that is
+// answered with HTTP 429. The backend rate-limits at 100 requests/minute and
+// returns a Retry-After header, which the client honors between attempts.
+const retryMaxAttempts = 6
+
+// waitRetry blocks for d (or until ctx is cancelled) before the next retry.
+// Tests inject c.sleep to observe the delay without real waiting; production
+// uses a real timer that is always stopped to avoid leaking it on cancellation.
+func (c *Client) waitRetry(ctx context.Context, d time.Duration) error {
+	if c.sleep != nil {
+		return c.sleep(ctx, d)
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // NewClient creates a MisterShell API client.
@@ -63,7 +89,6 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 		}
 	}
 
-	const maxAttempts = 6
 	for attempt := 1; ; attempt++ {
 		var bodyReader io.Reader
 		if bodyBytes != nil {
@@ -87,12 +112,10 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 			return nil, fmt.Errorf("reading response: %w", err)
 		}
 
-		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts {
+		if resp.StatusCode == http.StatusTooManyRequests && attempt < retryMaxAttempts {
 			wait := retryAfterDelay(resp.Header.Get("Retry-After"), attempt)
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(wait):
+			if err := c.waitRetry(ctx, wait); err != nil {
+				return nil, err
 			}
 			continue
 		}
@@ -328,7 +351,6 @@ type NetworkResourceListFilter struct {
 	ResourceType string
 	LocationID   *int64
 	Status       string
-	HealthStatus string
 	IsEnabled    *bool
 }
 
@@ -347,9 +369,6 @@ func (c *Client) ListNetworkResources(ctx context.Context, filter NetworkResourc
 	}
 	if filter.Status != "" {
 		params.Set("status", filter.Status)
-	}
-	if filter.HealthStatus != "" {
-		params.Set("health_status", filter.HealthStatus)
 	}
 	if filter.IsEnabled != nil {
 		params.Set("is_enabled", fmt.Sprintf("%t", *filter.IsEnabled))
