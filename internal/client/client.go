@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // Client is an HTTP client for the MisterShell API.
@@ -52,54 +54,80 @@ func IsNotFound(err error) bool {
 func (c *Client) doRequest(ctx context.Context, method, path string, body interface{}) (json.RawMessage, error) {
 	reqURL := c.BaseURL + path
 
-	var bodyReader io.Reader
+	var bodyBytes []byte
 	if body != nil {
-		bodyBytes, err := json.Marshal(body)
+		var err error
+		bodyBytes, err = json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling request body: %w", err)
 		}
-		bodyReader = bytes.NewReader(bodyBytes)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, reqURL, bodyReader)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+	const maxAttempts = 6
+	for attempt := 1; ; attempt++ {
+		var bodyReader io.Reader
+		if bodyBytes != nil {
+			bodyReader = bytes.NewReader(bodyBytes)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, reqURL, bodyReader)
+		if err != nil {
+			return nil, fmt.Errorf("creating request: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+
+		resp, err := c.HTTPClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("executing request: %w", err)
+		}
+		respBody, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("reading response: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts {
+			wait := retryAfterDelay(resp.Header.Get("Retry-After"), attempt)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(wait):
+			}
+			continue
+		}
+
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, &NotFoundError{Path: path}
+		}
+		if resp.StatusCode == http.StatusNoContent {
+			return nil, nil
+		}
+
+		var envelope apiEnvelope
+		if err := json.Unmarshal(respBody, &envelope); err != nil {
+			return nil, fmt.Errorf("decoding response (status %d, body: %s): %w", resp.StatusCode, string(respBody), err)
+		}
+		if !envelope.Success {
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, envelope.Message)
+		}
+		return envelope.Data, nil
 	}
+}
 
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
+// retryAfterDelay parses a Retry-After header (delta-seconds) and falls back to
+// capped exponential backoff when it is absent or unparseable.
+func retryAfterDelay(header string, attempt int) time.Duration {
+	if header != "" {
+		if secs, err := strconv.Atoi(strings.TrimSpace(header)); err == nil && secs >= 0 {
+			return time.Duration(secs) * time.Second
+		}
 	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+	backoff := time.Duration(1<<uint(attempt-1)) * time.Second
+	if backoff > 30*time.Second {
+		backoff = 30 * time.Second
 	}
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, &NotFoundError{Path: path}
-	}
-
-	// DELETE with 204 has no body
-	if resp.StatusCode == http.StatusNoContent {
-		return nil, nil
-	}
-
-	var envelope apiEnvelope
-	if err := json.Unmarshal(respBody, &envelope); err != nil {
-		return nil, fmt.Errorf("decoding response (status %d, body: %s): %w", resp.StatusCode, string(respBody), err)
-	}
-
-	if !envelope.Success {
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, envelope.Message)
-	}
-
-	return envelope.Data, nil
+	return backoff
 }
 
 // ---------------------------------------------------------------------------
