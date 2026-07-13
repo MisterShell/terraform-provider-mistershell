@@ -90,7 +90,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "tf-acc-ds-res-cred"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
   credential_data = jsonencode({
     username = "testuser"
     password = "testpass123"
@@ -139,7 +139,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "tf-acc-ds-res-name-cred"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
   credential_data = jsonencode({
     username = "testuser"
     password = "testpass123"
@@ -186,7 +186,7 @@ func TestAccCredentialDataSource_byID(t *testing.T) {
 				Config: `
 resource "mistershell_credential" "test" {
   name            = "tf-acc-ds-cred-id"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
   credential_data = jsonencode({
     username = "testuser"
     password = "testpass123"
@@ -199,7 +199,7 @@ data "mistershell_credential" "lookup" {
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "name", "tf-acc-ds-cred-id"),
-					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "credential_type", "ssh_password"),
+					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "credential_type", "username_password"),
 				),
 			},
 		},
@@ -216,7 +216,7 @@ func TestAccCredentialDataSource_byName(t *testing.T) {
 				Config: `
 resource "mistershell_credential" "test" {
   name            = "tf-acc-ds-cred-name"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
   credential_data = jsonencode({
     username = "testuser"
     password = "testpass123"
@@ -229,7 +229,7 @@ data "mistershell_credential" "lookup" {
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_credential.lookup", "id", "mistershell_credential.test", "id"),
-					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "credential_type", "ssh_password"),
+					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "credential_type", "username_password"),
 					resource.TestCheckResourceAttrSet("data.mistershell_credential.lookup", "credential_data"),
 				),
 			},

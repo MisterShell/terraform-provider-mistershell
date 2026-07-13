@@ -14,7 +14,7 @@ import (
 // resourceConfig describes how to render one mistershell_resource block in the
 // full-graph config: the credential it references and its connector_data.
 type resourceConfig struct {
-	credRef       string // terraform reference to the credential resource (e.g. "mistershell_credential.ssh_password")
+	credRef       string // terraform reference to the credential resource (e.g. "mistershell_credential.username_password")
 	connectorData string // jsonencode({...}) body (without the jsonencode wrapper)
 }
 
@@ -22,20 +22,24 @@ type resourceConfig struct {
 // and the credential it pairs with. Keys MUST cover client.SupportedResourceTypes
 // exactly — the exhaustiveness guard in the test enforces this.
 //
-// Pairing (by connector compatibility, all 7 credential types used):
+// Pairing (by connector compatibility):
 //   - linux                         -> ssh_key
-//   - other SSH-family + windows    -> ssh_password
-//   - generic_rdp                   -> rdp_password
-//   - database                      -> db_password
+//   - other SSH-family + windows    -> username_password
+//   - generic_rdp                   -> username_password
+//   - database                      -> username_password
 //   - aws_account                   -> aws_credentials
 //   - azure_subscription            -> azure_service_principal
 //   - kubernetes_cluster            -> kubeconfig
+//
+// generic_vnc/generic_web are not yet represented here (see the exhaustiveness
+// exemption below); they pair with username_password or the uncreatable
+// system-singleton `none` credential.
 func e2eResourceConfigs() map[string]resourceConfig {
 	ssh := `{ host = "10.0.0.10", port = 22 }`
-	sshCred := "mistershell_credential.ssh_password.id"
+	sshCred := "mistershell_credential.username_password.id"
 
 	return map[string]resourceConfig{
-		// SSH family using ssh_password
+		// SSH family using username_password
 		"cisco_ios":         {sshCred, ssh},
 		"cisco_iosxe":       {sshCred, ssh},
 		"cisco_iosxe_sdwan": {sshCred, ssh},
@@ -51,14 +55,14 @@ func e2eResourceConfigs() map[string]resourceConfig {
 		// SSH family using ssh_key
 		"linux": {"mistershell_credential.ssh_key.id", ssh},
 
-		// windows (ssh connector) using ssh_password
+		// windows (ssh connector) using username_password
 		"windows": {sshCred, `{ host = "10.0.0.20", port = 22, rdp_port = 3389, nla_required = true, keyboard_layout = "" }`},
 
-		// generic_rdp using rdp_password
-		"generic_rdp": {"mistershell_credential.rdp_password.id", `{ host = "10.0.0.21", rdp_port = 3389, nla_required = true, keyboard_layout = "" }`},
+		// generic_rdp using username_password
+		"generic_rdp": {sshCred, `{ host = "10.0.0.21", rdp_port = 3389, nla_required = true, keyboard_layout = "" }`},
 
-		// database using db_password
-		"database": {"mistershell_credential.db_password.id", `{ engine = "postgres", host = "10.0.0.30", port = 5432 }`},
+		// database using username_password
+		"database": {sshCred, `{ engine = "postgres", host = "10.0.0.30", port = 5432 }`},
 
 		// cloud / k8s
 		"aws_account":        {"mistershell_credential.aws_credentials.id", `{ hostname = "my-aws-alias" }`},
@@ -67,17 +71,18 @@ func e2eResourceConfigs() map[string]resourceConfig {
 	}
 }
 
-// e2eCredentialData maps every supported credential_type to its credential_data
-// body. Keys MUST cover client.SupportedCredentialTypes exactly.
+// e2eCredentialData maps every creatable credential_type to its credential_data
+// body. Keys MUST cover client.SupportedCredentialTypes exactly, EXCEPT `none`:
+// `none` is a backend-managed system singleton (403 on create/edit/delete) and
+// cannot be provisioned as a mistershell_credential resource — see the
+// exhaustiveness exemption in assertExhaustive.
 func e2eCredentialData() map[string]string {
 	return map[string]string{
-		"ssh_password":            `{ username = "admin", password = "Passw0rd!", enable_password = "En4ble!" }`,
+		"username_password":       `{ username = "admin", password = "Passw0rd!", enable_password = "En4ble!" }`,
 		"ssh_key":                 `{ username = "admin", private_key = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAFAKEKEY\n-----END OPENSSH PRIVATE KEY-----", passphrase = "" }`,
 		"aws_credentials":         `{ access_key = "AKIAIOSFODNN7EXAMPLE", secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" }`,
 		"azure_service_principal": `{ client_id = "00000000-0000-0000-0000-000000000001", client_secret = "fake-secret" }`,
 		"kubeconfig":              `{ kubeconfig = "apiVersion: v1\nkind: Config\nclusters: []\ncontexts: []\nusers: []\n" }`,
-		"rdp_password":            `{ username = "Administrator", domain = "CORP", password = "Passw0rd!" }`,
-		"db_password":             `{ username = "dbadmin", password = "Passw0rd!" }`,
 	}
 }
 
@@ -87,7 +92,7 @@ func resourceTFName(resourceType string) string {
 	return resourceType
 }
 
-// e2eConfig renders the full dependency graph: 2 locations, 7 credentials,
+// e2eConfig renders the full dependency graph: 2 locations, 5 credentials,
 // 18 network resources, and a handful of data sources reading objects back.
 func e2eConfig(prefix string, rootID int64) string {
 	var b strings.Builder
@@ -153,7 +158,7 @@ data "mistershell_resource" "by_name" {
 }
 
 data "mistershell_credential" "by_id" {
-  id = mistershell_credential.ssh_password.id
+  id = mistershell_credential.username_password.id
 }
 
 data "mistershell_credential" "by_type" {
@@ -229,9 +234,9 @@ func e2eChecks() resource.TestCheckFunc {
 		resource.TestCheckResourceAttrPair("data.mistershell_resource.by_name", "id", "mistershell_resource.generic_ssh", "id"),
 		resource.TestCheckResourceAttr("data.mistershell_resource.by_name", "resource_type", "generic_ssh"),
 
-		// Data source: credential by id -> ssh_password.
-		resource.TestCheckResourceAttrPair("data.mistershell_credential.by_id", "id", "mistershell_credential.ssh_password", "id"),
-		resource.TestCheckResourceAttr("data.mistershell_credential.by_id", "credential_type", "ssh_password"),
+		// Data source: credential by id -> username_password.
+		resource.TestCheckResourceAttrPair("data.mistershell_credential.by_id", "id", "mistershell_credential.username_password", "id"),
+		resource.TestCheckResourceAttr("data.mistershell_credential.by_id", "credential_type", "username_password"),
 
 		// Data source: credential by type -> kubeconfig.
 		resource.TestCheckResourceAttrPair("data.mistershell_credential.by_type", "id", "mistershell_credential.kubeconfig", "id"),
@@ -285,6 +290,12 @@ func assertExhaustive(t *testing.T) {
 	credData := e2eCredentialData()
 	var missingCred []string
 	for _, ct := range client.SupportedCredentialTypes {
+		if ct == "none" {
+			// `none` is a backend-managed system singleton: the API returns
+			// 403 on create/edit/delete, so it cannot be provisioned as a
+			// mistershell_credential resource here. Exempt from coverage.
+			continue
+		}
 		if _, ok := credData[ct]; !ok {
 			missingCred = append(missingCred, ct)
 		}

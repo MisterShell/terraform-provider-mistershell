@@ -149,7 +149,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "tf-acc-res-win-cred"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "Administrator"
@@ -185,7 +185,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "tf-acc-res-db-cred"
-  credential_type = "db_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "app"
@@ -219,7 +219,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "tf-acc-res-cred"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "testuser"

@@ -282,7 +282,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = %[2]q
-  credential_type = "ssh_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "testuser"

@@ -12,11 +12,11 @@ import (
 //   - mistershell_tags data source (list + optional search)
 //
 // Every object name is prefixed with acctestPrefix for isolation, locations
-// hang under parent_id = 1, and each resource gets an ssh_password credential.
+// hang under parent_id = 1, and each resource gets a username_password credential.
 
-// testAccTagsPreamble builds the shared location + ssh_password credential that
-// every resource in this file depends on. The names are acctestPrefix-scoped so
-// the generic CheckDestroy / sweepers find them.
+// testAccTagsPreamble builds the shared location + username_password credential
+// that every resource in this file depends on. The names are acctestPrefix-scoped
+// so the generic CheckDestroy / sweepers find them.
 func testAccTagsPreamble() string {
 	return `
 resource "mistershell_location" "test" {
@@ -27,7 +27,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "` + acctestPrefix + `tags-cred"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "testuser"

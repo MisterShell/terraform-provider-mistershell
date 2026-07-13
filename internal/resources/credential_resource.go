@@ -65,7 +65,7 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Required:    true,
 			},
 			"credential_type": schema.StringAttribute{
-				Description: "Credential type. Cannot be changed after creation.",
+				Description: "Credential type. One of `username_password`, `ssh_key`, `aws_credentials`, `azure_service_principal`, `kubeconfig`, `none`. Cannot be changed after creation. `none` is a system singleton the API rejects on create/edit/delete (403) and cannot be managed by this resource. See the valid credential_type values table on this page for the credential_data fields and resource_type compatibility per type.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),

@@ -1,13 +1,14 @@
-# SSH password credential (for SSH-family resources and windows)
+# Username/password credential (for SSH-family, RDP, database, web, and VNC resources)
 resource "mistershell_credential" "ssh_admin" {
   name            = "dc-admin-ssh"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
   description     = "Data center admin SSH credentials"
 
   credential_data = jsonencode({
     username        = "admin"
     password        = var.ssh_password
     enable_password = var.enable_password # optional
+    domain          = ""                  # optional
   })
 }
 
@@ -58,7 +59,7 @@ resource "mistershell_credential" "k8s" {
 # RDP credential (for windows / generic_rdp resources)
 resource "mistershell_credential" "rdp_admin" {
   name            = "win-rdp-admin"
-  credential_type = "rdp_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "Administrator"
@@ -70,7 +71,7 @@ resource "mistershell_credential" "rdp_admin" {
 # Database credential (for database resources)
 resource "mistershell_credential" "app_db" {
   name            = "app-db-user"
-  credential_type = "db_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "app"

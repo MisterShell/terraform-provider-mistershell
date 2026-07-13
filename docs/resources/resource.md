@@ -183,12 +183,10 @@ output "tagged_switch_tags" {
 - `connector_id` (String) Connector type, derived by the server from resource_type.
 - `created_at` (String) Creation timestamp.
 - `extra_data` (String) Discovered metadata as JSON. Auto-populated by MisterShell from connectivity checks.
-- `health_status` (String) Health status (healthy, degraded, critical, unknown).
 - `id` (Number) Resource ID.
 - `last_collection_at` (String) Timestamp of last data collection.
 - `last_connectivity_check` (String) Timestamp of last connectivity check.
-- `last_health_at` (String) Timestamp of last health check.
-- `last_snapshot_at` (String) Timestamp of last configuration snapshot.
+- `last_connectivity_result` (String) Structured result of the most recent connectivity check (read-only).
 - `next_collection_at` (String) Scheduled time for next data collection.
 - `status` (String) Connectivity status (unknown, verified, unreachable, auth_failed, error, identity_mismatch, snapshot_truncated).
 - `tags` (Attributes List) The tags currently assigned to this resource (read-back), as objects with id, name, color, and description. Always reflects server state regardless of whether tag_ids is managed. (see [below for nested schema](#nestedatt--tags))
