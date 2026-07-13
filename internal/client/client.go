@@ -217,7 +217,7 @@ type LocationListFilter struct {
 func (c *Client) ListLocations(ctx context.Context, filter LocationListFilter) ([]LocationResponse, error) {
 	params := url.Values{}
 	params.Set("page", "1")
-	params.Set("size", "100")
+	params.Set("size", "10000")
 	if filter.Search != "" {
 		params.Set("search", filter.Search)
 	}
@@ -337,7 +337,7 @@ type NetworkResourceListFilter struct {
 func (c *Client) ListNetworkResources(ctx context.Context, filter NetworkResourceListFilter) ([]NetworkResourceResponse, error) {
 	params := url.Values{}
 	params.Set("page", "1")
-	params.Set("size", "100")
+	params.Set("size", "10000")
 	if filter.Search != "" {
 		params.Set("search", filter.Search)
 	}
@@ -450,7 +450,7 @@ type CredentialListFilter struct {
 func (c *Client) ListCredentials(ctx context.Context, filter CredentialListFilter) ([]CredentialResponse, error) {
 	params := url.Values{}
 	params.Set("page", "1")
-	params.Set("size", "100")
+	params.Set("size", "10000")
 	if filter.Search != "" {
 		params.Set("search", filter.Search)
 	}
@@ -1368,7 +1368,7 @@ func (c *Client) DeleteAuthProvider(ctx context.Context, id int64) error {
 func (c *Client) ListAuthProviders(ctx context.Context, filter AuthProviderListFilter) ([]AuthProviderResponse, error) {
 	params := url.Values{}
 	params.Set("page", "1")
-	params.Set("size", "1000")
+	params.Set("size", "10000")
 	if filter.Search != "" {
 		params.Set("search", filter.Search)
 	}
