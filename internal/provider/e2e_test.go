@@ -30,10 +30,8 @@ type resourceConfig struct {
 //   - aws_account                   -> aws_credentials
 //   - azure_subscription            -> azure_service_principal
 //   - kubernetes_cluster            -> kubeconfig
-//
-// generic_vnc/generic_web are not yet represented here (see the exhaustiveness
-// exemption below); they pair with username_password or the uncreatable
-// system-singleton `none` credential.
+//   - generic_vnc                   -> username_password
+//   - generic_web                   -> username_password
 func e2eResourceConfigs() map[string]resourceConfig {
 	ssh := `{ host = "10.0.0.10", port = 22 }`
 	sshCred := "mistershell_credential.username_password.id"
@@ -63,6 +61,12 @@ func e2eResourceConfigs() map[string]resourceConfig {
 
 		// database using username_password
 		"database": {sshCred, `{ engine = "postgres", host = "10.0.0.30", port = 5432 }`},
+
+		// generic_vnc using username_password
+		"generic_vnc": {sshCred, `{ host = "10.0.0.30", vnc_port = 5900 }`},
+
+		// generic_web using username_password
+		"generic_web": {sshCred, `{ url = "https://10.0.0.31" }`},
 
 		// cloud / k8s
 		"aws_account":        {"mistershell_credential.aws_credentials.id", `{ hostname = "my-aws-alias" }`},
