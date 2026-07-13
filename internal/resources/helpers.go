@@ -80,14 +80,6 @@ func float64ValueToPtr(f types.Float64) *float64 {
 	return &v
 }
 
-// boolPtrToValue converts *bool to types.Bool.
-func boolPtrToValue(b *bool) types.Bool {
-	if b == nil {
-		return types.BoolNull()
-	}
-	return types.BoolValue(*b)
-}
-
 // boolValueToPtr converts types.Bool to *bool.
 func boolValueToPtr(b types.Bool) *bool {
 	if b.IsNull() || b.IsUnknown() {
