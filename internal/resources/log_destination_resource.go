@@ -52,7 +52,7 @@ func (r *LogDestinationResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *LogDestinationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell log destination, forwarding security/policy/api/app log streams to a syslog server or webhook endpoint. The config attribute is an opaque per-type JSON blob (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).",
+		Description: "Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is an opaque per-type JSON blob (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Log destination ID.",
@@ -85,7 +85,7 @@ func (r *LogDestinationResource) Schema(_ context.Context, _ resource.SchemaRequ
 				},
 			},
 			"streams": schema.SetAttribute{
-				Description: "Log streams to forward. At least one of: security, policy, api, app.",
+				Description: "Log streams to forward. At least one of: security, policy, api, app, ids, collector.",
 				Required:    true,
 				ElementType: types.StringType,
 				Validators: []validator.Set{

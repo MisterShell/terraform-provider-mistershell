@@ -135,7 +135,14 @@ func (d *AIToolDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 				fmt.Sprintf("Found %d AI tools matching name %q.", len(filtered), name))
 			return
 		}
-		tool = &filtered[0]
+		// List returns the slim list shape; re-fetch the full object by id so
+		// name lookups match id lookups (see auth_provider for the reference pattern).
+		full, err := d.client.GetAITool(ctx, filtered[0].ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading AI tool", err.Error())
+			return
+		}
+		tool = full
 	}
 
 	config.ID = types.Int64Value(tool.ID)

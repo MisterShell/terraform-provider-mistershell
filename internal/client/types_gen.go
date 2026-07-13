@@ -42,6 +42,8 @@ var SupportedResourceTypes = []string{
 	"database",
 	"generic_rdp",
 	"generic_ssh",
+	"generic_vnc",
+	"generic_web",
 	"infoblox_nios",
 	"kubernetes_cluster",
 	"linux",
@@ -54,11 +56,10 @@ var SupportedResourceTypes = []string{
 var SupportedCredentialTypes = []string{
 	"aws_credentials",
 	"azure_service_principal",
-	"db_password",
 	"kubeconfig",
-	"rdp_password",
+	"none",
 	"ssh_key",
-	"ssh_password",
+	"username_password",
 }
 
 // SupportedLogDestinationTypes are the log-destination type values.
@@ -71,6 +72,8 @@ var SupportedLogDestinationTypes = []string{
 var SupportedLogStreams = []string{
 	"api",
 	"app",
+	"collector",
+	"ids",
 	"policy",
 	"security",
 }

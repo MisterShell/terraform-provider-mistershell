@@ -12,7 +12,7 @@ Manages a MisterShell network resource (device, cloud account, Kubernetes cluste
 ## Example Usage
 
 ```terraform
-# SSH device (Cisco IOS-XE switch) -> ssh_password / ssh_key
+# SSH device (Cisco IOS-XE switch) -> username_password / ssh_key
 resource "mistershell_resource" "core_switch" {
   name          = "core-sw-01.zurich"
   resource_type = "cisco_iosxe"
@@ -26,7 +26,7 @@ resource "mistershell_resource" "core_switch" {
   })
 }
 
-# Windows server (SSH/OpenSSH + RDP) -> ssh_password (also accepts ssh_key, rdp_password)
+# Windows server (SSH/OpenSSH + RDP) -> username_password (also accepts ssh_key)
 resource "mistershell_resource" "win_jumpbox" {
   name          = "win-jump-01.zurich"
   resource_type = "windows"
@@ -43,7 +43,7 @@ resource "mistershell_resource" "win_jumpbox" {
   })
 }
 
-# RDP-only host -> rdp_password
+# RDP-only host -> username_password
 resource "mistershell_resource" "rdp_host" {
   name          = "rdp-app-01.zurich"
   resource_type = "generic_rdp"
@@ -58,7 +58,7 @@ resource "mistershell_resource" "rdp_host" {
   })
 }
 
-# SQL database -> db_password
+# SQL database -> username_password
 resource "mistershell_resource" "app_db" {
   name          = "app-postgres-01.zurich"
   resource_type = "database"
@@ -183,12 +183,10 @@ output "tagged_switch_tags" {
 - `connector_id` (String) Connector type, derived by the server from resource_type.
 - `created_at` (String) Creation timestamp.
 - `extra_data` (String) Discovered metadata as JSON. Auto-populated by MisterShell from connectivity checks.
-- `health_status` (String) Health status (healthy, degraded, critical, unknown).
 - `id` (Number) Resource ID.
 - `last_collection_at` (String) Timestamp of last data collection.
 - `last_connectivity_check` (String) Timestamp of last connectivity check.
-- `last_health_at` (String) Timestamp of last health check.
-- `last_snapshot_at` (String) Timestamp of last configuration snapshot.
+- `last_connectivity_result` (String) Structured result of the most recent connectivity check (read-only).
 - `next_collection_at` (String) Scheduled time for next data collection.
 - `status` (String) Connectivity status (unknown, verified, unreachable, auth_failed, error, identity_mismatch, snapshot_truncated).
 - `tags` (Attributes List) The tags currently assigned to this resource (read-back), as objects with id, name, color, and description. Always reflects server state regardless of whether tag_ids is managed. (see [below for nested schema](#nestedatt--tags))
@@ -215,24 +213,54 @@ present; optional fields fall back to the noted defaults when omitted.
 
 | resource_type | Connector | Required connector_data | Optional connector_data (default) | Compatible credential_type(s) |
 |---|---|---|---|---|
-| `cisco_ios` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `cisco_iosxe` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `cisco_iosxe_sdwan` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `cisco_nxos` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `cisco_ise` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `cisco_vbond` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `cisco_vmanage` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `cisco_vsmart` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `generic_ssh` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `infoblox_nios` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `linux` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `panos_ssh` | SSH | `host` | `port` (22) | `ssh_password`, `ssh_key` |
-| `windows` | SSH/OpenSSH + RDP | `host` | `port` (22), `rdp_port` (3389), `nla_required` (true), `keyboard_layout` ("" = en-US) | `ssh_password`, `ssh_key`, `rdp_password` |
-| `generic_rdp` | RDP | `host` | `rdp_port` (3389), `nla_required` (true), `keyboard_layout` ("" = en-US) | `rdp_password` |
-| `database` | DB | `engine`, `host` | `port` (engine default; see below) | `db_password` |
+| `cisco_ios` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `cisco_iosxe` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `cisco_iosxe_sdwan` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `cisco_nxos` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `cisco_ise` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `cisco_vbond` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `cisco_vmanage` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `cisco_vsmart` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `generic_ssh` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `infoblox_nios` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `linux` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `panos_ssh` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
+| `windows` | SSH/OpenSSH + RDP | `host` | `port` (22), `rdp_port` (3389), `nla_required` (true), `keyboard_layout` ("" = en-US) | `username_password`, `ssh_key` |
+| `generic_rdp` | RDP | `host` | `rdp_port` (3389), `nla_required` (true), `keyboard_layout` ("" = en-US) | `username_password` |
+| `generic_vnc` | VNC (RFB) | `host` | `vnc_port` (5900) | `username_password`, `none` |
+| `generic_web` | Web (CDP browser) | `url` | `origin_lock` (true), `ignore_cert_errors` (false), `auth_mode` (auto; see below) | `username_password`, `none` |
+| `database` | DB | `engine`, `host` | `port` (engine default; see below) | `username_password` |
 | `aws_account` | AWS API | _(none)_ | `hostname` (account alias) | `aws_credentials` |
 | `azure_subscription` | Azure API | `tenant_id`, `subscription_id` | `cloud` (AzureCloud) | `azure_service_principal` |
 | `kubernetes_cluster` | Kubernetes API | _(none)_ | `context` (kubeconfig context), `namespace` (default namespace) | `kubeconfig` |
+
+`generic_vnc` and `generic_web` are remote-access-only types (graphical
+sessions; no operational handler, health metrics, or config snapshot) and are
+the only types that accept the `none` credential type, for unauthenticated
+targets.
+
+### `generic_web` `auth_mode` values
+
+`auth_mode` controls how the browser worker injects login credentials on
+`generic_web` targets; it defaults to `auto`.
+
+| auth_mode | meaning |
+|---|---|
+| `auto` | try HTTP Basic, then HTML form (default) |
+| `basic` | HTTP Basic auth only |
+| `form` | HTML form auto-fill only |
+| `sequence` | play a fixed key-sequence login macro |
+| `none` | no credential injection |
+
+When `auth_mode = "form"`, the optional `username_selector` /
+`password_selector` / `submit_selector` connector_data fields (CSS selector
+overrides, default `""`) can target a non-standard login form. When
+`auth_mode = "sequence"`, the optional `key_sequence` field (default `""`)
+supplies the macro (tokens `<TAB>`, `<ENTER>`, `<SPACE>`, `<ESC>`,
+`<BACKSPACE>`, arrow keys, `<SLEEP:n>`, and username/password placeholder
+tokens; other text is typed verbatim). These four are advanced, mode-specific
+fields kept minimal here — see the backend connector schema for exhaustive
+detail.
 
 ### database `engine` values
 
@@ -259,8 +287,7 @@ For `resource_type = "azure_subscription"`, the optional `cloud` field accepts:
 
 ## Read-only status values
 
-`status` and `health_status` are computed by the server and reported back on the
-resource.
+`status` is computed by the server and reported back on the resource.
 
 ### `status` values
 
@@ -273,15 +300,6 @@ resource.
 | `error` | a collection or connectivity error occurred |
 | `identity_mismatch` | the device identity did not match expectations |
 | `snapshot_truncated` | the configuration snapshot was truncated |
-
-### `health_status` values
-
-| health_status | meaning |
-|---|---|
-| `healthy` | operating normally |
-| `degraded` | partially impaired |
-| `critical` | severely impaired |
-| `unknown` | not yet evaluated |
 
 ## Tagging
 

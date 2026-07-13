@@ -141,7 +141,14 @@ func (d *AIModelDataSource) Read(ctx context.Context, req datasource.ReadRequest
 				fmt.Sprintf("Found %d AI models matching name %q.", len(filtered), name))
 			return
 		}
-		model = &filtered[0]
+		// List returns the slim list shape; re-fetch the full object by id so
+		// name lookups match id lookups (see auth_provider for the reference pattern).
+		full, err := d.client.GetAIModel(ctx, filtered[0].ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading AI model", err.Error())
+			return
+		}
+		model = full
 	}
 
 	config.ID = types.Int64Value(model.ID)

@@ -2,12 +2,12 @@
 page_title: "mistershell_resource Data Source - terraform-provider-mistershell"
 subcategory: ""
 description: |-
-  Reads a MisterShell network resource. Look up by id for a direct fetch, or use name/resource_type/location_id/status/health_status to search. Search filters must match exactly one resource.
+  Reads a MisterShell network resource. Look up by id for a direct fetch, or use name/resource_type/location_id/status to search. Search filters must match exactly one resource.
 ---
 
 # mistershell_resource (Data Source)
 
-Reads a MisterShell network resource. Look up by id for a direct fetch, or use name/resource_type/location_id/status/health_status to search. Search filters must match exactly one resource.
+Reads a MisterShell network resource. Look up by id for a direct fetch, or use name/resource_type/location_id/status to search. Search filters must match exactly one resource.
 
 ## Example Usage
 
@@ -45,7 +45,6 @@ output "switch_tags" {
 
 ### Optional
 
-- `health_status` (String) Health status filter (healthy, degraded, critical, unknown).
 - `id` (Number) Resource ID. Use for direct lookup.
 - `location_id` (Number) Location ID filter.
 - `name` (String) Resource name. Used as a search filter when id is not specified.
@@ -63,8 +62,7 @@ output "switch_tags" {
 - `is_enabled` (Boolean) Whether the resource is enabled.
 - `last_collection_at` (String) Timestamp of last data collection.
 - `last_connectivity_check` (String) Timestamp of last connectivity check.
-- `last_health_at` (String) Timestamp of last health check.
-- `last_snapshot_at` (String) Timestamp of last configuration snapshot.
+- `last_connectivity_result` (String) Structured result of the most recent connectivity check (read-only).
 - `next_collection_at` (String) Scheduled time for next data collection.
 - `tags` (Attributes List) Tags assigned to this resource, as objects with id, name, color, and description. (see [below for nested schema](#nestedatt--tags))
 - `updated_at` (String) Last update timestamp.
@@ -100,6 +98,8 @@ values:
 | `panos_ssh` | SSH |
 | `windows` | SSH/OpenSSH + RDP |
 | `generic_rdp` | RDP |
+| `generic_vnc` | VNC (RFB) |
+| `generic_web` | Web (CDP browser) |
 | `database` | DB |
 | `aws_account` | AWS API |
 | `azure_subscription` | Azure API |
@@ -116,15 +116,6 @@ values:
 | `error` | a collection or connectivity error occurred |
 | `identity_mismatch` | the device identity did not match expectations |
 | `snapshot_truncated` | the configuration snapshot was truncated |
-
-## Valid `health_status` filter values
-
-| health_status | meaning |
-|---|---|
-| `healthy` | operating normally |
-| `degraded` | partially impaired |
-| `critical` | severely impaired |
-| `unknown` | not yet evaluated |
 
 ## Computed `tags`
 

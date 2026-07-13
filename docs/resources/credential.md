@@ -12,16 +12,17 @@ Manages a MisterShell credential. Credentials are encrypted at rest and used by 
 ## Example Usage
 
 ```terraform
-# SSH password credential (for SSH-family resources and windows)
+# Username/password credential (for SSH-family, RDP, database, web, and VNC resources)
 resource "mistershell_credential" "ssh_admin" {
   name            = "dc-admin-ssh"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
   description     = "Data center admin SSH credentials"
 
   credential_data = jsonencode({
     username        = "admin"
     password        = var.ssh_password
     enable_password = var.enable_password # optional
+    domain          = ""                  # optional
   })
 }
 
@@ -72,7 +73,7 @@ resource "mistershell_credential" "k8s" {
 # RDP credential (for windows / generic_rdp resources)
 resource "mistershell_credential" "rdp_admin" {
   name            = "win-rdp-admin"
-  credential_type = "rdp_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "Administrator"
@@ -84,7 +85,7 @@ resource "mistershell_credential" "rdp_admin" {
 # Database credential (for database resources)
 resource "mistershell_credential" "app_db" {
   name            = "app-db-user"
-  credential_type = "db_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "app"
@@ -149,7 +150,7 @@ variable "kubeconfig" {
 ### Required
 
 - `credential_data` (String, Sensitive) Credential secret data as JSON. Use jsonencode() in HCL. Fields vary by credential_type; see the valid credential_type values table on this page for the fields per type. Note: the API masks secret values in responses, so this value is stored from config, not read back from the server.
-- `credential_type` (String) Credential type. Cannot be changed after creation.
+- `credential_type` (String) Credential type. One of `username_password`, `ssh_key`, `aws_credentials`, `azure_service_principal`, `kubeconfig`, `none`. Cannot be changed after creation. `none` is a system singleton the API rejects on create/edit/delete (403) and cannot be managed by this resource. See the valid credential_type values table on this page for the credential_data fields and resource_type compatibility per type.
 - `name` (String) Unique credential name.
 
 ### Optional
@@ -174,15 +175,44 @@ stored from your configuration and never read back from the server, so
 `credential_data` is managed entirely from config (after importing a credential
 by ID you must set `credential_data` in config yourself).
 
-| credential_type | Required fields | Optional fields | Secret (masked) fields | Used by resource_type(s) |
-|---|---|---|---|---|
-| `ssh_password` | `username`, `password` | `enable_password` | `password`, `enable_password` | all SSH-family, `windows` |
-| `ssh_key` | `username`, `private_key` | `passphrase`, `enable_password` | `private_key`, `passphrase`, `enable_password` | all SSH-family, `windows` |
-| `aws_credentials` | `access_key`, `secret_key` | _(none)_ | `secret_key` | `aws_account` |
-| `azure_service_principal` | `client_id`, `client_secret` | _(none)_ | `client_secret` | `azure_subscription` |
-| `kubeconfig` | `kubeconfig` | _(none)_ | `kubeconfig` | `kubernetes_cluster` |
-| `rdp_password` | `username`, `password` | `domain` | `password` | `generic_rdp`, `windows` |
-| `db_password` | `username`, `password` | _(none)_ | `password` | `database` |
+| credential_type | Creatable | Purpose |
+|---|---|---|
+| `username_password` | yes | Username/password identity (SSH, RDP, web, database, VNC) |
+| `ssh_key` | yes | SSH key auth |
+| `aws_credentials` | yes | AWS access/secret key |
+| `azure_service_principal` | yes | Azure Entra service principal |
+| `kubeconfig` | yes | Kubernetes kubeconfig |
+| `none` | **no** — system singleton; the API returns 403 on create/edit/delete | No-auth, used by unauthenticated web / None-auth VNC |
+
+`none` is a backend-managed singleton exposed for reference (e.g. via the
+`mistershell_credential` data source) but cannot be created, edited, or deleted
+through this provider.
+
+### `credential_data` fields per type
+
+Secret fields are masked as `****` by the API in responses.
+
+| credential_type | Required fields | Optional fields | Secret (masked) fields |
+|---|---|---|---|
+| `username_password` | `username`, `password` | `enable_password`, `domain` | `password`, `enable_password` |
+| `ssh_key` | `username`, `private_key` | `passphrase`, `enable_password` | `private_key`, `passphrase`, `enable_password` |
+| `aws_credentials` | `access_key`, `secret_key` | _(none)_ | `secret_key` |
+| `azure_service_principal` | `client_id`, `client_secret` | _(none)_ | `client_secret` |
+| `kubeconfig` | `kubeconfig` | _(none)_ | `kubeconfig` |
+| `none` | _(none — empty `{}`)_ | _(none)_ | _(none)_ |
+
+### `credential_type` ↔ `resource_type` compatibility
+
+| resource_type | accepted credential_type(s) |
+|---|---|
+| `cisco_ios`, `cisco_iosxe`, `cisco_iosxe_sdwan`, `cisco_nxos`, `cisco_vmanage`, `cisco_vsmart`, `cisco_vbond`, `cisco_ise`, `generic_ssh`, `linux`, `windows`, `panos_ssh`, `infoblox_nios` | `username_password`, `ssh_key` |
+| `database` | `username_password` |
+| `generic_rdp` | `username_password` |
+| `generic_web` | `username_password`, `none` |
+| `generic_vnc` | `username_password`, `none` |
+| `aws_account` | `aws_credentials` |
+| `azure_subscription` | `azure_service_principal` |
+| `kubernetes_cluster` | `kubeconfig` |
 
 The SSH-family resource types are: `cisco_ios`, `cisco_iosxe`,
 `cisco_iosxe_sdwan`, `cisco_nxos`, `cisco_ise`, `cisco_vbond`, `cisco_vmanage`,

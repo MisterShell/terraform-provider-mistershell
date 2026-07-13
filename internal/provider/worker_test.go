@@ -80,6 +80,7 @@ func TestAccWorker_dataSource(t *testing.T) {
 					// by name
 					resource.TestCheckResourceAttrPair("data.mistershell_worker.by_name", "id", "mistershell_worker.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_worker.by_name", "name", name),
+					resource.TestCheckResourceAttrSet("data.mistershell_worker.by_name", "config"),
 				),
 			},
 		},

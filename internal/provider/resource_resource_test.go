@@ -36,10 +36,24 @@ func TestAccNetworkResource_basic(t *testing.T) {
 			},
 			// Import
 			{
-				ResourceName:            "mistershell_resource.test",
-				ImportState:             true,
-				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"connector_data"},
+				ResourceName:      "mistershell_resource.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				// The backend runs an async connectivity check right after create,
+				// which can land between apply and import and mutate these
+				// server-computed fields (status flips from "unknown" to its
+				// checked value, updated_at bumps alongside it, and the
+				// last_connectivity_*/*_collection_at timestamps populate).
+				// They are genuinely volatile, not stable lifecycle attributes.
+				ImportStateVerifyIgnore: []string{
+					"connector_data",
+					"status",
+					"updated_at",
+					"last_connectivity_check",
+					"last_connectivity_result",
+					"last_collection_at",
+					"next_collection_at",
+				},
 			},
 		},
 	})
@@ -149,7 +163,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "tf-acc-res-win-cred"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "Administrator"
@@ -185,7 +199,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "tf-acc-res-db-cred"
-  credential_type = "db_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "app"
@@ -219,7 +233,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "tf-acc-res-cred"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "testuser"

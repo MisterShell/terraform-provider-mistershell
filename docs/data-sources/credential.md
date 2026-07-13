@@ -33,7 +33,7 @@ data "mistershell_credential" "k8s" {
 
 ### Optional
 
-- `credential_type` (String) Credential type filter (ssh_password, ssh_key, aws_credentials, azure_service_principal, kubeconfig, rdp_password, db_password).
+- `credential_type` (String) Credential type filter. One of: username_password, ssh_key, aws_credentials, azure_service_principal, kubeconfig, none.
 - `id` (Number) Credential ID. Use for direct lookup.
 - `name` (String) Credential name (unique). Used as a search filter when id is not specified.
 
@@ -51,12 +51,15 @@ data "mistershell_credential" "k8s" {
 The `credential_type` argument filters the search to a single credential type.
 Valid values:
 
-| credential_type | Used by resource_type(s) |
-|---|---|
-| `ssh_password` | all SSH-family, `windows` |
-| `ssh_key` | all SSH-family, `windows` |
-| `aws_credentials` | `aws_account` |
-| `azure_service_principal` | `azure_subscription` |
-| `kubeconfig` | `kubernetes_cluster` |
-| `rdp_password` | `generic_rdp`, `windows` |
-| `db_password` | `database` |
+| credential_type | Creatable | Used by resource_type(s) |
+|---|---|---|
+| `username_password` | yes | all SSH-family, `windows`, `database`, `generic_rdp`, `generic_web`, `generic_vnc` |
+| `ssh_key` | yes | all SSH-family, `windows` |
+| `aws_credentials` | yes | `aws_account` |
+| `azure_service_principal` | yes | `azure_subscription` |
+| `kubeconfig` | yes | `kubernetes_cluster` |
+| `none` | no — system singleton, 403 on create/edit/delete | `generic_web`, `generic_vnc` |
+
+The SSH-family resource types are: `cisco_ios`, `cisco_iosxe`,
+`cisco_iosxe_sdwan`, `cisco_nxos`, `cisco_ise`, `cisco_vbond`, `cisco_vmanage`,
+`cisco_vsmart`, `generic_ssh`, `infoblox_nios`, `linux`, `panos_ssh`.

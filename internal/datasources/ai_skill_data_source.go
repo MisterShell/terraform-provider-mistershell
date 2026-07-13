@@ -150,7 +150,14 @@ func (d *AISkillDataSource) Read(ctx context.Context, req datasource.ReadRequest
 				fmt.Sprintf("Found %d AI skills matching name %q.", len(filtered), name))
 			return
 		}
-		skill = &filtered[0]
+		// List returns the slim list shape; re-fetch the full object by id so
+		// name lookups match id lookups (see auth_provider for the reference pattern).
+		full, err := d.client.GetAISkill(ctx, filtered[0].ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading AI skill", err.Error())
+			return
+		}
+		skill = full
 	}
 
 	config.ID = types.Int64Value(skill.ID)

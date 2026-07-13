@@ -21,15 +21,15 @@ import (
 //   - Plan-time validator-error steps (PlanOnly + ExpectError) create nothing,
 //     so their TestCase omits CheckDestroy.
 //   - Locations hang under parent_id = 1; resources are resource_type="linux"
-//     with an ssh_password credential and a {host,port} connector_data.
+//     with a username_password credential and a {host,port} connector_data.
 
 // ---------------------------------------------------------------------------
 // Shared config helpers
 // ---------------------------------------------------------------------------
 
-// edgePreamble builds the shared location + ssh_password credential that the
-// network-resource edge cases depend on. acctestPrefix-scoped so the generic
-// CheckDestroy / sweepers find them.
+// edgePreamble builds the shared location + username_password credential that
+// the network-resource edge cases depend on. acctestPrefix-scoped so the
+// generic CheckDestroy / sweepers find them.
 func edgePreamble() string {
 	return `
 resource "mistershell_location" "test" {
@@ -40,7 +40,7 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "` + acctestPrefix + `edge-cred"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "testuser"
@@ -292,8 +292,9 @@ resource "mistershell_tag" "test" {
 func TestAccEdge_BackendConstraints(t *testing.T) {
 	testAccPreCheck(t)
 
-	// --- windows resource paired with an rdp_password credential. The backend
-	// requires SSH credentials for a windows resource, so create should fail.
+	// --- windows resource paired with an aws_credentials credential. windows
+	// only accepts username_password/ssh_key (see the compatibility matrix on
+	// the mistershell_credential resource docs page), so create should fail.
 	// (If this actually succeeds live, flip it to an expected-success test.)
 	t.Run("windows_cred_mismatch", func(t *testing.T) {
 		mismatch := `
@@ -305,11 +306,11 @@ resource "mistershell_location" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "` + acctestPrefix + `edge-mismatch-cred"
-  credential_type = "rdp_password"
+  credential_type = "aws_credentials"
 
   credential_data = jsonencode({
-    username = "Administrator"
-    password = "testpass123"
+    access_key = "AKIAIOSFODNN7EXAMPLE"
+    secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
   })
 }
 
@@ -611,7 +612,7 @@ resource "mistershell_tag" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "` + acctestPrefix + `edge-clear-cred"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
   description     = "initial description"
 
   credential_data = jsonencode({
@@ -628,7 +629,7 @@ resource "mistershell_tag" "test" {
 
 resource "mistershell_credential" "test" {
   name            = "` + acctestPrefix + `edge-clear-cred"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "testuser"

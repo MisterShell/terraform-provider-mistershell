@@ -124,6 +124,8 @@ The complete set of inventory resource-type strings (empty = Any):
 | `database` |
 | `generic_rdp` |
 | `generic_ssh` |
+| `generic_vnc` |
+| `generic_web` |
 | `infoblox_nios` |
 | `kubernetes_cluster` |
 | `linux` |
