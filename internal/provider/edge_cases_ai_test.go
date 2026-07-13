@@ -83,6 +83,19 @@ resource "mistershell_ai_agent" "bad" {
 				PlanOnly:    true,
 				ExpectError: oneOf,
 			},
+			// ai_skill agent_types per-element OneOf(SupportedAIAgentTypes) —
+			// "not_an_agent" is not a valid AIAgentType.
+			{
+				Config: fmt.Sprintf(`
+resource "mistershell_ai_skill" "bad" {
+  name        = %q
+  body        = "# x"
+  agent_types = ["not_an_agent"]
+}
+`, acctestPrefix+"enum-skill"),
+				PlanOnly:    true,
+				ExpectError: oneOf,
+			},
 		},
 	})
 }
