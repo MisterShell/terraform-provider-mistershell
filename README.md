@@ -55,7 +55,7 @@ resource "mistershell_location" "zurich" {
 # Create a credential
 resource "mistershell_credential" "ssh_admin" {
   name            = "dc-admin-ssh"
-  credential_type = "ssh_password"
+  credential_type = "username_password"
 
   credential_data = jsonencode({
     username = "admin"
@@ -93,16 +93,16 @@ All data sources support lookup by `id` or by search filters. Filters must match
 | Data Source | Lookup by |
 |---|---|
 | `mistershell_location` | `id`, `name`, `kind`, `parent_id` |
-| `mistershell_resource` | `id`, `name`, `resource_type`, `location_id`, `status`, `health_status` |
+| `mistershell_resource` | `id`, `name`, `resource_type`, `location_id`, `status` |
 | `mistershell_credential` | `id`, `name`, `credential_type` |
 
 ## Supported Resource Types
 
-`cisco_ios`, `cisco_iosxe`, `cisco_iosxe_sdwan`, `cisco_nxos`, `cisco_ise`, `cisco_vbond`, `cisco_vmanage`, `cisco_vsmart`, `infoblox_nios`, `generic_ssh`, `linux`, `windows`, `panos_ssh`, `generic_rdp`, `aws_account`, `azure_subscription`, `kubernetes_cluster`, `database`
+`cisco_ios`, `cisco_iosxe`, `cisco_iosxe_sdwan`, `cisco_nxos`, `cisco_ise`, `cisco_vbond`, `cisco_vmanage`, `cisco_vsmart`, `infoblox_nios`, `generic_ssh`, `linux`, `windows`, `panos_ssh`, `generic_rdp`, `generic_vnc`, `generic_web`, `aws_account`, `azure_subscription`, `kubernetes_cluster`, `database`
 
 ## Supported Credential Types
 
-`ssh_password`, `ssh_key`, `aws_credentials`, `azure_service_principal`, `kubeconfig`, `rdp_password`, `db_password`
+`username_password`, `ssh_key`, `aws_credentials`, `azure_service_principal`, `kubeconfig`, `none` (`none` is a backend-managed singleton; not creatable through this provider)
 
 ## Development
 

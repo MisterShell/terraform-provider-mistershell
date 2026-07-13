@@ -119,6 +119,8 @@ inventory resource-type strings; the complete set of valid values is:
 | `database` |
 | `generic_rdp` |
 | `generic_ssh` |
+| `generic_vnc` |
+| `generic_web` |
 | `infoblox_nios` |
 | `kubernetes_cluster` |
 | `linux` |

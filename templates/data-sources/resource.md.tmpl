@@ -38,6 +38,8 @@ values:
 | `panos_ssh` | SSH |
 | `windows` | SSH/OpenSSH + RDP |
 | `generic_rdp` | RDP |
+| `generic_vnc` | VNC (RFB) |
+| `generic_web` | Web (CDP browser) |
 | `database` | DB |
 | `aws_account` | AWS API |
 | `azure_subscription` | Azure API |
@@ -54,15 +56,6 @@ values:
 | `error` | a collection or connectivity error occurred |
 | `identity_mismatch` | the device identity did not match expectations |
 | `snapshot_truncated` | the configuration snapshot was truncated |
-
-## Valid `health_status` filter values
-
-| health_status | meaning |
-|---|---|
-| `healthy` | operating normally |
-| `degraded` | partially impaired |
-| `critical` | severely impaired |
-| `unknown` | not yet evaluated |
 
 ## Computed `tags`
 

@@ -1,4 +1,4 @@
-# SSH device (Cisco IOS-XE switch) -> ssh_password / ssh_key
+# SSH device (Cisco IOS-XE switch) -> username_password / ssh_key
 resource "mistershell_resource" "core_switch" {
   name          = "core-sw-01.zurich"
   resource_type = "cisco_iosxe"
@@ -12,7 +12,7 @@ resource "mistershell_resource" "core_switch" {
   })
 }
 
-# Windows server (SSH/OpenSSH + RDP) -> ssh_password (also accepts ssh_key, rdp_password)
+# Windows server (SSH/OpenSSH + RDP) -> username_password (also accepts ssh_key)
 resource "mistershell_resource" "win_jumpbox" {
   name          = "win-jump-01.zurich"
   resource_type = "windows"
@@ -29,7 +29,7 @@ resource "mistershell_resource" "win_jumpbox" {
   })
 }
 
-# RDP-only host -> rdp_password
+# RDP-only host -> username_password
 resource "mistershell_resource" "rdp_host" {
   name          = "rdp-app-01.zurich"
   resource_type = "generic_rdp"
@@ -44,7 +44,7 @@ resource "mistershell_resource" "rdp_host" {
   })
 }
 
-# SQL database -> db_password
+# SQL database -> username_password
 resource "mistershell_resource" "app_db" {
   name          = "app-postgres-01.zurich"
   resource_type = "database"

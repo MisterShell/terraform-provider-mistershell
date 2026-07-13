@@ -2,12 +2,12 @@
 page_title: "mistershell_log_destination Resource - terraform-provider-mistershell"
 subcategory: ""
 description: |-
-  Manages a MisterShell log destination, forwarding security/policy/api/app log streams to a syslog server or webhook endpoint. The config attribute is an opaque per-type JSON blob (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).
+  Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is an opaque per-type JSON blob (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).
 ---
 
 # mistershell_log_destination (Resource)
 
-Manages a MisterShell log destination, forwarding security/policy/api/app log streams to a syslog server or webhook endpoint. The config attribute is an opaque per-type JSON blob (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).
+Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is an opaque per-type JSON blob (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).
 
 ## Example Usage
 
@@ -36,7 +36,7 @@ resource "mistershell_log_destination" "webhook" {
   name         = "siem-webhook"
   type         = "webhook"
   enabled      = true
-  streams      = ["security", "policy", "api", "app"]
+  streams      = ["security", "policy", "api", "app", "ids", "collector"]
   min_severity = "info"
 
   config = jsonencode({
@@ -69,7 +69,7 @@ variable "webhook_token" {
 
 - `config` (String, Sensitive) Per-type config as JSON. Use jsonencode() in HCL. For type=syslog: host, port, protocol, format, facility, tls_verify. For type=webhook: url, method, headers, auth, body_format, timeout_seconds, tls_verify. Webhook auth secrets (bearer token, basic password, header value) are masked as '****' by the API and stored from config, not read back. See the config field tables on this page.
 - `name` (String) Log destination name (1-128 characters).
-- `streams` (Set of String) Log streams to forward. At least one of: security, policy, api, app.
+- `streams` (Set of String) Log streams to forward. At least one of: security, policy, api, app, ids, collector.
 - `type` (String) Destination type. One of: syslog, webhook. Cannot be changed after creation (the config shape is type-coupled).
 
 ### Optional
@@ -111,6 +111,8 @@ At least one is required. The set is order-independent.
 | `policy` | Session policy log events |
 | `api` | API access log events |
 | `app` | Application / worker log events |
+| `ids` | IDS / intrusion-detection log events |
+| `collector` | Collector-service log events |
 
 ### `min_severity` values
 
