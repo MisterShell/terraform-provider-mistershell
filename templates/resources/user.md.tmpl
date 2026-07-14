@@ -24,7 +24,7 @@ description: |-
 | `email` | Required. Unique. Changing forces replacement. |
 | `first_name` | Required. |
 | `last_name` | Required. |
-| `password` | Optional. Min 8 characters. Sensitive. Required when `auth_type = "LOCAL"`. Changing rotates the password. |
+| `password` | Required. Sensitive. Hashed by the backend for all auth types; the backend enforces its own password policy (complexity rules apply to LOCAL only). Changing rotates the password. |
 | `auth_type` | Optional. One of the values below. Defaults to `LOCAL`. Changing forces replacement. |
 | `is_active` | Optional. Defaults to `true`. |
 
@@ -32,13 +32,14 @@ description: |-
 
 | value | meaning | password |
 |---|---|---|
-| `LOCAL` | Password-based local account (default). | Required |
-| `LDAP` | Account authenticated against an LDAP provider. | Ignored |
-| `OIDC` | Account authenticated against an OIDC provider. | Ignored |
-| `SAML` | Account authenticated against a SAML provider. | Ignored |
+| `LOCAL` | Password-based local account (default). | Required (complexity policy enforced) |
+| `LDAP` | Account authenticated against an LDAP provider. | Required (hashed; complexity policy not enforced) |
+| `OIDC` | Account authenticated against an OIDC provider. | Required (hashed; complexity policy not enforced) |
+| `SAML` | Account authenticated against a SAML provider. | Required (hashed; complexity policy not enforced) |
 
 External (`LDAP`/`OIDC`/`SAML`) users are normally provisioned automatically at
-first login; creating them through this resource is supported but uncommon.
+first login; creating them through this resource is supported but uncommon. A
+password is still required by the API for every auth type.
 
 ### Read-only status attributes
 

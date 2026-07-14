@@ -20,9 +20,8 @@ import (
 )
 
 var (
-	_ resource.Resource                   = &UserResource{}
-	_ resource.ResourceWithImportState    = &UserResource{}
-	_ resource.ResourceWithValidateConfig = &UserResource{}
+	_ resource.Resource                = &UserResource{}
+	_ resource.ResourceWithImportState = &UserResource{}
 )
 
 type UserResource struct {
@@ -53,7 +52,7 @@ func (r *UserResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required for LOCAL users; changing it rotates the password via the admin reset endpoint. Import by integer ID.",
+		Description: "Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required for all auth types (the backend hashes it and enforces its own password policy); changing it rotates the password via the admin reset endpoint. Import by integer ID.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "User ID.",
@@ -78,15 +77,12 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Required:    true,
 			},
 			"password": schema.StringAttribute{
-				Description: "User password (min 8 characters). Required for auth_type LOCAL. Stored in state (sensitive); the API never returns it. Changing this value rotates the password via the admin reset endpoint.",
-				Optional:    true,
+				Description: "User password. Required for all auth types: the backend hashes it and enforces its own password policy (complexity rules apply to LOCAL users only). Stored in state (sensitive); the API never returns it. Changing this value rotates the password via the admin reset endpoint.",
+				Required:    true,
 				Sensitive:   true,
-				Validators: []validator.String{
-					stringvalidator.LengthAtLeast(8),
-				},
 			},
 			"auth_type": schema.StringAttribute{
-				Description: "Authentication type. One of LOCAL, LDAP, OIDC, SAML. Defaults to LOCAL. Password only applies to LOCAL.",
+				Description: "Authentication type. One of LOCAL, LDAP, OIDC, SAML. Defaults to LOCAL. A password is required for all types; complexity rules are enforced for LOCAL only.",
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString("LOCAL"),
@@ -135,27 +131,6 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 	}
 }
 
-func (r *UserResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-	var config UserResourceModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	// auth_type is Optional+Computed; if unknown/null it defaults to LOCAL, which
-	// requires a password. Only error when auth_type is known to be LOCAL (or
-	// unset) and password is missing.
-	authKnown := !config.AuthType.IsUnknown()
-	isLocal := config.AuthType.IsNull() || (authKnown && config.AuthType.ValueString() == "LOCAL")
-	passwordMissing := config.Password.IsNull()
-	if isLocal && passwordMissing {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("password"),
-			"Missing password",
-			"password is required when auth_type is LOCAL (the default).",
-		)
-	}
-}
-
 func (r *UserResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
@@ -181,9 +156,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		LastName:  plan.LastName.ValueString(),
 		AuthType:  plan.AuthType.ValueString(),
 	}
-	if !plan.Password.IsNull() {
-		input.Password = plan.Password.ValueString()
-	}
+	input.Password = plan.Password.ValueString()
 
 	created, err := r.client.CreateUser(ctx, input)
 	if err != nil {
@@ -268,7 +241,7 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	}
 
 	// Rotate password when it changed.
-	if !plan.Password.Equal(state.Password) && !plan.Password.IsNull() {
+	if !plan.Password.Equal(state.Password) {
 		if err := r.client.ResetUserPassword(ctx, id, plan.Password.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Error resetting user password", err.Error())
 			return

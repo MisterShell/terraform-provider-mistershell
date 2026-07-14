@@ -2,19 +2,19 @@
 page_title: "mistershell_user Resource - terraform-provider-mistershell"
 subcategory: ""
 description: |-
-  Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required for LOCAL users; changing it rotates the password via the admin reset endpoint. Import by integer ID.
+  Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required for all auth types (the backend hashes it and enforces its own password policy); changing it rotates the password via the admin reset endpoint. Import by integer ID.
 ---
 
 # mistershell_user (Resource)
 
-Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required for LOCAL users; changing it rotates the password via the admin reset endpoint. Import by integer ID.
+Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required for all auth types (the backend hashes it and enforces its own password policy); changing it rotates the password via the admin reset endpoint. Import by integer ID.
 
 ## Example Usage
 
 ```terraform
-# A local user. password is required for auth_type = "LOCAL" (the default) and
-# must be at least 8 characters. Changing password rotates it via the admin
-# reset endpoint; changing email or auth_type replaces the user.
+# A local user. password is required (the API requires it for every auth type).
+# Changing password rotates it via the admin reset endpoint; changing email or
+# auth_type replaces the user.
 resource "mistershell_user" "alice" {
   email      = "alice@example.com"
   first_name = "Alice"
@@ -23,13 +23,16 @@ resource "mistershell_user" "alice" {
   is_active  = true
 }
 
-# An externally-authenticated user (no password). Such users are normally
-# provisioned at login, but the API permits creating them directly.
+# An externally-authenticated user. A password is still required by the API even
+# for external auth types (its complexity is not enforced for non-LOCAL users).
+# Such users are normally provisioned at login, but the API permits creating
+# them directly.
 resource "mistershell_user" "oidc_bob" {
   email      = "bob@example.com"
   first_name = "Bob"
   last_name  = "Baker"
   auth_type  = "OIDC"
+  password   = "change-me-please"
 }
 ```
 
@@ -41,12 +44,12 @@ resource "mistershell_user" "oidc_bob" {
 - `email` (String) User email address (unique). Changing it forces replacement.
 - `first_name` (String) User first name.
 - `last_name` (String) User last name.
+- `password` (String, Sensitive) User password. Required for all auth types: the backend hashes it and enforces its own password policy (complexity rules apply to LOCAL users only). Stored in state (sensitive); the API never returns it. Changing this value rotates the password via the admin reset endpoint.
 
 ### Optional
 
-- `auth_type` (String) Authentication type. One of LOCAL, LDAP, OIDC, SAML. Defaults to LOCAL. Password only applies to LOCAL.
+- `auth_type` (String) Authentication type. One of LOCAL, LDAP, OIDC, SAML. Defaults to LOCAL. A password is required for all types; complexity rules are enforced for LOCAL only.
 - `is_active` (Boolean) Whether the user account is active. Defaults to true.
-- `password` (String, Sensitive) User password (min 8 characters). Required for auth_type LOCAL. Stored in state (sensitive); the API never returns it. Changing this value rotates the password via the admin reset endpoint.
 
 ### Read-Only
 
@@ -72,7 +75,7 @@ Read-Only:
 | `email` | Required. Unique. Changing forces replacement. |
 | `first_name` | Required. |
 | `last_name` | Required. |
-| `password` | Optional. Min 8 characters. Sensitive. Required when `auth_type = "LOCAL"`. Changing rotates the password. |
+| `password` | Required. Sensitive. Hashed by the backend for all auth types; the backend enforces its own password policy (complexity rules apply to LOCAL only). Changing rotates the password. |
 | `auth_type` | Optional. One of the values below. Defaults to `LOCAL`. Changing forces replacement. |
 | `is_active` | Optional. Defaults to `true`. |
 
@@ -80,13 +83,14 @@ Read-Only:
 
 | value | meaning | password |
 |---|---|---|
-| `LOCAL` | Password-based local account (default). | Required |
-| `LDAP` | Account authenticated against an LDAP provider. | Ignored |
-| `OIDC` | Account authenticated against an OIDC provider. | Ignored |
-| `SAML` | Account authenticated against a SAML provider. | Ignored |
+| `LOCAL` | Password-based local account (default). | Required (complexity policy enforced) |
+| `LDAP` | Account authenticated against an LDAP provider. | Required (hashed; complexity policy not enforced) |
+| `OIDC` | Account authenticated against an OIDC provider. | Required (hashed; complexity policy not enforced) |
+| `SAML` | Account authenticated against a SAML provider. | Required (hashed; complexity policy not enforced) |
 
 External (`LDAP`/`OIDC`/`SAML`) users are normally provisioned automatically at
-first login; creating them through this resource is supported but uncommon.
+first login; creating them through this resource is supported but uncommon. A
+password is still required by the API for every auth type.
 
 ### Read-only status attributes
 
