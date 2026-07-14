@@ -146,6 +146,7 @@ func (p *MisterShellProvider) DataSources(_ context.Context) []func() datasource
 		datasources.NewTagsDataSource,
 		datasources.NewRoleDataSource,
 		datasources.NewUserDataSource,
+		datasources.NewUsersDataSource,
 		datasources.NewPermissionsDataSource,
 		datasources.NewLogDestinationDataSource,
 		datasources.NewLogDestinationPresetsDataSource,
