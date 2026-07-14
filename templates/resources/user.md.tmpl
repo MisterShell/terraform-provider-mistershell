@@ -24,7 +24,7 @@ description: |-
 | `email` | Required. Unique. Changing forces replacement. |
 | `first_name` | Required. |
 | `last_name` | Required. |
-| `password` | Required. Sensitive. Hashed by the backend for all auth types; the backend enforces its own password policy (complexity rules apply to LOCAL only). Changing rotates the password. |
+| `password` | Required. Sensitive. Hashed by the backend for all auth types; the backend enforces its own password policy (complexity rules apply to LOCAL only). Changing rotates the password. After `terraform import`, the next apply rotates the password to the configured value. |
 | `auth_type` | Optional. One of the values below. Defaults to `LOCAL`. Changing forces replacement. |
 | `is_active` | Optional. Defaults to `true`. |
 

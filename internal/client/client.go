@@ -869,8 +869,8 @@ func (c *Client) ResetUserPassword(ctx context.Context, id int64, newPassword st
 	return err
 }
 
-// AddUserRole assigns a single role to a user (idempotent-ish; POST may 409 on
-// duplicates, which the caller treats as already-assigned where appropriate).
+// AddUserRole assigns a single role to a user. The backend may return 409 if the
+// role is already assigned; callers surface that as an error.
 func (c *Client) AddUserRole(ctx context.Context, userID, roleID int64) error {
 	_, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/users/%d/roles/%d", userID, roleID), nil)
 	return err
