@@ -131,6 +131,8 @@ func testAccCheckAllDestroyed(s *terraform.State) error {
 			_, err = c.GetTag(ctx, id)
 		case "mistershell_role":
 			_, err = c.GetRole(ctx, id)
+		case "mistershell_user":
+			_, err = c.GetUser(ctx, id)
 		case "mistershell_log_destination":
 			_, err = c.GetLogDestination(ctx, id)
 		case "mistershell_session_policy_acl":

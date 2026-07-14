@@ -127,6 +127,7 @@ func (p *MisterShellProvider) Resources(_ context.Context) []func() resource.Res
 		resources.NewSessionPolicyRuleResource,
 		resources.NewAuthProviderResource,
 		resources.NewAuthProviderMappingResource,
+		resources.NewUserResource,
 		resources.NewWorkerResource,
 		resources.NewAIModelResource,
 		resources.NewAIPromptResource,

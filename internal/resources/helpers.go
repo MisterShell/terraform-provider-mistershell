@@ -308,3 +308,45 @@ func (m *useStateForUnknownStringModifier) PlanModifyString(_ context.Context, r
 	}
 	resp.PlanValue = req.StateValue
 }
+
+// roleObjectAttrTypes is the element object type for the user `roles` read-back
+// list ({id, name, description}).
+var roleObjectAttrTypes = map[string]attr.Type{
+	"id":          types.Int64Type,
+	"name":        types.StringType,
+	"description": types.StringType,
+}
+
+// roleObjectType is the object type for one role in the `roles` list.
+var roleObjectType = types.ObjectType{AttrTypes: roleObjectAttrTypes}
+
+// rolesToList converts []client.RoleResponse to a List[Object] of
+// {id, name, description} for the computed `roles` read-back attribute.
+func rolesToList(roles []client.RoleResponse) types.List {
+	elems := make([]attr.Value, 0, len(roles))
+	for _, role := range roles {
+		obj := types.ObjectValueMust(roleObjectAttrTypes, map[string]attr.Value{
+			"id":          types.Int64Value(role.ID),
+			"name":        types.StringValue(role.Name),
+			"description": stringPtrToValue(role.Description),
+		})
+		elems = append(elems, obj)
+	}
+	return types.ListValueMust(roleObjectType, elems)
+}
+
+// mapUserResponseToModel copies a UserDetailResponse into the resource model.
+// password is intentionally NOT touched here (the API never returns it; the
+// caller preserves the prior state value).
+func mapUserResponseToModel(u *client.UserDetailResponse, m *UserResourceModel) {
+	m.ID = types.Int64Value(u.ID)
+	m.Email = types.StringValue(u.Email)
+	m.FirstName = types.StringValue(u.FirstName)
+	m.LastName = types.StringValue(u.LastName)
+	m.AuthType = types.StringValue(u.AuthType)
+	m.IsActive = types.BoolValue(u.IsActive)
+	m.EmailVerified = types.BoolValue(u.EmailVerified)
+	m.Roles = rolesToList(u.Roles)
+	m.CreatedAt = types.StringValue(u.CreatedAt)
+	m.UpdatedAt = types.StringValue(u.UpdatedAt)
+}
