@@ -1,0 +1,38 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Field reference
+
+| attribute | constraints |
+|---|---|
+| `user_id` | Required. ID of the user. Changing forces replacement. |
+| `role_id` | Required. ID of the role to assign. Changing forces replacement. |
+| `role_name` | Read-only. Name of the assigned role. |
+
+`(user_id, role_id)` is unique. Role assignments are managed exclusively through
+this resource; the `mistershell_user` resource and data source expose assigned
+roles read-only via their `roles` attribute.
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

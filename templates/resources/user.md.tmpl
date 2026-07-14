@@ -1,0 +1,56 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Field reference
+
+| attribute | constraints |
+|---|---|
+| `email` | Required. Unique. Changing forces replacement. |
+| `first_name` | Required. |
+| `last_name` | Required. |
+| `password` | Optional. Min 8 characters. Sensitive. Required when `auth_type = "LOCAL"`. Changing rotates the password. |
+| `auth_type` | Optional. One of the values below. Defaults to `LOCAL`. Changing forces replacement. |
+| `is_active` | Optional. Defaults to `true`. |
+
+### `auth_type` values
+
+| value | meaning | password |
+|---|---|---|
+| `LOCAL` | Password-based local account (default). | Required |
+| `LDAP` | Account authenticated against an LDAP provider. | Ignored |
+| `OIDC` | Account authenticated against an OIDC provider. | Ignored |
+| `SAML` | Account authenticated against a SAML provider. | Ignored |
+
+External (`LDAP`/`OIDC`/`SAML`) users are normally provisioned automatically at
+first login; creating them through this resource is supported but uncommon.
+
+### Read-only status attributes
+
+| attribute | meaning |
+|---|---|
+| `email_verified` | Whether the user's email has been verified. |
+| `roles` | List of `{ id, name, description }` for the roles assigned to the user. Manage assignments with `mistershell_user_role`. |
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}
