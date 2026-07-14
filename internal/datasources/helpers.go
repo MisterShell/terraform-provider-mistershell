@@ -112,3 +112,28 @@ func aclPatternsToList(patterns []client.AclPattern) types.List {
 	}
 	return types.ListValueMust(aclPatternObjectType, elems)
 }
+
+// roleObjectAttrTypes is the element object type for the user `roles` read-back
+// list ({id, name, description}).
+var roleObjectAttrTypes = map[string]attr.Type{
+	"id":          types.Int64Type,
+	"name":        types.StringType,
+	"description": types.StringType,
+}
+
+var roleObjectType = types.ObjectType{AttrTypes: roleObjectAttrTypes}
+
+// rolesToList converts []client.RoleResponse to a List[Object] of
+// {id, name, description}.
+func rolesToList(roles []client.RoleResponse) types.List {
+	elems := make([]attr.Value, 0, len(roles))
+	for _, role := range roles {
+		obj := types.ObjectValueMust(roleObjectAttrTypes, map[string]attr.Value{
+			"id":          types.Int64Value(role.ID),
+			"name":        types.StringValue(role.Name),
+			"description": stringPtrToValue(role.Description),
+		})
+		elems = append(elems, obj)
+	}
+	return types.ListValueMust(roleObjectType, elems)
+}
