@@ -114,6 +114,30 @@ func testAccCheckAllDestroyed(s *terraform.State) error {
 			continue
 		}
 
+		// mistershell_user_role uses a synthetic "<user_id>:<role_id>" state ID.
+		// Verify the edge is gone by re-reading the user and confirming the role
+		// is no longer assigned (a deleted user 404s -> also gone).
+		if rs.Type == "mistershell_user_role" {
+			uid, uerr := strconv.ParseInt(rs.Primary.Attributes["user_id"], 10, 64)
+			rid, rerr := strconv.ParseInt(rs.Primary.Attributes["role_id"], 10, 64)
+			if uerr != nil || rerr != nil {
+				return fmt.Errorf("user_role %q: cannot parse user_id/role_id", rs.Primary.ID)
+			}
+			user, err := c.GetUser(ctx, uid)
+			if err != nil {
+				if client.IsNotFound(err) {
+					continue
+				}
+				return fmt.Errorf("unexpected error checking user_role %q: %w", rs.Primary.ID, err)
+			}
+			for _, role := range user.Roles {
+				if role.ID == rid {
+					return fmt.Errorf("user_role %q still exists after destroy", rs.Primary.ID)
+				}
+			}
+			continue
+		}
+
 		id, perr := strconv.ParseInt(rs.Primary.ID, 10, 64)
 		if perr != nil {
 			continue
