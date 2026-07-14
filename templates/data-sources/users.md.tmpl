@@ -1,0 +1,28 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Behavior
+
+| attribute | behavior |
+|---|---|
+| `search` | Optional case-insensitive substring filter on name/email. Omit to return all users. |
+| `users` | Computed list; each element has `id`, `email`, `first_name`, `last_name`, `auth_type`, `is_active`, `email_verified`. |
+
+Use the singular `mistershell_user` data source to fetch one user together with
+its assigned `roles`.

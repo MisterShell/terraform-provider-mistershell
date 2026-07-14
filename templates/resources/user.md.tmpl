@@ -1,0 +1,57 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Field reference
+
+| attribute | constraints |
+|---|---|
+| `email` | Required. Unique. Changing forces replacement. |
+| `first_name` | Required. |
+| `last_name` | Required. |
+| `password` | Required. Sensitive. Hashed by the backend for all auth types; the backend enforces its own password policy (complexity rules apply to LOCAL only). Changing rotates the password. After `terraform import`, the next apply rotates the password to the configured value. |
+| `auth_type` | Optional. One of the values below. Defaults to `LOCAL`. Changing forces replacement. |
+| `is_active` | Optional. Defaults to `true`. |
+
+### `auth_type` values
+
+| value | meaning | password |
+|---|---|---|
+| `LOCAL` | Password-based local account (default). | Required (complexity policy enforced) |
+| `LDAP` | Account authenticated against an LDAP provider. | Required (hashed; complexity policy not enforced) |
+| `OIDC` | Account authenticated against an OIDC provider. | Required (hashed; complexity policy not enforced) |
+| `SAML` | Account authenticated against a SAML provider. | Required (hashed; complexity policy not enforced) |
+
+External (`LDAP`/`OIDC`/`SAML`) users are normally provisioned automatically at
+first login; creating them through this resource is supported but uncommon. A
+password is still required by the API for every auth type.
+
+### Read-only status attributes
+
+| attribute | meaning |
+|---|---|
+| `email_verified` | Whether the user's email has been verified. |
+| `roles` | List of `{ id, name, description }` for the roles assigned to the user. Manage assignments with `mistershell_user_role`. |
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

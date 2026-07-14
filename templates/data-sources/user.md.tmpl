@@ -1,0 +1,36 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Lookup
+
+Specify exactly one of:
+
+| attribute | behavior |
+|---|---|
+| `id` | Direct fetch by user ID. |
+| `email` | Exact-match search on email; must resolve to exactly one user. |
+
+### Read-only attributes
+
+| attribute | meaning |
+|---|---|
+| `auth_type` | Authentication type: `LOCAL`, `LDAP`, `OIDC`, or `SAML`. |
+| `is_active` | Whether the account is active. |
+| `email_verified` | Whether the user's email has been verified. |
+| `roles` | List of `{ id, name, description }` for the roles assigned to the user. |
