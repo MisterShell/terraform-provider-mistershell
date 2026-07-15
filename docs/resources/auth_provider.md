@@ -44,7 +44,7 @@ variable "oidc_client_secret" {
 
 ### Required
 
-- `config` (String, Sensitive) Per-provider_type config as JSON. Use jsonencode() in HCL. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/connection_timeout. For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert, and optional sp_entity_id/sp_acs_url/attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert. The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.
+- `config` (String, Sensitive) Per-provider_type config as JSON. Use jsonencode() in HCL. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout. For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.
 - `name` (String) Unique provider name (1-100 characters).
 - `provider_type` (String) Provider type. One of: LDAP, OIDC, SAML. Cannot be changed after creation (the config shape is type-coupled).
 
@@ -58,6 +58,8 @@ variable "oidc_client_secret" {
 - `created_at` (String) Creation timestamp.
 - `group_mappings_count` (Number) Number of external group->role mappings attached to this provider.
 - `id` (Number) Auth provider ID.
+- `sp_acs_url` (String) SAML only (null for LDAP/OIDC): the Assertion Consumer Service URL the IdP posts assertions to. Derived server-side from the app_base_url setting plus the provider ID; register it with your IdP.
+- `sp_entity_id` (String) SAML only (null for LDAP/OIDC): the service-provider entity ID this MisterShell instance presents to the IdP. Derived server-side from the app_base_url setting plus the provider ID; register it with your IdP.
 - `updated_at` (String) Last update timestamp.
 
 ## Field reference
@@ -105,8 +107,9 @@ the **entire `config` from your configuration** and does **not** read it back fr
 the server — for **all** provider types, not just the secret fields. This is
 necessary because the server also **enriches** non-secret defaults (LDAP
 `user_search_filter`/`user_attributes`; OIDC `scopes`/`claims_mapping`/
-`redirect_uri`; SAML `sp_entity_id`/`sp_acs_url`/`attribute_mapping`), so
-reflecting the server value would churn. Consequences:
+`redirect_uri`; SAML `attribute_mapping`/`sign_requests`/
+`want_assertions_signed`), so reflecting the server value would churn.
+Consequences:
 
 - After **importing** a provider, `config` is unknown until you re-supply it in
   HCL — secrets cannot be recovered from the masked server value. `config` is
@@ -133,7 +136,15 @@ Delete works unlicensed.
 | `group_search_base` | string (DN) or null | no | `null` | no |
 | `group_search_filter` | string (parenthesized) | no | `(member={user_dn})` | no |
 | `use_tls` | boolean | no | `true` | no |
+| `tls_verify` | boolean | no | `false` | no |
 | `connection_timeout` | integer (1-60) | no | `10` | no |
+
+`use_tls` and `tls_verify` are independent: `use_tls` encrypts the connection,
+`tls_verify` decides whether the LDAP server's certificate is validated (against
+the system + custom CA store). Note the default is **`false`** — an encrypted but
+unverified connection. Set `tls_verify = true` against a directory whose
+certificate chains to a trusted CA. (This differs from OIDC, where `tls_verify`
+defaults to `true`.)
 
 Example:
 
@@ -158,6 +169,7 @@ config = jsonencode({
 | `claims_mapping` | object (string→string map) | no | `{email = "email", first_name = "given_name", last_name = "family_name", groups = "groups"}` | no |
 | `redirect_uri` | string (http/https) or null | no | auto-generated | no |
 | `additional_params` | object (string→string map) | no | `{}` | no |
+| `tls_verify` | boolean | no | `true` | no |
 
 Example:
 
@@ -176,14 +188,31 @@ config = jsonencode({
 |---|---|---|---|---|
 | `idp_entity_id` | string | **yes** | — | no |
 | `idp_sso_url` | string (https; http allowed for local test hosts) | **yes** | — | no |
-| `idp_x509_cert` | string (PEM certificate) | **yes** | — | no |
-| `sp_entity_id` | string or null | no | auto-generated | no |
-| `sp_acs_url` | string (http/https) or null | no | auto-generated | no |
+| `idp_x509_cert` | string (PEM certificate; `BEGIN`/`END CERTIFICATE` markers required) | **yes** | — | no |
 | `attribute_mapping` | object (string→string map) | no | `{email = "urn:oid:0.9.2342.19200300.100.1.3", first_name = "urn:oid:2.5.4.42", last_name = "urn:oid:2.5.4.4", groups = "memberOf"}` | no |
 | `sign_requests` | boolean | no | `false` | no |
 | `want_assertions_signed` | boolean | no | `true` | no |
 | `sp_private_key` | string (PEM key) or null | no | `null` | **yes** |
 | `sp_x509_cert` | string (PEM certificate) or null | no | `null` | no |
+
+**SAML rejects unknown keys.** Unlike LDAP and OIDC (which ignore unrecognized
+fields), the SAML config schema is strict: any key outside the table above fails
+the apply with a `422` (`Extra inputs are not permitted`).
+
+**The SP URLs are derived, not configured.** MisterShell computes the service
+provider entity ID and ACS URL from the instance's `app_base_url` setting plus
+the provider ID. They are exposed as the read-only `sp_entity_id` / `sp_acs_url`
+attributes — register those values with your IdP:
+
+```hcl
+output "saml_acs_url" {
+  value = mistershell_auth_provider.saml.sp_acs_url
+}
+```
+
+They are **not** `config` fields. Earlier releases documented `config.sp_entity_id`
+and `config.sp_acs_url`; those inputs have been removed and now trigger the `422`
+above, so drop them from `config` when upgrading.
 
 Example:
 

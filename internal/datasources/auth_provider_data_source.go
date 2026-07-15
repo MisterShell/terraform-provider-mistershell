@@ -26,6 +26,8 @@ type AuthProviderDataSourceModel struct {
 	DisplayOrder       types.Int64          `tfsdk:"display_order"`
 	Config             jsontypes.Normalized `tfsdk:"config"`
 	GroupMappingsCount types.Int64          `tfsdk:"group_mappings_count"`
+	SPEntityID         types.String         `tfsdk:"sp_entity_id"`
+	SPACSURL           types.String         `tfsdk:"sp_acs_url"`
 	CreatedAt          types.String         `tfsdk:"created_at"`
 	UpdatedAt          types.String         `tfsdk:"updated_at"`
 }
@@ -72,6 +74,14 @@ func (d *AuthProviderDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 			},
 			"group_mappings_count": schema.Int64Attribute{
 				Description: "Number of external group->role mappings attached to this provider.",
+				Computed:    true,
+			},
+			"sp_entity_id": schema.StringAttribute{
+				Description: "SAML only (null for LDAP/OIDC): the service-provider entity ID this MisterShell instance presents to the IdP. Derived server-side from the app_base_url setting plus the provider ID.",
+				Computed:    true,
+			},
+			"sp_acs_url": schema.StringAttribute{
+				Description: "SAML only (null for LDAP/OIDC): the Assertion Consumer Service URL the IdP posts assertions to. Derived server-side from the app_base_url setting plus the provider ID.",
 				Computed:    true,
 			},
 			"created_at": schema.StringAttribute{
@@ -155,6 +165,8 @@ func (d *AuthProviderDataSource) Read(ctx context.Context, req datasource.ReadRe
 	config.DisplayOrder = types.Int64Value(detail.DisplayOrder)
 	config.Config = rawJSONToNormalized(detail.Config)
 	config.GroupMappingsCount = types.Int64Value(detail.GroupMappingsCount)
+	config.SPEntityID = stringPtrToValue(detail.SPEntityID)
+	config.SPACSURL = stringPtrToValue(detail.SPACSURL)
 	config.CreatedAt = types.StringValue(detail.CreatedAt)
 	config.UpdatedAt = types.StringValue(detail.UpdatedAt)
 

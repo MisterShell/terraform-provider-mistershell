@@ -2,14 +2,25 @@ package provider_test
 
 import (
 	"context"
+	crand "crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+
+	"terraform-provider-mistershell/internal/client"
 )
 
 // Wave 3 acceptance tests: session-policy ACLs/rules and auth providers/mappings.
@@ -261,156 +272,331 @@ func TestAccSessionPolicyRuleDataSource_byID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// mistershell_auth_provider — OIDC (license-gated): create with secret config,
-// round-trip from config, display_order, update a non-secret field, data source.
+// mistershell_auth_provider / mistershell_auth_provider_mapping (license-gated).
+//
+// Every auth-provider surface below (resource CRUD, data source, group
+// mappings) is driven from testAccAuthProviderFixtures, which is keyed by
+// provider_type and cross-checked against the GENERATED
+// client.SupportedAuthProviderTypes. A provider_type added backend-side
+// therefore fails these tests until it has a fixture, so coverage cannot
+// silently lag the API — an OIDC-only suite is precisely how the removal of the
+// SAML config.sp_entity_id/sp_acs_url inputs went unnoticed while every test
+// still passed.
 // ---------------------------------------------------------------------------
 
-func TestAccAuthProvider_oidc(t *testing.T) {
+// authProviderFixture builds valid HCL for one provider_type.
+type authProviderFixture struct {
+	// config returns the `config = jsonencode({...})` body. The altered form
+	// changes one NON-SECRET field so update steps exercise a real PATCH.
+	config func(altered bool) string
+	// extraChecks are assertions meaningful only for this provider_type; addr
+	// is the resource/data-source address to assert against.
+	extraChecks func(addr string) []resource.TestCheckFunc
+}
+
+// authProviderSPURLChecks asserts the derived SP URLs are surfaced for SAML.
+// They are computed backend-side from app_base_url + the provider id.
+func authProviderSPURLChecks(addr string) []resource.TestCheckFunc {
+	return []resource.TestCheckFunc{
+		resource.TestMatchResourceAttr(addr, "sp_entity_id", regexp.MustCompile(`/auth/saml/\d+/metadata$`)),
+		resource.TestMatchResourceAttr(addr, "sp_acs_url", regexp.MustCompile(`/auth/saml/\d+/acs$`)),
+	}
+}
+
+// authProviderNoSPURLChecks asserts the SP URL attributes stay null for the
+// non-SAML types (the API omits them).
+func authProviderNoSPURLChecks(addr string) []resource.TestCheckFunc {
+	return []resource.TestCheckFunc{
+		resource.TestCheckNoResourceAttr(addr, "sp_entity_id"),
+		resource.TestCheckNoResourceAttr(addr, "sp_acs_url"),
+	}
+}
+
+// testAccAuthProviderFixtures returns one fixture per supported provider_type.
+// It fails loudly when client.SupportedAuthProviderTypes gains a value with no
+// fixture, mirroring the generator's fail-loudly stance on enum drift.
+func testAccAuthProviderFixtures(t *testing.T) map[string]authProviderFixture {
+	t.Helper()
+
+	// Generated per run: idp_x509_cert is validated server-side as a real PEM
+	// certificate, and a per-run cert can never fail on expiry.
+	cert := testAccSelfSignedCertPEM(t)
+
+	fixtures := map[string]authProviderFixture{
+		"LDAP": {
+			config: func(altered bool) string {
+				serverURL, tlsVerify := "ldaps://ldap.example.com:636", "false"
+				if altered {
+					// tls_verify defaults to false for LDAP, so flipping it on
+					// is the meaningful edit.
+					serverURL, tlsVerify = "ldaps://ldap2.example.com:636", "true"
+				}
+				return fmt.Sprintf(`jsonencode({
+    server_url    = %q
+    bind_dn       = "cn=svc,dc=example,dc=com"
+    bind_password = "tfacc-bind-password"
+    base_dn       = "ou=people,dc=example,dc=com"
+    use_tls       = true
+    tls_verify    = %s
+  })`, serverURL, tlsVerify)
+			},
+			extraChecks: authProviderNoSPURLChecks,
+		},
+		"OIDC": {
+			config: func(altered bool) string {
+				issuerURL := "https://idp.example.com"
+				if altered {
+					issuerURL = "https://idp2.example.com"
+				}
+				return fmt.Sprintf(`jsonencode({
+    issuer_url    = %q
+    client_id     = "tfacc-client-id"
+    client_secret = "tfacc-client-secret"
+    tls_verify    = true
+  })`, issuerURL)
+			},
+			extraChecks: authProviderNoSPURLChecks,
+		},
+		"SAML": {
+			config: func(altered bool) string {
+				ssoURL := "https://idp.example.com/sso"
+				if altered {
+					ssoURL = "https://idp2.example.com/sso"
+				}
+				return fmt.Sprintf(`jsonencode({
+    idp_entity_id = "https://idp.example.com/metadata"
+    idp_sso_url   = %q
+    idp_x509_cert = %q
+  })`, ssoURL, cert)
+			},
+			extraChecks: authProviderSPURLChecks,
+		},
+	}
+
+	for _, providerType := range client.SupportedAuthProviderTypes {
+		if _, ok := fixtures[providerType]; !ok {
+			t.Fatalf("no acceptance-test fixture for auth provider type %q: every value in "+
+				"client.SupportedAuthProviderTypes must be covered here", providerType)
+		}
+	}
+	return fixtures
+}
+
+// TestAccAuthProvider_basic exercises create/round-trip/update/import for EVERY
+// supported provider_type, including the secret field each type carries and the
+// display_order round trip.
+func TestAccAuthProvider_basic(t *testing.T) {
 	testAccPreCheck(t)
 	if !authProviderLicensed(t) {
 		t.Skip("auth providers require a MisterShell license; instance is unlicensed")
 	}
 
-	name := acctestPrefix + "oidc"
+	fixtures := testAccAuthProviderFixtures(t)
+	const addr = "mistershell_auth_provider.test"
+
+	for _, providerType := range client.SupportedAuthProviderTypes {
+		fx := fixtures[providerType]
+		t.Run(providerType, func(t *testing.T) {
+			name := acctestPrefix + strings.ToLower(providerType)
+
+			createChecks := []resource.TestCheckFunc{
+				resource.TestCheckResourceAttr(addr, "name", name),
+				resource.TestCheckResourceAttr(addr, "provider_type", providerType),
+				resource.TestCheckResourceAttr(addr, "is_enabled", "true"),
+				// display_order is honored on create.
+				resource.TestCheckResourceAttr(addr, "display_order", "7"),
+				resource.TestCheckResourceAttr(addr, "group_mappings_count", "0"),
+				resource.TestCheckResourceAttrSet(addr, "config"),
+				resource.TestCheckResourceAttrSet(addr, "id"),
+				resource.TestCheckResourceAttrSet(addr, "created_at"),
+			}
+			createChecks = append(createChecks, fx.extraChecks(addr)...)
+
+			resource.Test(t, resource.TestCase{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				CheckDestroy:             testAccCheckAllDestroyed,
+				Steps: []resource.TestStep{
+					{
+						Config: testAccAuthProviderConfig(name, providerType, true, 7, fx.config(false)),
+						Check:  resource.ComposeAggregateTestCheckFunc(createChecks...),
+					},
+					// Re-apply identical config: the plan must be empty. Proves
+					// config survives BOTH the API's secret masking and its
+					// server-enriched defaults (the syslog lesson).
+					{
+						Config:             testAccAuthProviderConfig(name, providerType, true, 7, fx.config(false)),
+						PlanOnly:           true,
+						ExpectNonEmptyPlan: false,
+					},
+					// Update non-secret fields: is_enabled, display_order, and a
+					// type-specific config edit.
+					{
+						Config: testAccAuthProviderConfig(name, providerType, false, 9, fx.config(true)),
+						Check: resource.ComposeAggregateTestCheckFunc(
+							resource.TestCheckResourceAttr(addr, "is_enabled", "false"),
+							resource.TestCheckResourceAttr(addr, "display_order", "9"),
+						),
+					},
+					// config carries API-masked secrets and enriched defaults, so
+					// it cannot be verified on import — ignore it.
+					{
+						ResourceName:            addr,
+						ImportState:             true,
+						ImportStateVerify:       true,
+						ImportStateVerifyIgnore: []string{"config"},
+					},
+				},
+			})
+		})
+	}
+}
+
+// A SAML config carrying a removed sp_* key must fail the apply with the
+// backend's 422 rather than silently no-op'ing. SAMLConfig sets extra="forbid";
+// LDAP/OIDC ignore unknown keys, so this is SAML-specific by construction.
+func TestAccAuthProvider_samlRejectsRemovedSPFields(t *testing.T) {
+	testAccPreCheck(t)
+	if !authProviderLicensed(t) {
+		t.Skip("auth providers require a MisterShell license; instance is unlicensed")
+	}
+
+	name := acctestPrefix + "saml-bad"
+	cert := testAccSelfSignedCertPEM(t)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
-			// Create OIDC with a client_secret, explicit display_order, is_enabled.
 			{
-				Config: testAccAuthProviderOIDCConfig(name, true, 7, "https://idp.example.com", "tfacc-client-secret"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mistershell_auth_provider.test", "name", name),
-					resource.TestCheckResourceAttr("mistershell_auth_provider.test", "provider_type", "OIDC"),
-					resource.TestCheckResourceAttr("mistershell_auth_provider.test", "is_enabled", "true"),
-					// display_order set via post-create PATCH (create cannot set it).
-					resource.TestCheckResourceAttr("mistershell_auth_provider.test", "display_order", "7"),
-					resource.TestCheckResourceAttr("mistershell_auth_provider.test", "group_mappings_count", "0"),
-					resource.TestCheckResourceAttrSet("mistershell_auth_provider.test", "config"),
-					resource.TestCheckResourceAttrSet("mistershell_auth_provider.test", "id"),
-					resource.TestCheckResourceAttrSet("mistershell_auth_provider.test", "created_at"),
-				),
-			},
-			// Re-apply identical config: plan must be empty (proves config is
-			// preserved from plan across masked secrets AND server-enriched
-			// defaults — the syslog lesson).
-			{
-				Config:             testAccAuthProviderOIDCConfig(name, true, 7, "https://idp.example.com", "tfacc-client-secret"),
-				PlanOnly:           true,
-				ExpectNonEmptyPlan: false,
-			},
-			// Update non-secret fields: is_enabled=false, display_order=9,
-			// issuer_url changed (config edit).
-			{
-				Config: testAccAuthProviderOIDCConfig(name, false, 9, "https://idp2.example.com", "tfacc-client-secret"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mistershell_auth_provider.test", "is_enabled", "false"),
-					resource.TestCheckResourceAttr("mistershell_auth_provider.test", "display_order", "9"),
-				),
-			},
-			// Import: config carries a secret masked by the API and enriched
-			// defaults, so it cannot be verified on import — ignore it.
-			{
-				ResourceName:            "mistershell_auth_provider.test",
-				ImportState:             true,
-				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"config"},
+				Config: fmt.Sprintf(`
+resource "mistershell_auth_provider" "bad" {
+  name          = %q
+  provider_type = "SAML"
+
+  config = jsonencode({
+    idp_entity_id = "https://idp.example.com/metadata"
+    idp_sso_url   = "https://idp.example.com/sso"
+    idp_x509_cert = %q
+    sp_entity_id  = "https://sp.example.com"
+  })
+}
+`, name, cert),
+				// Terraform hard-wraps diagnostic text, so match across the
+				// wrapping rather than on a literal single-line string.
+				ExpectError: regexp.MustCompile(`sp_entity_id:\s+Extra\s+inputs\s+are\s+not\s+permitted`),
 			},
 		},
 	})
 }
 
+// TestAccAuthProviderDataSource_byIDAndName covers lookup by id and by exact
+// name for EVERY supported provider_type.
 func TestAccAuthProviderDataSource_byIDAndName(t *testing.T) {
 	testAccPreCheck(t)
 	if !authProviderLicensed(t) {
 		t.Skip("auth providers require a MisterShell license; instance is unlicensed")
 	}
 
-	name := acctestPrefix + "oidc-ds"
+	fixtures := testAccAuthProviderFixtures(t)
 
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:             testAccCheckAllDestroyed,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccAuthProviderDataSourceConfig(name),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					// by id
-					resource.TestCheckResourceAttrPair("data.mistershell_auth_provider.by_id", "id", "mistershell_auth_provider.test", "id"),
-					resource.TestCheckResourceAttr("data.mistershell_auth_provider.by_id", "name", name),
-					resource.TestCheckResourceAttr("data.mistershell_auth_provider.by_id", "provider_type", "OIDC"),
-					resource.TestCheckResourceAttr("data.mistershell_auth_provider.by_id", "group_mappings_count", "0"),
-					resource.TestCheckResourceAttrSet("data.mistershell_auth_provider.by_id", "config"),
-					// by name
-					resource.TestCheckResourceAttrPair("data.mistershell_auth_provider.by_name", "id", "mistershell_auth_provider.test", "id"),
-					resource.TestCheckResourceAttr("data.mistershell_auth_provider.by_name", "provider_type", "OIDC"),
-				),
-			},
-		},
-	})
+	for _, providerType := range client.SupportedAuthProviderTypes {
+		fx := fixtures[providerType]
+		t.Run(providerType, func(t *testing.T) {
+			name := acctestPrefix + strings.ToLower(providerType) + "-ds"
+			const byID = "data.mistershell_auth_provider.by_id"
+			const byName = "data.mistershell_auth_provider.by_name"
+
+			checks := []resource.TestCheckFunc{
+				// by id
+				resource.TestCheckResourceAttrPair(byID, "id", "mistershell_auth_provider.test", "id"),
+				resource.TestCheckResourceAttr(byID, "name", name),
+				resource.TestCheckResourceAttr(byID, "provider_type", providerType),
+				resource.TestCheckResourceAttr(byID, "group_mappings_count", "0"),
+				resource.TestCheckResourceAttrSet(byID, "config"),
+				// by name
+				resource.TestCheckResourceAttrPair(byName, "id", "mistershell_auth_provider.test", "id"),
+				resource.TestCheckResourceAttr(byName, "provider_type", providerType),
+			}
+			// The data source must surface the SP URLs on the same terms as the
+			// resource.
+			checks = append(checks, fx.extraChecks(byID)...)
+
+			resource.Test(t, resource.TestCase{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				CheckDestroy:             testAccCheckAllDestroyed,
+				Steps: []resource.TestStep{
+					{
+						Config: testAccAuthProviderDataSourceConfig(name, providerType, fx.config(false)),
+						Check:  resource.ComposeAggregateTestCheckFunc(checks...),
+					},
+				},
+			})
+		})
+	}
 }
 
-// ---------------------------------------------------------------------------
-// mistershell_auth_provider_mapping — (license-gated) create under an OIDC
-// provider, mapping external_group -> a real mistershell_role; round-trip,
-// compound import, update.
-// ---------------------------------------------------------------------------
-
+// TestAccAuthProviderMapping_basic maps an external group to a real
+// mistershell_role under EVERY supported provider_type: round-trip, update, and
+// compound import.
 func TestAccAuthProviderMapping_basic(t *testing.T) {
 	testAccPreCheck(t)
 	if !authProviderLicensed(t) {
 		t.Skip("auth providers require a MisterShell license; instance is unlicensed")
 	}
 
-	name := acctestPrefix + "map"
+	fixtures := testAccAuthProviderFixtures(t)
+	const addr = "mistershell_auth_provider_mapping.test"
 
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:             testAccCheckAllDestroyed,
-		Steps: []resource.TestStep{
-			// Create a provider, a role, and a mapping linking an external group
-			// to that role.
-			{
-				Config: testAccAuthProviderMappingConfig(name, "cn=admins,ou=groups,dc=example,dc=com"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mistershell_auth_provider_mapping.test", "external_group", "cn=admins,ou=groups,dc=example,dc=com"),
-					resource.TestCheckResourceAttrPair("mistershell_auth_provider_mapping.test", "provider_id", "mistershell_auth_provider.test", "id"),
-					resource.TestCheckResourceAttrPair("mistershell_auth_provider_mapping.test", "role_id", "mistershell_role.test", "id"),
-					resource.TestCheckResourceAttr("mistershell_auth_provider_mapping.test", "role_name", name+"-role"),
-					resource.TestCheckResourceAttrSet("mistershell_auth_provider_mapping.test", "id"),
-					resource.TestCheckResourceAttrSet("mistershell_auth_provider_mapping.test", "created_at"),
-				),
-			},
-			// Re-apply identical config: plan must be empty.
-			{
-				Config:             testAccAuthProviderMappingConfig(name, "cn=admins,ou=groups,dc=example,dc=com"),
-				PlanOnly:           true,
-				ExpectNonEmptyPlan: false,
-			},
-			// Update the external_group (PATCH).
-			{
-				Config: testAccAuthProviderMappingConfig(name, "cn=ops,ou=groups,dc=example,dc=com"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mistershell_auth_provider_mapping.test", "external_group", "cn=ops,ou=groups,dc=example,dc=com"),
-				),
-			},
-			// Import with the compound id "<provider_id>:<mapping_id>".
-			{
-				ResourceName:      "mistershell_auth_provider_mapping.test",
-				ImportState:       true,
-				ImportStateVerify: true,
-				// Compound import id "<provider_id>:<mapping_id>".
-				ImportStateIdFunc: func(s *terraform.State) (string, error) {
-					rs, ok := s.RootModule().Resources["mistershell_auth_provider_mapping.test"]
-					if !ok {
-						return "", fmt.Errorf("mapping resource not found in state")
-					}
-					return fmt.Sprintf("%s:%s", rs.Primary.Attributes["provider_id"], rs.Primary.ID), nil
+	for _, providerType := range client.SupportedAuthProviderTypes {
+		fx := fixtures[providerType]
+		t.Run(providerType, func(t *testing.T) {
+			name := acctestPrefix + strings.ToLower(providerType) + "-map"
+
+			resource.Test(t, resource.TestCase{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				CheckDestroy:             testAccCheckAllDestroyed,
+				Steps: []resource.TestStep{
+					{
+						Config: testAccAuthProviderMappingConfig(name, providerType, fx.config(false), "cn=admins,ou=groups,dc=example,dc=com"),
+						Check: resource.ComposeAggregateTestCheckFunc(
+							resource.TestCheckResourceAttr(addr, "external_group", "cn=admins,ou=groups,dc=example,dc=com"),
+							resource.TestCheckResourceAttrPair(addr, "provider_id", "mistershell_auth_provider.test", "id"),
+							resource.TestCheckResourceAttrPair(addr, "role_id", "mistershell_role.test", "id"),
+							resource.TestCheckResourceAttr(addr, "role_name", name+"-role"),
+							resource.TestCheckResourceAttrSet(addr, "id"),
+							resource.TestCheckResourceAttrSet(addr, "created_at"),
+						),
+					},
+					// Re-apply identical config: plan must be empty.
+					{
+						Config:             testAccAuthProviderMappingConfig(name, providerType, fx.config(false), "cn=admins,ou=groups,dc=example,dc=com"),
+						PlanOnly:           true,
+						ExpectNonEmptyPlan: false,
+					},
+					// Update the external_group (PATCH).
+					{
+						Config: testAccAuthProviderMappingConfig(name, providerType, fx.config(false), "cn=ops,ou=groups,dc=example,dc=com"),
+						Check: resource.ComposeAggregateTestCheckFunc(
+							resource.TestCheckResourceAttr(addr, "external_group", "cn=ops,ou=groups,dc=example,dc=com"),
+						),
+					},
+					// Import with the compound id "<provider_id>:<mapping_id>".
+					{
+						ResourceName:      addr,
+						ImportState:       true,
+						ImportStateVerify: true,
+						ImportStateIdFunc: func(s *terraform.State) (string, error) {
+							rs, ok := s.RootModule().Resources[addr]
+							if !ok {
+								return "", fmt.Errorf("mapping resource not found in state")
+							}
+							return fmt.Sprintf("%s:%s", rs.Primary.Attributes["provider_id"], rs.Primary.ID), nil
+						},
+					},
 				},
-			},
-		},
-	})
+			})
+		})
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -470,34 +656,53 @@ data "mistershell_session_policy_rule" "by_id" {
 `, name)
 }
 
-func testAccAuthProviderOIDCConfig(name string, enabled bool, displayOrder int, issuerURL, clientSecret string) string {
+// testAccSelfSignedCertPEM returns a freshly generated self-signed PEM
+// certificate. SAML's idp_x509_cert is validated server-side as a real
+// PEM-encoded certificate (BEGIN/END CERTIFICATE markers required), so a
+// placeholder string will not do. Generated per-run rather than embedded as a
+// constant so the suite can never start failing on certificate expiry.
+func testAccSelfSignedCertPEM(t *testing.T) string {
+	t.Helper()
+	key, err := rsa.GenerateKey(crand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generating test key: %v", err)
+	}
+	tmpl := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "tfacc-idp"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+	}
+	der, err := x509.CreateCertificate(crand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("generating test certificate: %v", err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}
+
+// The configBody argument on the builders below is a `jsonencode({...})`
+// expression supplied by an authProviderFixture.
+
+func testAccAuthProviderConfig(name, providerType string, enabled bool, displayOrder int, configBody string) string {
 	return fmt.Sprintf(`
 resource "mistershell_auth_provider" "test" {
   name          = %q
-  provider_type = "OIDC"
+  provider_type = %q
   is_enabled    = %t
   display_order = %d
 
-  config = jsonencode({
-    issuer_url    = %q
-    client_id     = "tfacc-client-id"
-    client_secret = %q
-  })
+  config = %s
 }
-`, name, enabled, displayOrder, issuerURL, clientSecret)
+`, name, providerType, enabled, displayOrder, configBody)
 }
 
-func testAccAuthProviderDataSourceConfig(name string) string {
+func testAccAuthProviderDataSourceConfig(name, providerType, configBody string) string {
 	return fmt.Sprintf(`
 resource "mistershell_auth_provider" "test" {
   name          = %q
-  provider_type = "OIDC"
+  provider_type = %q
 
-  config = jsonencode({
-    issuer_url    = "https://idp.example.com"
-    client_id     = "tfacc-client-id"
-    client_secret = "tfacc-client-secret"
-  })
+  config = %s
 }
 
 data "mistershell_auth_provider" "by_id" {
@@ -507,10 +712,10 @@ data "mistershell_auth_provider" "by_id" {
 data "mistershell_auth_provider" "by_name" {
   name = mistershell_auth_provider.test.name
 }
-`, name)
+`, name, providerType, configBody)
 }
 
-func testAccAuthProviderMappingConfig(name, externalGroup string) string {
+func testAccAuthProviderMappingConfig(name, providerType, configBody, externalGroup string) string {
 	return fmt.Sprintf(`
 resource "mistershell_role" "test" {
   name        = %q
@@ -520,13 +725,9 @@ resource "mistershell_role" "test" {
 
 resource "mistershell_auth_provider" "test" {
   name          = %q
-  provider_type = "OIDC"
+  provider_type = %q
 
-  config = jsonencode({
-    issuer_url    = "https://idp.example.com"
-    client_id     = "tfacc-client-id"
-    client_secret = "tfacc-client-secret"
-  })
+  config = %s
 }
 
 resource "mistershell_auth_provider_mapping" "test" {
@@ -534,5 +735,5 @@ resource "mistershell_auth_provider_mapping" "test" {
   external_group = %q
   role_id        = mistershell_role.test.id
 }
-`, name+"-role", name+"-prov", externalGroup)
+`, name+"-role", name+"-prov", providerType, configBody, externalGroup)
 }

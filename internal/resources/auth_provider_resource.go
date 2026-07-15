@@ -37,6 +37,8 @@ type AuthProviderResourceModel struct {
 	DisplayOrder       types.Int64          `tfsdk:"display_order"`
 	Config             jsontypes.Normalized `tfsdk:"config"`
 	GroupMappingsCount types.Int64          `tfsdk:"group_mappings_count"`
+	SPEntityID         types.String         `tfsdk:"sp_entity_id"`
+	SPACSURL           types.String         `tfsdk:"sp_acs_url"`
 	CreatedAt          types.String         `tfsdk:"created_at"`
 	UpdatedAt          types.String         `tfsdk:"updated_at"`
 }
@@ -95,13 +97,21 @@ func (r *AuthProviderResource) Schema(_ context.Context, _ resource.SchemaReques
 				},
 			},
 			"config": schema.StringAttribute{
-				Description: "Per-provider_type config as JSON. Use jsonencode() in HCL. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/connection_timeout. For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert, and optional sp_entity_id/sp_acs_url/attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert. The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.",
+				Description: "Per-provider_type config as JSON. Use jsonencode() in HCL. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout. For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.",
 				Required:    true,
 				Sensitive:   true,
 				CustomType:  jsontypes.NormalizedType{},
 			},
 			"group_mappings_count": schema.Int64Attribute{
 				Description: "Number of external group->role mappings attached to this provider.",
+				Computed:    true,
+			},
+			"sp_entity_id": schema.StringAttribute{
+				Description: "SAML only (null for LDAP/OIDC): the service-provider entity ID this MisterShell instance presents to the IdP. Derived server-side from the app_base_url setting plus the provider ID; register it with your IdP.",
+				Computed:    true,
+			},
+			"sp_acs_url": schema.StringAttribute{
+				Description: "SAML only (null for LDAP/OIDC): the Assertion Consumer Service URL the IdP posts assertions to. Derived server-side from the app_base_url setting plus the provider ID; register it with your IdP.",
 				Computed:    true,
 			},
 			"created_at": schema.StringAttribute{
@@ -274,6 +284,8 @@ func mapAuthProviderDetailToModel(detail *client.AuthProviderDetailResponse, m *
 	m.IsEnabled = types.BoolValue(detail.IsEnabled)
 	m.DisplayOrder = types.Int64Value(detail.DisplayOrder)
 	m.GroupMappingsCount = types.Int64Value(detail.GroupMappingsCount)
+	m.SPEntityID = stringPtrToValue(detail.SPEntityID)
+	m.SPACSURL = stringPtrToValue(detail.SPACSURL)
 	m.CreatedAt = types.StringValue(detail.CreatedAt)
 	m.UpdatedAt = types.StringValue(detail.UpdatedAt)
 }

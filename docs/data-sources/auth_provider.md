@@ -49,6 +49,8 @@ output "mappings_count" {
 - `group_mappings_count` (Number) Number of external group->role mappings attached to this provider.
 - `is_enabled` (Boolean) Whether the provider is enabled.
 - `provider_type` (String) Provider type (LDAP, OIDC, or SAML).
+- `sp_acs_url` (String) SAML only (null for LDAP/OIDC): the Assertion Consumer Service URL the IdP posts assertions to. Derived server-side from the app_base_url setting plus the provider ID.
+- `sp_entity_id` (String) SAML only (null for LDAP/OIDC): the service-provider entity ID this MisterShell instance presents to the IdP. Derived server-side from the app_base_url setting plus the provider ID.
 - `updated_at` (String) Last update timestamp.
 
 ## Lookup arguments

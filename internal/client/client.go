@@ -1451,6 +1451,12 @@ type AuthProviderDetailResponse struct {
 	AuthProviderResponse
 	Config             json.RawMessage `json:"config"` // secrets masked ****
 	GroupMappingsCount int64           `json:"group_mappings_count"`
+	// SP URLs are derived server-side from the app_base_url setting plus the
+	// provider ID, and are returned for SAML providers only (nil for LDAP/OIDC).
+	// They are read-only: the former config.sp_entity_id / config.sp_acs_url
+	// inputs were removed backend-side, and SAMLConfig now rejects them.
+	SPEntityID *string `json:"sp_entity_id"`
+	SPACSURL   *string `json:"sp_acs_url"`
 }
 
 type AuthProviderListFilter struct{ Search string }
