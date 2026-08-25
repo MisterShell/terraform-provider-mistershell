@@ -32,6 +32,8 @@ type SettingResourceModel struct {
 	Description types.String         `tfsdk:"description"`
 	IsSecret    types.Bool           `tfsdk:"is_secret"`
 	Default     jsontypes.Normalized `tfsdk:"default"`
+	Schema      jsontypes.Normalized `tfsdk:"schema"`
+	IsEncrypted types.Bool           `tfsdk:"is_encrypted"`
 	CreatedAt   types.String         `tfsdk:"created_at"`
 	UpdatedAt   types.String         `tfsdk:"updated_at"`
 }
@@ -80,6 +82,15 @@ func (r *SettingResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "Registry default value as JSON. Masked as '****' for non-empty secret keys.",
 				Computed:    true,
 				CustomType:  jsontypes.NormalizedType{},
+			},
+			"schema": schema.StringAttribute{
+				Description: "JSON Schema used by MisterShell to validate this setting.",
+				Computed:    true,
+				CustomType:  jsontypes.NormalizedType{},
+			},
+			"is_encrypted": schema.BoolAttribute{
+				Description: "Whether the stored value is encrypted at rest.",
+				Computed:    true,
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -220,6 +231,8 @@ func mapSettingResponseToModel(setting *client.SettingResponse, m *SettingResour
 	m.Description = types.StringValue(setting.Description)
 	m.IsSecret = types.BoolValue(setting.IsSecret)
 	m.Default = rawJSONToNormalized(setting.Default)
+	m.Schema = rawJSONToNormalized(setting.Schema)
+	m.IsEncrypted = types.BoolValue(setting.IsEncrypted)
 	m.CreatedAt = types.StringValue(setting.CreatedAt)
 	m.UpdatedAt = types.StringValue(setting.UpdatedAt)
 }

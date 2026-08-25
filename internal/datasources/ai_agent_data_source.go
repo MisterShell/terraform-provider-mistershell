@@ -161,7 +161,12 @@ func (d *AIAgentDataSource) Read(ctx context.Context, req datasource.ReadRequest
 				fmt.Sprintf("Found %d AI agents matching name %q.", len(filtered), name))
 			return
 		}
-		agent = &filtered[0]
+		full, err := d.client.GetAIAgent(ctx, filtered[0].ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading AI agent", err.Error())
+			return
+		}
+		agent = full
 	}
 
 	config.ID = types.Int64Value(agent.ID)

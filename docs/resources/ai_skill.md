@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_ai_skill Resource - terraform-provider-mistershell"
+page_title: "mistershell_ai_skill Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell custom AI skill: a markdown platform brief surfaced to agents via list_skills. Builtin skills (is_builtin=true) are managed by MisterShell — only their is_enabled flag is mutable server-side — and are exposed read-only via the mistershell_ai_skill data source. This resource manages user-defined skills only.

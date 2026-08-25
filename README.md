@@ -5,8 +5,8 @@ The MisterShell Terraform provider enables infrastructure-as-code management of 
 ## Requirements
 
 - [Terraform](https://www.terraform.io/downloads) >= 1.5
-- A running MisterShell instance
-- A MisterShell API key (`yami_` prefixed)
+- A running MisterShell 2.0 or newer instance
+- A MisterShell API key (`apikey_` prefixed)
 
 ## Installation
 
@@ -15,7 +15,7 @@ terraform {
   required_providers {
     mistershell = {
       source  = "MisterShell/mistershell"
-      version = "~> 0.1"
+      version = "~> 2.0"
     }
   }
 }
@@ -41,6 +41,7 @@ resource "mistershell_location" "emea" {
   name        = "EMEA"
   kind        = "geo"
   description = "Europe, Middle East, and Africa"
+  parent_id  = 1
 }
 
 resource "mistershell_location" "zurich" {
@@ -63,11 +64,11 @@ resource "mistershell_credential" "ssh_admin" {
   })
 }
 
-# Add a network resource
+# Onboard a network resource. MisterShell makes a live SSH connection,
+# discovers the native type, and falls back to Generic SSH when none matches.
 resource "mistershell_resource" "core_switch" {
   name          = "core-sw-01.zurich"
-  resource_type = "cisco_iosxe"
-  external_id   = "FCW2345L0AB"
+  engine_id     = "ssh"
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
 
@@ -96,13 +97,12 @@ All data sources support lookup by `id` or by search filters. Filters must match
 | `mistershell_resource` | `id`, `name`, `resource_type`, `location_id`, `status` |
 | `mistershell_credential` | `id`, `name`, `credential_type` |
 
-## Supported Resource Types
+## Runtime RDK catalogs
 
-`cisco_ios`, `cisco_iosxe`, `cisco_iosxe_sdwan`, `cisco_nxos`, `cisco_ise`, `cisco_vbond`, `cisco_vmanage`, `cisco_vsmart`, `infoblox_nios`, `generic_ssh`, `linux`, `windows`, `panos_ssh`, `generic_rdp`, `generic_vnc`, `generic_web`, `aws_account`, `azure_subscription`, `kubernetes_cluster`, `database`
-
-## Supported Credential Types
-
-`username_password`, `ssh_key`, `aws_credentials`, `azure_service_principal`, `kubeconfig`, `none` (`none` is a backend-managed singleton; not creatable through this provider)
+Resource and credential types come from the RDK bundles installed on the target
+MisterShell instance, and extensions may add types. The provider reads
+`/api/v1/resources/types` and `/api/v1/credentials/types` at runtime instead of
+embedding closed lists.
 
 ## Development
 
@@ -111,21 +111,17 @@ All data sources support lookup by `id` or by search filters. Filters must match
 make build
 
 # Run acceptance tests (requires a running MisterShell instance)
-MISTERSHELL_URL=http://localhost:13000 MISTERSHELL_API_KEY=yami_xxx make test
+MISTERSHELL_URL=http://localhost:13000 MISTERSHELL_API_KEY=apikey_xxx make test
 ```
 
-### Generated type lists
+### Generated enums
 
-The supported resource and credential type lists are **generated** from the
-MisterShell backend's checked-in OpenAPI spec (`ui/openapi.json`,
-`components.schemas.NetworkResourceType` and `components.schemas.CredentialType`)
-so they never drift behind upstream. The output lives in
-`internal/client/types_gen.go` (`SupportedResourceTypes` /
-`SupportedCredentialTypes`), which is consumed by the `resource_type` and
-`credential_type` validators.
+Stable non-RDK enums are generated from the MisterShell backend's checked-in
+OpenAPI specification. RDK resource and credential catalogs are intentionally
+runtime data and are not generated into the provider.
 
 ```bash
-# Regenerate the type lists from a local checkout of the MisterShell backend
+# Regenerate stable enums from a local checkout of the MisterShell backend
 MISTERSHELL_OPENAPI=/path/to/mistershell/ui/openapi.json make generate
 ```
 

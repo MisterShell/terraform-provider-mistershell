@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_location Resource - terraform-provider-mistershell"
+page_title: "mistershell_location Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell location. Locations form a hierarchy for organizing network resources by geography or organizational structure.
@@ -56,6 +56,8 @@ resource "mistershell_location" "zurich" {
 
 - `created_at` (String) Creation timestamp.
 - `id` (Number) Location ID.
+- `path` (String) Resolved hierarchical location path.
+- `resource_count` (Number) Number of resources directly assigned to this location.
 - `updated_at` (String) Last update timestamp.
 
 ## Valid `kind` values

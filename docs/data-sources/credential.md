@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_credential Data Source - terraform-provider-mistershell"
+page_title: "mistershell_credential Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell credential. Look up by id for a direct fetch, or use name/credential_type to search. Search filters must match exactly one credential. Note: secret fields in credential_data are masked as '****' by the API.
@@ -33,7 +33,7 @@ data "mistershell_credential" "k8s" {
 
 ### Optional
 
-- `credential_type` (String) Credential type filter. One of: username_password, ssh_key, aws_credentials, azure_service_principal, kubeconfig, none.
+- `credential_type` (String) Installed RDK credential type filter. Query MisterShell's runtime credential catalog for current values.
 - `id` (Number) Credential ID. Use for direct lookup.
 - `name` (String) Credential name (unique). Used as a search filter when id is not specified.
 
@@ -46,20 +46,8 @@ data "mistershell_credential" "k8s" {
 - `requires_user_mapping` (Boolean) Whether users must fill their own credential copy.
 - `updated_at` (String) Last update timestamp.
 
-## Valid `credential_type` filter values
+## Runtime credential types
 
-The `credential_type` argument filters the search to a single credential type.
-Valid values:
-
-| credential_type | Creatable | Used by resource_type(s) |
-|---|---|---|
-| `username_password` | yes | all SSH-family, `windows`, `database`, `generic_rdp`, `generic_web`, `generic_vnc` |
-| `ssh_key` | yes | all SSH-family, `windows` |
-| `aws_credentials` | yes | `aws_account` |
-| `azure_service_principal` | yes | `azure_subscription` |
-| `kubeconfig` | yes | `kubernetes_cluster` |
-| `none` | no — system singleton, 403 on create/edit/delete | `generic_web`, `generic_vnc` |
-
-The SSH-family resource types are: `cisco_ios`, `cisco_iosxe`,
-`cisco_iosxe_sdwan`, `cisco_nxos`, `cisco_ise`, `cisco_vbond`, `cisco_vmanage`,
-`cisco_vsmart`, `generic_ssh`, `infoblox_nios`, `linux`, `panos_ssh`.
+`credential_type` values are supplied by the RDK bundles installed on the
+target MisterShell instance. Query `GET /api/v1/credentials/types` for the
+current catalog and JSON Schemas; installed extensions may add types.

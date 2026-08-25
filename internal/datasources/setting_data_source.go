@@ -23,6 +23,8 @@ type SettingDataSourceModel struct {
 	Description types.String         `tfsdk:"description"`
 	IsSecret    types.Bool           `tfsdk:"is_secret"`
 	Default     jsontypes.Normalized `tfsdk:"default"`
+	Schema      jsontypes.Normalized `tfsdk:"schema"`
+	IsEncrypted types.Bool           `tfsdk:"is_encrypted"`
 	CreatedAt   types.String         `tfsdk:"created_at"`
 	UpdatedAt   types.String         `tfsdk:"updated_at"`
 }
@@ -61,6 +63,15 @@ func (d *SettingDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Description: "Registry default value as JSON. Masked for non-empty secret keys.",
 				Computed:    true,
 				CustomType:  jsontypes.NormalizedType{},
+			},
+			"schema": schema.StringAttribute{
+				Description: "JSON Schema used by MisterShell to validate this setting.",
+				Computed:    true,
+				CustomType:  jsontypes.NormalizedType{},
+			},
+			"is_encrypted": schema.BoolAttribute{
+				Description: "Whether the stored value is encrypted at rest.",
+				Computed:    true,
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -109,6 +120,8 @@ func (d *SettingDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	config.Description = types.StringValue(setting.Description)
 	config.IsSecret = types.BoolValue(setting.IsSecret)
 	config.Default = rawJSONToNormalized(setting.Default)
+	config.Schema = rawJSONToNormalized(setting.Schema)
+	config.IsEncrypted = types.BoolValue(setting.IsEncrypted)
 	config.CreatedAt = types.StringValue(setting.CreatedAt)
 	config.UpdatedAt = types.StringValue(setting.UpdatedAt)
 

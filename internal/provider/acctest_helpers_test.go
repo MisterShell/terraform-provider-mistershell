@@ -3,11 +3,9 @@ package provider_test
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -41,12 +39,11 @@ func testAccClient() *client.Client {
 		return nil
 	}
 
-	httpClient := &http.Client{}
+	insecure := false
 	if v := os.Getenv("MISTERSHELL_INSECURE"); v == "1" || strings.EqualFold(v, "true") {
-		httpClient.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		}
+		insecure = true
 	}
+	httpClient := client.NewHTTPClient(insecure)
 
 	return client.NewClient(url, apiKey, httpClient)
 }

@@ -22,6 +22,7 @@ type NetworkResourceDataSourceModel struct {
 	ID                     types.Int64          `tfsdk:"id"`
 	Name                   types.String         `tfsdk:"name"`
 	ResourceType           types.String         `tfsdk:"resource_type"`
+	EngineID               types.String         `tfsdk:"engine_id"`
 	ConnectorID            types.String         `tfsdk:"connector_id"`
 	ExternalID             types.String         `tfsdk:"external_id"`
 	ConnectorData          jsontypes.Normalized `tfsdk:"connector_data"`
@@ -49,7 +50,7 @@ func (d *NetworkResourceDataSource) Metadata(_ context.Context, req datasource.M
 
 func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Reads a MisterShell network resource. Look up by id for a direct fetch, or use name/resource_type/location_id/status to search. Search filters must match exactly one resource.",
+		Description: "Reads a MisterShell network resource. Look up by id or search by name/resource_type/location_id/status. The engine is resolved from the target instance's installed RDK catalog.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Resource ID. Use for direct lookup.",
@@ -62,8 +63,12 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Computed:    true,
 			},
 			"resource_type": schema.StringAttribute{
-				Description: "Resource type filter (e.g. cisco_iosxe, linux, aws_account).",
+				Description: "Installed RDK resource type filter. Query MisterShell's runtime resource catalog for current values.",
 				Optional:    true,
+				Computed:    true,
+			},
+			"engine_id": schema.StringAttribute{
+				Description: "Connection engine inferred from the installed RDK resource-type catalog.",
 				Computed:    true,
 			},
 			"connector_id": schema.StringAttribute{
@@ -75,7 +80,7 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Computed:    true,
 			},
 			"connector_data": schema.StringAttribute{
-				Description: "Connection parameters as JSON. Fields vary by resource_type; see the valid resource_type values table on this page.",
+				Description: "Connection parameters as JSON; the shape is defined by the installed RDK type catalog.",
 				Computed:    true,
 				CustomType:  jsontypes.NormalizedType{},
 			},
@@ -240,8 +245,14 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 	config.ID = types.Int64Value(res.ID)
 	config.Name = types.StringValue(res.Name)
 	config.ResourceType = types.StringValue(res.ResourceType)
+	resourceType, err := d.client.FindResourceType(ctx, res.ResourceType)
+	if err != nil {
+		resp.Diagnostics.AddError("Error resolving resource engine", err.Error())
+		return
+	}
+	config.EngineID = types.StringValue(resourceType.EngineID)
 	config.ConnectorID = types.StringValue(res.ConnectorID)
-	config.ExternalID = types.StringValue(res.ExternalID)
+	config.ExternalID = stringPtrToValue(res.ExternalID)
 	config.ConnectorData = rawJSONToNormalized(res.ConnectorData)
 	config.CredentialID = int64PtrToValue(res.CredentialID)
 	config.LocationID = int64PtrToValue(res.LocationID)

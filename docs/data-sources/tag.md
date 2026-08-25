@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_tag Data Source - terraform-provider-mistershell"
+page_title: "mistershell_tag Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell tag. Look up by id for a direct fetch, or by name (exact match, must resolve to exactly one tag).

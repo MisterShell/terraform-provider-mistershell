@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -27,13 +28,14 @@ type RoleResource struct {
 }
 
 type RoleResourceModel struct {
-	ID               types.Int64  `tfsdk:"id"`
-	Name             types.String `tfsdk:"name"`
-	Description      types.String `tfsdk:"description"`
-	ScopeLocationIDs types.Set    `tfsdk:"scope_location_ids"`
-	Permissions      types.Set    `tfsdk:"permissions"`
-	CreatedAt        types.String `tfsdk:"created_at"`
-	UpdatedAt        types.String `tfsdk:"updated_at"`
+	ID                types.Int64  `tfsdk:"id"`
+	Name              types.String `tfsdk:"name"`
+	Description       types.String `tfsdk:"description"`
+	LocationScopeMode types.String `tfsdk:"location_scope_mode"`
+	ScopeLocationIDs  types.Set    `tfsdk:"scope_location_ids"`
+	Permissions       types.Set    `tfsdk:"permissions"`
+	CreatedAt         types.String `tfsdk:"created_at"`
+	UpdatedAt         types.String `tfsdk:"updated_at"`
 }
 
 func NewRoleResource() resource.Resource {
@@ -69,8 +71,17 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 					stringvalidator.LengthAtMost(500),
 				},
 			},
+			"location_scope_mode": schema.StringAttribute{
+				Description: "Location scope mode: global applies everywhere; restricted applies only beneath scope_location_ids.",
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString("global"),
+				Validators: []validator.String{
+					stringvalidator.OneOf("global", "restricted"),
+				},
+			},
 			"scope_location_ids": schema.SetAttribute{
-				Description: "Set of location IDs that scope this role. Empty or omitted means all locations.",
+				Description: "Location scope roots. Required and non-empty when location_scope_mode is restricted; empty for global roles.",
 				Optional:    true,
 				ElementType: types.Int64Type,
 			},
@@ -115,7 +126,8 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	input := client.RoleCreateInput{
-		Name: plan.Name.ValueString(),
+		Name:              plan.Name.ValueString(),
+		LocationScopeMode: plan.LocationScopeMode.ValueString(),
 	}
 	if !plan.Description.IsNull() {
 		v := plan.Description.ValueString()
@@ -131,9 +143,16 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	// Add planned permissions (additions only; POST is 409 on duplicates).
-	if !plan.Permissions.IsNull() && !plan.Permissions.IsUnknown() {
-		for _, name := range stringSetToSlice(plan.Permissions) {
+	desiredPermissions := plan.Permissions
+	mapRoleBaseResponseToModel(role, &plan)
+	plan.Permissions = types.SetValueMust(types.StringType, nil)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if !desiredPermissions.IsNull() && !desiredPermissions.IsUnknown() {
+		for _, name := range stringSetToSlice(desiredPermissions) {
 			if err := r.client.AddRolePermission(ctx, role.ID, name); err != nil {
 				resp.Diagnostics.AddError("Error assigning role permission", fmt.Sprintf("permission %q: %s", name, err.Error()))
 				return
@@ -190,6 +209,10 @@ func (r *RoleResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		input.Name = &v
 	}
 	input.Description = stringValueToPtr(plan.Description)
+	if !plan.LocationScopeMode.Equal(state.LocationScopeMode) {
+		value := plan.LocationScopeMode.ValueString()
+		input.LocationScopeMode = &value
+	}
 	if !plan.ScopeLocationIDs.Equal(state.ScopeLocationIDs) {
 		ids := int64SetToSlice(plan.ScopeLocationIDs)
 		if ids == nil {
@@ -262,9 +285,15 @@ func (r *RoleResource) finalizeState(ctx context.Context, id int64, m *RoleResou
 }
 
 func mapRoleResponseToModel(role *client.RoleDetailResponse, m *RoleResourceModel) {
+	mapRoleBaseResponseToModel(&role.RoleResponse, m)
+	m.Permissions = stringSliceToSet(role.Permissions)
+}
+
+func mapRoleBaseResponseToModel(role *client.RoleResponse, m *RoleResourceModel) {
 	m.ID = types.Int64Value(role.ID)
 	m.Name = types.StringValue(role.Name)
 	m.Description = stringPtrToValue(role.Description)
+	m.LocationScopeMode = types.StringValue(role.LocationScopeMode)
 	// scope_location_ids is Optional (not Computed): when the config omits it the
 	// server returns an empty list (= all locations); keep state null to match config.
 	if (m.ScopeLocationIDs.IsNull() || m.ScopeLocationIDs.IsUnknown()) && len(role.ScopeLocationIDs) == 0 {
@@ -272,7 +301,6 @@ func mapRoleResponseToModel(role *client.RoleDetailResponse, m *RoleResourceMode
 	} else {
 		m.ScopeLocationIDs = int64SliceToSet(role.ScopeLocationIDs)
 	}
-	m.Permissions = stringSliceToSet(role.Permissions)
 	m.CreatedAt = types.StringValue(role.CreatedAt)
 	m.UpdatedAt = types.StringValue(role.UpdatedAt)
 }

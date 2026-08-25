@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_user Data Source - terraform-provider-mistershell"
+page_title: "mistershell_user Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell user. Look up by id for a direct fetch, or by email (exact match, must resolve to exactly one user).
@@ -39,6 +39,7 @@ data "mistershell_user" "by_email" {
 - `first_name` (String) User first name.
 - `is_active` (Boolean) Whether the account is active.
 - `last_name` (String) User last name.
+- `permissions` (Set of String) Flattened permission names granted through assigned roles.
 - `roles` (Attributes List) Roles assigned to this user, as objects with id, name, and description. (see [below for nested schema](#nestedatt--roles))
 - `updated_at` (String) Last update timestamp.
 

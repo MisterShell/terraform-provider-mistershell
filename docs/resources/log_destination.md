@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_log_destination Resource - terraform-provider-mistershell"
+page_title: "mistershell_log_destination Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is an opaque per-type JSON blob (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).

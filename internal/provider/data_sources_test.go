@@ -75,47 +75,20 @@ data "mistershell_location" "lookup" {
 // ---------------------------------------------------------------------------
 
 func TestAccNetworkResourceDataSource_byID(t *testing.T) {
-	testAccPreCheck(t)
+	testAccSSHResourcePreCheck(t)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: `
-resource "mistershell_location" "test" {
-  name      = "tf-acc-ds-res-loc"
-  kind      = "geo"
-  parent_id = 1
-}
-
-resource "mistershell_credential" "test" {
-  name            = "tf-acc-ds-res-cred"
-  credential_type = "username_password"
-  credential_data = jsonencode({
-    username = "testuser"
-    password = "testpass123"
-  })
-}
-
-resource "mistershell_resource" "test" {
-  name          = "tf-acc-ds-res"
-  resource_type = "linux"
-  external_id   = "TF-ACC-DS-SN-001"
-  location_id   = mistershell_location.test.id
-  credential_id = mistershell_credential.test.id
-  connector_data = jsonencode({
-    host = "192.168.99.98"
-    port = 22
-  })
-}
-
+				Config: testAccSSHResourceConfig("tf-acc-ds-res", "") + `
 data "mistershell_resource" "lookup" {
   id = mistershell_resource.test.id
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "name", "tf-acc-ds-res"),
-					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "resource_type", "linux"),
+					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "engine_id", "ssh"),
 					resource.TestCheckResourceAttrSet("data.mistershell_resource.lookup", "connector_id"),
 				),
 			},
@@ -124,47 +97,20 @@ data "mistershell_resource" "lookup" {
 }
 
 func TestAccNetworkResourceDataSource_byName(t *testing.T) {
-	testAccPreCheck(t)
+	testAccSSHResourcePreCheck(t)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: `
-resource "mistershell_location" "test" {
-  name      = "tf-acc-ds-res-name-loc"
-  kind      = "geo"
-  parent_id = 1
-}
-
-resource "mistershell_credential" "test" {
-  name            = "tf-acc-ds-res-name-cred"
-  credential_type = "username_password"
-  credential_data = jsonencode({
-    username = "testuser"
-    password = "testpass123"
-  })
-}
-
-resource "mistershell_resource" "test" {
-  name          = "tf-acc-ds-res-name"
-  resource_type = "linux"
-  external_id   = "TF-ACC-DS-SN-002"
-  location_id   = mistershell_location.test.id
-  credential_id = mistershell_credential.test.id
-  connector_data = jsonencode({
-    host = "192.168.99.97"
-    port = 22
-  })
-}
-
+				Config: testAccSSHResourceConfig("tf-acc-ds-res-name", "") + `
 data "mistershell_resource" "lookup" {
   name = mistershell_resource.test.name
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_resource.lookup", "id", "mistershell_resource.test", "id"),
-					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "resource_type", "linux"),
+					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "engine_id", "ssh"),
 					resource.TestCheckResourceAttrSet("data.mistershell_resource.lookup", "connector_data"),
 				),
 			},

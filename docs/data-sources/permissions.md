@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_permissions Data Source - terraform-provider-mistershell"
+page_title: "mistershell_permissions Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads the MisterShell permission registry (read-only). Permissions are a fixed, source-defined registry and cannot be created via Terraform. Filter by module and/or search.
@@ -65,6 +65,16 @@ Read-Only:
 - `description` (String) Permission description.
 - `module` (String) Module the permission belongs to.
 - `name` (String) Permission name (e.g. 'app.tags.read').
+- `roles` (Attributes List) Roles currently assigned this permission. (see [below for nested schema](#nestedatt--permissions--roles))
+
+<a id="nestedatt--permissions--roles"></a>
+### Nested Schema for `permissions.roles`
+
+Read-Only:
+
+- `description` (String)
+- `id` (Number)
+- `name` (String)
 
 ## Overview
 

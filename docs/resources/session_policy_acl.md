@@ -1,13 +1,13 @@
 ---
-page_title: "mistershell_session_policy_acl Resource - terraform-provider-mistershell"
+page_title: "mistershell_session_policy_acl Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell session-policy command ACL: a named, ordered set of glob/regex command patterns. ACLs are referenced by session-policy rules. The backend exposes no GET-single endpoint for ACLs, so reads go through the list endpoint. Built-in ACLs (is_builtin=true) cannot be edited or deleted.
+  Manages a MisterShell session-policy command ACL: a named, ordered set of glob/regex command patterns referenced by session-policy rules. Built-in ACLs (is_builtin=true) cannot be edited or deleted.
 ---
 
 # mistershell_session_policy_acl (Resource)
 
-Manages a MisterShell session-policy command ACL: a named, ordered set of glob/regex command patterns. ACLs are referenced by session-policy rules. The backend exposes no GET-single endpoint for ACLs, so reads go through the list endpoint. Built-in ACLs (is_builtin=true) cannot be edited or deleted.
+Manages a MisterShell session-policy command ACL: a named, ordered set of glob/regex command patterns referenced by session-policy rules. Built-in ACLs (is_builtin=true) cannot be edited or deleted.
 
 ## Example Usage
 
@@ -103,9 +103,8 @@ Each element of the `patterns` list is an object with these fields:
 
 ## Notes
 
-- **Read is via the list endpoint.** The backend exposes no GET-single route for
-  ACLs, so the provider reads an ACL by listing and filtering on `id`. If the ACL
-  is absent from the list it is treated as deleted.
+- **Reads use the MisterShell 2.0 detail endpoint.** A 404 removes the resource
+  from Terraform state.
 - **Built-in ACLs cannot be managed.** An ACL with `is_builtin = true` cannot be
   edited or deleted; the API rejects such operations. Do not manage built-in ACLs
   with Terraform.

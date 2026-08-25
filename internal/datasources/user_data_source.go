@@ -26,6 +26,7 @@ type UserDataSourceModel struct {
 	IsActive      types.Bool   `tfsdk:"is_active"`
 	EmailVerified types.Bool   `tfsdk:"email_verified"`
 	Roles         types.List   `tfsdk:"roles"`
+	Permissions   types.Set    `tfsdk:"permissions"`
 	CreatedAt     types.String `tfsdk:"created_at"`
 	UpdatedAt     types.String `tfsdk:"updated_at"`
 }
@@ -70,6 +71,11 @@ func (d *UserDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 						"description": schema.StringAttribute{Computed: true, Description: "Role description."},
 					},
 				},
+			},
+			"permissions": schema.SetAttribute{
+				Description: "Flattened permission names granted through assigned roles.",
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 			"created_at": schema.StringAttribute{Description: "Creation timestamp.", Computed: true},
 			"updated_at": schema.StringAttribute{Description: "Last update timestamp.", Computed: true},
@@ -146,6 +152,7 @@ func (d *UserDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	config.IsActive = types.BoolValue(user.IsActive)
 	config.EmailVerified = types.BoolValue(user.EmailVerified)
 	config.Roles = rolesToList(user.Roles)
+	config.Permissions = stringSliceToSet(user.Permissions)
 	config.CreatedAt = types.StringValue(user.CreatedAt)
 	config.UpdatedAt = types.StringValue(user.UpdatedAt)
 

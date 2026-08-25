@@ -21,16 +21,18 @@ type LocationDataSource struct {
 }
 
 type LocationDataSourceModel struct {
-	ID          types.Int64          `tfsdk:"id"`
-	Name        types.String         `tfsdk:"name"`
-	Kind        types.String         `tfsdk:"kind"`
-	Description types.String         `tfsdk:"description"`
-	ParentID    types.Int64          `tfsdk:"parent_id"`
-	Latitude    types.Float64        `tfsdk:"latitude"`
-	Longitude   types.Float64        `tfsdk:"longitude"`
-	ExtraData   jsontypes.Normalized `tfsdk:"extra_data"`
-	CreatedAt   types.String         `tfsdk:"created_at"`
-	UpdatedAt   types.String         `tfsdk:"updated_at"`
+	ID            types.Int64          `tfsdk:"id"`
+	Name          types.String         `tfsdk:"name"`
+	Kind          types.String         `tfsdk:"kind"`
+	Description   types.String         `tfsdk:"description"`
+	ParentID      types.Int64          `tfsdk:"parent_id"`
+	Latitude      types.Float64        `tfsdk:"latitude"`
+	Longitude     types.Float64        `tfsdk:"longitude"`
+	ExtraData     jsontypes.Normalized `tfsdk:"extra_data"`
+	ResourceCount types.Int64          `tfsdk:"resource_count"`
+	Path          types.String         `tfsdk:"path"`
+	CreatedAt     types.String         `tfsdk:"created_at"`
+	UpdatedAt     types.String         `tfsdk:"updated_at"`
 }
 
 func NewLocationDataSource() datasource.DataSource {
@@ -85,6 +87,8 @@ func (d *LocationDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 				Computed:    true,
 				CustomType:  jsontypes.NormalizedType{},
 			},
+			"resource_count": schema.Int64Attribute{Description: "Number of resources directly assigned to this location.", Computed: true},
+			"path":           schema.StringAttribute{Description: "Resolved hierarchical location path.", Computed: true},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
 				Computed:    true,
@@ -143,9 +147,6 @@ func (d *LocationDataSource) Read(ctx context.Context, req datasource.ReadReques
 		if hasName {
 			filter.Search = config.Name.ValueString()
 		}
-		if hasKind {
-			filter.Kind = config.Kind.ValueString()
-		}
 		if hasParentID {
 			v := config.ParentID.ValueInt64()
 			filter.ParentID = &v
@@ -157,17 +158,14 @@ func (d *LocationDataSource) Read(ctx context.Context, req datasource.ReadReques
 			return
 		}
 
-		// Apply exact name match if name was specified (API search is fuzzy)
+		name, kind := "", ""
 		if hasName {
-			name := config.Name.ValueString()
-			var filtered []client.LocationResponse
-			for _, l := range locs {
-				if l.Name == name {
-					filtered = append(filtered, l)
-				}
-			}
-			locs = filtered
+			name = config.Name.ValueString()
 		}
+		if hasKind {
+			kind = config.Kind.ValueString()
+		}
+		locs = filterLocationsExact(locs, name, kind)
 
 		if len(locs) == 0 {
 			resp.Diagnostics.AddError("No matching location found", "No location matches the specified criteria.")
@@ -189,8 +187,24 @@ func (d *LocationDataSource) Read(ctx context.Context, req datasource.ReadReques
 	config.Latitude = float64PtrToValue(loc.Latitude)
 	config.Longitude = float64PtrToValue(loc.Longitude)
 	config.ExtraData = rawJSONToNormalized(loc.ExtraData)
+	config.ResourceCount = int64PtrToValue(loc.ResourceCount)
+	config.Path = stringPtrToValue(loc.Path)
 	config.CreatedAt = types.StringValue(loc.CreatedAt)
 	config.UpdatedAt = types.StringValue(loc.UpdatedAt)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+func filterLocationsExact(locations []client.LocationResponse, name, kind string) []client.LocationResponse {
+	filtered := make([]client.LocationResponse, 0, len(locations))
+	for _, location := range locations {
+		if name != "" && location.Name != name {
+			continue
+		}
+		if kind != "" && location.Kind != kind {
+			continue
+		}
+		filtered = append(filtered, location)
+	}
+	return filtered
 }

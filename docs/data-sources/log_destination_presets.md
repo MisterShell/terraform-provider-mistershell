@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_log_destination_presets Data Source - terraform-provider-mistershell"
+page_title: "mistershell_log_destination_presets Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads the MisterShell log-destination presets (read-only). Presets are code-owned per-type/vendor config templates (key, label, vendor, type, default_config). Copy a preset's default_config into a mistershell_log_destination's config to author a destination quickly.

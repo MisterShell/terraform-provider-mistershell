@@ -23,7 +23,7 @@ Specify exactly one of:
 
 | argument | behavior |
 |---|---|
-| `id` | Direct lookup by integer ID (resolved through the list endpoint; there is no GET-single for ACLs). |
+| `id` | Direct lookup by integer ID through the detail endpoint. |
 | `name` | Exact-match lookup by name (fuzzy server search, then exact `name ==` filter). Errors if zero or more than one ACL matches. |
 
 ## Returned values

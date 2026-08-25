@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_ai_model Resource - terraform-provider-mistershell"
+page_title: "mistershell_ai_model Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell AI model registration, pairing a provider and provider-specific model id with an opaque per-provider config blob (api_key, base_url, etc.). The config attribute is sensitive: provider secrets are masked by the API and stored from config (not read back).

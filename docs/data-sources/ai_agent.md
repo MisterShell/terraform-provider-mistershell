@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_ai_agent Data Source - terraform-provider-mistershell"
+page_title: "mistershell_ai_agent Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell AI agent (user-defined or builtin). Look up by id for a direct fetch, or by name (exact match).

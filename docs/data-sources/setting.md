@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_setting Data Source - terraform-provider-mistershell"
+page_title: "mistershell_setting Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell application setting by key. value is JSON (heterogeneous bool/int/string). Secret-key values and defaults are masked as '****' by the API. Unknown keys return an error.
@@ -43,7 +43,9 @@ output "retention_is_secret" {
 - `created_at` (String) Creation timestamp.
 - `default` (String) Registry default value as JSON. Masked for non-empty secret keys.
 - `description` (String) Human description of the setting.
+- `is_encrypted` (Boolean) Whether the stored value is encrypted at rest.
 - `is_secret` (Boolean) Whether the value is a secret.
+- `schema` (String) JSON Schema used by MisterShell to validate this setting.
 - `updated_at` (String) Last update timestamp.
 - `value` (String, Sensitive) Current value as JSON. Masked as '****' for secret keys.
 

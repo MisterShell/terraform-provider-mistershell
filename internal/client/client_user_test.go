@@ -31,7 +31,7 @@ func envelope(t *testing.T, data interface{}) []byte {
 func TestCreateUser(t *testing.T) {
 	var gotBody map[string]interface{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/users/" {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/users" {
 			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
 		}
 		b, _ := io.ReadAll(r.Body)
@@ -120,7 +120,7 @@ func TestAddAndRemoveUserRole(t *testing.T) {
 	if err := c.RemoveUserRole(context.Background(), 7, 3); err != nil {
 		t.Fatalf("RemoveUserRole: %v", err)
 	}
-	if len(methods) != 2 || methods[0] != http.MethodPost || methods[1] != http.MethodDelete {
-		t.Errorf("methods = %v, want [POST DELETE]", methods)
+	if len(methods) != 2 || methods[0] != http.MethodPut || methods[1] != http.MethodDelete {
+		t.Errorf("methods = %v, want [PUT DELETE]", methods)
 	}
 }

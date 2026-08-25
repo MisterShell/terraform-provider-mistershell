@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_ai_prompt Data Source - terraform-provider-mistershell"
+page_title: "mistershell_ai_prompt Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell AI prompt. Look up by id for a direct fetch, or by name (exact match). Both custom (type="user") and builtin (type="system") prompts are readable here.

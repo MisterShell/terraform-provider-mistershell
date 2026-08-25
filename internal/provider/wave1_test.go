@@ -65,7 +65,7 @@ func TestAccTag_basic(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestAccTag_resourceIDs(t *testing.T) {
-	testAccPreCheck(t)
+	testAccSSHResourcePreCheck(t)
 
 	name := acctestPrefix + "tag-assign"
 
@@ -273,46 +273,13 @@ func testAccTagAssignmentConfig(name string, assigned bool) string {
 	if assigned {
 		resourceIDs = "[mistershell_resource.test.id]"
 	}
-	return fmt.Sprintf(`
-resource "mistershell_location" "test" {
-  name      = %[1]q
-  kind      = "geo"
-  parent_id = 1
-}
-
-resource "mistershell_credential" "test" {
-  name            = %[2]q
-  credential_type = "username_password"
-
-  credential_data = jsonencode({
-    username = "testuser"
-    password = "testpass123"
-  })
-}
-
-resource "mistershell_resource" "test" {
-  name          = %[3]q
-  resource_type = "linux"
-  external_id   = %[4]q
-  location_id   = mistershell_location.test.id
-  credential_id = mistershell_credential.test.id
-
-  connector_data = jsonencode({
-    host = "192.168.99.99"
-    port = 22
-  })
-}
-
+	return testAccSSHResourceConfig(name+"-res", "") + fmt.Sprintf(`
 resource "mistershell_tag" "test" {
-  name         = %[5]q
+  name         = %[1]q
   color        = "orange"
-  resource_ids = %[6]s
+  resource_ids = %[2]s
 }
 `,
-		name+"-loc",
-		name+"-cred",
-		name+"-res",
-		name+"-extid",
 		name,
 		resourceIDs,
 	)
@@ -321,9 +288,10 @@ resource "mistershell_tag" "test" {
 func testAccRoleBasicConfig(name, description, scope string) string {
 	return fmt.Sprintf(`
 resource "mistershell_role" "test" {
-  name               = %q
-  description        = %q
-  scope_location_ids = [%s]
+  name                = %q
+  description         = %q
+  location_scope_mode = "restricted"
+  scope_location_ids  = [%s]
 }
 `, name, description, scope)
 }

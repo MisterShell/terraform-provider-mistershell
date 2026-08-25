@@ -1,12 +1,12 @@
 # An OIDC auth provider. config is an opaque per-provider_type JSON blob set
 # with jsonencode(); client_secret is a secret (masked '****' by the API and
-# stored from your configuration, not read back). display_order is set
-# declaratively via a post-create PATCH; assign distinct values for a
-# deterministic login-page order.
+# stored from your configuration, not read back). mnemonic is immutable and is
+# used in stable login and callback URLs.
 #
 # Create and update require an active license.
 resource "mistershell_auth_provider" "corp_oidc" {
   name          = "corp-oidc"
+  mnemonic      = "corp-oidc"
   provider_type = "OIDC"
   is_enabled    = true
   display_order = 0

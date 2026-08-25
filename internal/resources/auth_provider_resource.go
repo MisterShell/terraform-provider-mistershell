@@ -3,6 +3,7 @@ package resources
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
@@ -32,6 +33,7 @@ type AuthProviderResource struct {
 type AuthProviderResourceModel struct {
 	ID                 types.Int64          `tfsdk:"id"`
 	Name               types.String         `tfsdk:"name"`
+	Mnemonic           types.String         `tfsdk:"mnemonic"`
 	ProviderType       types.String         `tfsdk:"provider_type"`
 	IsEnabled          types.Bool           `tfsdk:"is_enabled"`
 	DisplayOrder       types.Int64          `tfsdk:"display_order"`
@@ -39,6 +41,7 @@ type AuthProviderResourceModel struct {
 	GroupMappingsCount types.Int64          `tfsdk:"group_mappings_count"`
 	SPEntityID         types.String         `tfsdk:"sp_entity_id"`
 	SPACSURL           types.String         `tfsdk:"sp_acs_url"`
+	OIDCRedirectURI    types.String         `tfsdk:"oidc_redirect_uri"`
 	CreatedAt          types.String         `tfsdk:"created_at"`
 	UpdatedAt          types.String         `tfsdk:"updated_at"`
 }
@@ -67,6 +70,16 @@ func (r *AuthProviderResource) Schema(_ context.Context, _ resource.SchemaReques
 				Required:    true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 100),
+				},
+			},
+			"mnemonic": schema.StringAttribute{
+				Description: "Stable URL token used in login, callback, ACS, and metadata URLs. Immutable after creation.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[a-zA-Z0-9-]{1,50}$`), "must contain 1-50 letters, digits, or hyphens"),
 				},
 			},
 			"provider_type": schema.StringAttribute{
@@ -107,11 +120,15 @@ func (r *AuthProviderResource) Schema(_ context.Context, _ resource.SchemaReques
 				Computed:    true,
 			},
 			"sp_entity_id": schema.StringAttribute{
-				Description: "SAML only (null for LDAP/OIDC): the service-provider entity ID this MisterShell instance presents to the IdP. Derived server-side from the app_base_url setting plus the provider ID; register it with your IdP.",
+				Description: "SAML only (null for LDAP/OIDC): service-provider entity ID derived from app_base_url and mnemonic; register it with your IdP.",
 				Computed:    true,
 			},
 			"sp_acs_url": schema.StringAttribute{
-				Description: "SAML only (null for LDAP/OIDC): the Assertion Consumer Service URL the IdP posts assertions to. Derived server-side from the app_base_url setting plus the provider ID; register it with your IdP.",
+				Description: "SAML only (null for LDAP/OIDC): Assertion Consumer Service URL derived from app_base_url and mnemonic; register it with your IdP.",
+				Computed:    true,
+			},
+			"oidc_redirect_uri": schema.StringAttribute{
+				Description: "OIDC callback URL to register with the identity provider. Derived from app_base_url and mnemonic; null for LDAP/SAML.",
 				Computed:    true,
 			},
 			"created_at": schema.StringAttribute{
@@ -150,6 +167,7 @@ func (r *AuthProviderResource) Create(ctx context.Context, req resource.CreateRe
 
 	input := client.AuthProviderCreateInput{
 		Name:         plan.Name.ValueString(),
+		Mnemonic:     plan.Mnemonic.ValueString(),
 		ProviderType: plan.ProviderType.ValueString(),
 		Config:       normalizedToRawJSON(plan.Config),
 		// display_order is honored on create since the backend gained the field
@@ -168,6 +186,14 @@ func (r *AuthProviderResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	savedConfig := plan.Config
+	mapAuthProviderResponseToModel(created, &plan)
+	plan.Config = savedConfig
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// GET-single to read the final display_order, group_mappings_count, timestamps.
 	detail, err := r.client.GetAuthProvider(ctx, created.ID)
 	if err != nil {
@@ -176,10 +202,24 @@ func (r *AuthProviderResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	// Preserve config from the plan (the API masks secrets and enriches defaults).
-	savedConfig := plan.Config
 	mapAuthProviderDetailToModel(detail, &plan)
 	plan.Config = savedConfig
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func mapAuthProviderResponseToModel(provider *client.AuthProviderResponse, m *AuthProviderResourceModel) {
+	m.ID = types.Int64Value(provider.ID)
+	m.Name = types.StringValue(provider.Name)
+	m.Mnemonic = types.StringValue(provider.Mnemonic)
+	m.ProviderType = types.StringValue(provider.ProviderType)
+	m.IsEnabled = types.BoolValue(provider.IsEnabled)
+	m.DisplayOrder = types.Int64Value(provider.DisplayOrder)
+	m.GroupMappingsCount = types.Int64Value(0)
+	m.SPEntityID = types.StringNull()
+	m.SPACSURL = types.StringNull()
+	m.OIDCRedirectURI = types.StringNull()
+	m.CreatedAt = types.StringValue(provider.CreatedAt)
+	m.UpdatedAt = types.StringValue(provider.UpdatedAt)
 }
 
 func (r *AuthProviderResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -280,12 +320,14 @@ func (r *AuthProviderResource) ImportState(ctx context.Context, req resource.Imp
 func mapAuthProviderDetailToModel(detail *client.AuthProviderDetailResponse, m *AuthProviderResourceModel) {
 	m.ID = types.Int64Value(detail.ID)
 	m.Name = types.StringValue(detail.Name)
+	m.Mnemonic = types.StringValue(detail.Mnemonic)
 	m.ProviderType = types.StringValue(detail.ProviderType)
 	m.IsEnabled = types.BoolValue(detail.IsEnabled)
 	m.DisplayOrder = types.Int64Value(detail.DisplayOrder)
 	m.GroupMappingsCount = types.Int64Value(detail.GroupMappingsCount)
 	m.SPEntityID = stringPtrToValue(detail.SPEntityID)
 	m.SPACSURL = stringPtrToValue(detail.SPACSURL)
+	m.OIDCRedirectURI = stringPtrToValue(detail.OIDCRedirectURI)
 	m.CreatedAt = types.StringValue(detail.CreatedAt)
 	m.UpdatedAt = types.StringValue(detail.UpdatedAt)
 }

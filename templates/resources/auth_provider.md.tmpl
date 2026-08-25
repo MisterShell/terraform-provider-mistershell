@@ -22,9 +22,10 @@ description: |-
 | attribute | constraints |
 |---|---|
 | `name` | Required. 1-100 characters. Unique. |
+| `mnemonic` | Required. 1-50 letters, digits, or hyphens. Unique and immutable; used in stable login/callback URLs. |
 | `provider_type` | Required. One of the `provider_type` values below. **Immutable** — changing it forces replacement (the `config` shape is type-coupled). |
 | `is_enabled` | Optional boolean. Defaults to `true`. |
-| `display_order` | Optional + computed integer `>= 0`. See **`display_order` semantics** below. |
+| `display_order` | Optional + computed integer `>= 0`; sent on create and update. |
 | `config` | Required, **sensitive**. Per-`provider_type` JSON blob set with `jsonencode(...)`; see the per-type tables below. |
 | `group_mappings_count` | Read-only. Number of attached group→role mappings. |
 
@@ -156,7 +157,7 @@ the apply with a `422` (`Extra inputs are not permitted`).
 
 **The SP URLs are derived, not configured.** MisterShell computes the service
 provider entity ID and ACS URL from the instance's `app_base_url` setting plus
-the provider ID. They are exposed as the read-only `sp_entity_id` / `sp_acs_url`
+the immutable provider `mnemonic`. They are exposed as the read-only `sp_entity_id` / `sp_acs_url`
 attributes — register those values with your IdP:
 
 ```hcl

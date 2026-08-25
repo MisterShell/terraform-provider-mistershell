@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_tags Data Source - terraform-provider-mistershell"
+page_title: "mistershell_tags Data Source - MisterShell"
 subcategory: ""
 description: |-
   Lists MisterShell tags. With no filter it returns every tag; set search to a substring to narrow the list (server-side fuzzy match). Use the singular mistershell_tag data source to look up exactly one tag.

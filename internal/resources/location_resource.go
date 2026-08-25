@@ -29,16 +29,18 @@ type LocationResource struct {
 }
 
 type LocationResourceModel struct {
-	ID          types.Int64          `tfsdk:"id"`
-	Name        types.String         `tfsdk:"name"`
-	Kind        types.String         `tfsdk:"kind"`
-	Description types.String         `tfsdk:"description"`
-	ParentID    types.Int64          `tfsdk:"parent_id"`
-	Latitude    types.Float64        `tfsdk:"latitude"`
-	Longitude   types.Float64        `tfsdk:"longitude"`
-	ExtraData   jsontypes.Normalized `tfsdk:"extra_data"`
-	CreatedAt   types.String         `tfsdk:"created_at"`
-	UpdatedAt   types.String         `tfsdk:"updated_at"`
+	ID            types.Int64          `tfsdk:"id"`
+	Name          types.String         `tfsdk:"name"`
+	Kind          types.String         `tfsdk:"kind"`
+	Description   types.String         `tfsdk:"description"`
+	ParentID      types.Int64          `tfsdk:"parent_id"`
+	Latitude      types.Float64        `tfsdk:"latitude"`
+	Longitude     types.Float64        `tfsdk:"longitude"`
+	ExtraData     jsontypes.Normalized `tfsdk:"extra_data"`
+	ResourceCount types.Int64          `tfsdk:"resource_count"`
+	Path          types.String         `tfsdk:"path"`
+	CreatedAt     types.String         `tfsdk:"created_at"`
+	UpdatedAt     types.String         `tfsdk:"updated_at"`
 }
 
 func NewLocationResource() resource.Resource {
@@ -94,6 +96,8 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Optional:    true,
 				CustomType:  jsontypes.NormalizedType{},
 			},
+			"resource_count": schema.Int64Attribute{Description: "Number of resources directly assigned to this location.", Computed: true},
+			"path":           schema.StringAttribute{Description: "Resolved hierarchical location path.", Computed: true},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
 				Computed:    true,
@@ -158,6 +162,16 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 
 	mapLocationResponseToModel(loc, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	full, err := r.client.GetLocation(ctx, loc.ID)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading location after create", err.Error())
+		return
+	}
+	mapLocationResponseToModel(full, &plan)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *LocationResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -215,7 +229,12 @@ func (r *LocationResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	mapLocationResponseToModel(loc, &plan)
+	full, err := r.client.GetLocation(ctx, loc.ID)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading location after update", err.Error())
+		return
+	}
+	mapLocationResponseToModel(full, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -249,6 +268,8 @@ func mapLocationResponseToModel(loc *client.LocationResponse, m *LocationResourc
 	m.Latitude = float64PtrToValue(loc.Latitude)
 	m.Longitude = float64PtrToValue(loc.Longitude)
 	m.ExtraData = rawJSONToNormalized(loc.ExtraData)
+	m.ResourceCount = int64PtrToValue(loc.ResourceCount)
+	m.Path = stringPtrToValue(loc.Path)
 	m.CreatedAt = types.StringValue(loc.CreatedAt)
 	m.UpdatedAt = types.StringValue(loc.UpdatedAt)
 }

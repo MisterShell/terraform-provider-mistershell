@@ -52,7 +52,7 @@ func (r *SessionPolicyAclResource) Metadata(_ context.Context, req resource.Meta
 func (r *SessionPolicyAclResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	emptyPatterns, _ := types.ListValue(aclPatternObjectType, []attr.Value{})
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell session-policy command ACL: a named, ordered set of glob/regex command patterns. ACLs are referenced by session-policy rules. The backend exposes no GET-single endpoint for ACLs, so reads go through the list endpoint. Built-in ACLs (is_builtin=true) cannot be edited or deleted.",
+		Description: "Manages a MisterShell session-policy command ACL: a named, ordered set of glob/regex command patterns referenced by session-policy rules. Built-in ACLs (is_builtin=true) cannot be edited or deleted.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "ACL ID.",

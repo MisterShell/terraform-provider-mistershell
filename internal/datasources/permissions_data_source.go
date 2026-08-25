@@ -32,6 +32,7 @@ var permissionObjectType = types.ObjectType{
 		"description": types.StringType,
 		"module":      types.StringType,
 		"action":      types.StringType,
+		"roles":       types.ListType{ElemType: roleObjectType},
 	},
 }
 
@@ -84,6 +85,15 @@ func (d *PermissionsDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 						"action": schema.StringAttribute{
 							Description: "Action the permission grants.",
 							Computed:    true,
+						},
+						"roles": schema.ListNestedAttribute{
+							Description: "Roles currently assigned this permission.",
+							Computed:    true,
+							NestedObject: schema.NestedAttributeObject{Attributes: map[string]schema.Attribute{
+								"id":          schema.Int64Attribute{Computed: true},
+								"name":        schema.StringAttribute{Computed: true},
+								"description": schema.StringAttribute{Computed: true},
+							}},
 						},
 					},
 				},
@@ -138,6 +148,7 @@ func (d *PermissionsDataSource) Read(ctx context.Context, req datasource.ReadReq
 			"description": types.StringValue(p.Description),
 			"module":      types.StringValue(p.Module),
 			"action":      types.StringValue(p.Action),
+			"roles":       rolesToList(p.Roles),
 		})
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {

@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_ai_tool Data Source - terraform-provider-mistershell"
+page_title: "mistershell_ai_tool Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell AI tool (read-only, backend-builtin). Look up by id or by exact name to obtain the tool id for an mistershell_ai_agent's tool_ids.
@@ -64,6 +64,7 @@ resource "mistershell_ai_agent" "assistant" {
 - `handler` (String) Backend handler identifier for the tool.
 - `input_schema` (String) The tool's JSON Schema describing its input parameters.
 - `required_permission` (String) Permission required to invoke the tool, if any.
+- `restricted_to_agent_types` (Set of String) Agent types allowed to use this tool; empty means unrestricted.
 
 ## Lookup arguments
 

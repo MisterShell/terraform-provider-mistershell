@@ -18,13 +18,14 @@ type RoleDataSource struct {
 }
 
 type RoleDataSourceModel struct {
-	ID               types.Int64  `tfsdk:"id"`
-	Name             types.String `tfsdk:"name"`
-	Description      types.String `tfsdk:"description"`
-	ScopeLocationIDs types.Set    `tfsdk:"scope_location_ids"`
-	Permissions      types.Set    `tfsdk:"permissions"`
-	CreatedAt        types.String `tfsdk:"created_at"`
-	UpdatedAt        types.String `tfsdk:"updated_at"`
+	ID                types.Int64  `tfsdk:"id"`
+	Name              types.String `tfsdk:"name"`
+	Description       types.String `tfsdk:"description"`
+	LocationScopeMode types.String `tfsdk:"location_scope_mode"`
+	ScopeLocationIDs  types.Set    `tfsdk:"scope_location_ids"`
+	Permissions       types.Set    `tfsdk:"permissions"`
+	CreatedAt         types.String `tfsdk:"created_at"`
+	UpdatedAt         types.String `tfsdk:"updated_at"`
 }
 
 func NewRoleDataSource() datasource.DataSource {
@@ -51,6 +52,10 @@ func (d *RoleDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 			},
 			"description": schema.StringAttribute{
 				Description: "Role description.",
+				Computed:    true,
+			},
+			"location_scope_mode": schema.StringAttribute{
+				Description: "Location scope mode (global or restricted).",
 				Computed:    true,
 			},
 			"scope_location_ids": schema.SetAttribute{
@@ -140,6 +145,7 @@ func (d *RoleDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	config.ID = types.Int64Value(role.ID)
 	config.Name = types.StringValue(role.Name)
 	config.Description = stringPtrToValue(role.Description)
+	config.LocationScopeMode = types.StringValue(role.LocationScopeMode)
 	config.ScopeLocationIDs = int64SliceToSet(role.ScopeLocationIDs)
 	config.Permissions = stringSliceToSet(role.Permissions)
 	config.CreatedAt = types.StringValue(role.CreatedAt)

@@ -29,6 +29,10 @@ type WorkerDataSourceModel struct {
 	ActiveTaskCount  types.Int64          `tfsdk:"active_task_count"`
 	TotalTaskCount   types.Int64          `tfsdk:"total_task_count"`
 	LastHeartbeatAt  types.String         `tfsdk:"last_heartbeat_at"`
+	Version          types.String         `tfsdk:"version"`
+	RDKContractMajor types.Int64          `tfsdk:"rdk_contract_major"`
+	RDKCatalogID     types.String         `tfsdk:"rdk_catalog_identity"`
+	RDKCompatible    types.Bool           `tfsdk:"rdk_compatible"`
 	ConnectedAt      types.String         `tfsdk:"connected_at"`
 	PresenceIP       types.String         `tfsdk:"presence_ip"`
 	PresenceIPSource types.String         `tfsdk:"presence_ip_source"`
@@ -91,6 +95,22 @@ func (d *WorkerDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			},
 			"last_heartbeat_at": schema.StringAttribute{
 				Description: "Timestamp of the worker's last heartbeat.",
+				Computed:    true,
+			},
+			"version": schema.StringAttribute{
+				Description: "Worker software version reported at registration.",
+				Computed:    true,
+			},
+			"rdk_contract_major": schema.Int64Attribute{
+				Description: "Major RDK contract version implemented by the worker.",
+				Computed:    true,
+			},
+			"rdk_catalog_identity": schema.StringAttribute{
+				Description: "RDK catalog identity reported by the worker.",
+				Computed:    true,
+			},
+			"rdk_compatible": schema.BoolAttribute{
+				Description: "Whether the worker RDK is compatible with this MisterShell instance.",
 				Computed:    true,
 			},
 			"connected_at": schema.StringAttribute{
@@ -211,6 +231,10 @@ func (d *WorkerDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	config.ActiveTaskCount = types.Int64Value(worker.ActiveTaskCount)
 	config.TotalTaskCount = types.Int64Value(worker.TotalTaskCount)
 	config.LastHeartbeatAt = optStringPtrToValue(worker.LastHeartbeatAt)
+	config.Version = optStringPtrToValue(worker.Version)
+	config.RDKContractMajor = int64PtrToValue(worker.RDKContractMajor)
+	config.RDKCatalogID = optStringPtrToValue(worker.RDKCatalogID)
+	config.RDKCompatible = types.BoolValue(worker.RDKCompatible)
 	config.ConnectedAt = optStringPtrToValue(worker.ConnectedAt)
 	config.PresenceIP = optStringPtrToValue(worker.PresenceIP)
 	config.PresenceIPSource = optStringPtrToValue(worker.PresenceIPSource)

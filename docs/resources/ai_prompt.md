@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_ai_prompt Resource - terraform-provider-mistershell"
+page_title: "mistershell_ai_prompt Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a custom MisterShell AI prompt (type="user"). Builtin type="system" prompts cannot be created, edited, or deleted (the API returns 403) and are available through the mistershell_ai_prompt data source.

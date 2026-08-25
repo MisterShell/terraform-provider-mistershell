@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_setting Resource - terraform-provider-mistershell"
+page_title: "mistershell_setting Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell application setting (a predefined key/value pair). Settings cannot be created or deleted — the key set is fixed by the backend registry. Create/Update PUT the value; Delete (terraform destroy) RESETS the key to its registry default rather than removing it. value is JSON (use jsonencode()) because values are heterogeneous (bool/int/string). Secret keys are masked as '****' by the API and stored from config, not read back. See the valid keys table on this page.
@@ -48,7 +48,9 @@ resource "mistershell_setting" "smtp_from" {
 - `default` (String) Registry default value as JSON. Masked as '****' for non-empty secret keys.
 - `description` (String) Human description of the setting (from the registry).
 - `id` (String) Setting ID (mirrors key).
+- `is_encrypted` (Boolean) Whether the stored value is encrypted at rest.
 - `is_secret` (Boolean) Whether the value is a secret (masked as '****' in responses).
+- `schema` (String) JSON Schema used by MisterShell to validate this setting.
 - `updated_at` (String) Last update timestamp.
 
 ## Lifecycle — settings cannot be created or deleted

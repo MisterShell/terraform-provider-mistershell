@@ -339,6 +339,12 @@ func rolesToList(roles []client.RoleResponse) types.List {
 // password is intentionally NOT touched here (the API never returns it; the
 // caller preserves the prior state value).
 func mapUserResponseToModel(u *client.UserDetailResponse, m *UserResourceModel) {
+	mapUserBaseResponseToModel(&u.UserResponse, m)
+	m.Roles = rolesToList(u.Roles)
+	m.Permissions = stringSliceToSet(u.Permissions)
+}
+
+func mapUserBaseResponseToModel(u *client.UserResponse, m *UserResourceModel) {
 	m.ID = types.Int64Value(u.ID)
 	m.Email = types.StringValue(u.Email)
 	m.FirstName = types.StringValue(u.FirstName)
@@ -346,7 +352,6 @@ func mapUserResponseToModel(u *client.UserDetailResponse, m *UserResourceModel) 
 	m.AuthType = types.StringValue(u.AuthType)
 	m.IsActive = types.BoolValue(u.IsActive)
 	m.EmailVerified = types.BoolValue(u.EmailVerified)
-	m.Roles = rolesToList(u.Roles)
 	m.CreatedAt = types.StringValue(u.CreatedAt)
 	m.UpdatedAt = types.StringValue(u.UpdatedAt)
 }

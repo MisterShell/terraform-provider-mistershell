@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_ai_model Data Source - terraform-provider-mistershell"
+page_title: "mistershell_ai_model Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell AI model. Look up by id for a direct fetch, or by name (exact match). Note: provider secrets in config (e.g. api_key) are masked as '***' by the API.

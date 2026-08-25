@@ -48,7 +48,7 @@ func (d *SessionPolicyRuleDataSource) Metadata(_ context.Context, req datasource
 
 func (d *SessionPolicyRuleDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Reads a MisterShell session-policy rule. Look up by id or by exact name. Rule names are not unique server-side, so name lookup errors on more than one match. Reads resolve through the list endpoint (there is no GET-single for rules).",
+		Description: "Reads a MisterShell session-policy rule. Look up by id or exact name. Rule names are not unique, so name lookup errors on multiple matches; the selected rule is fetched from the MisterShell 2.0 detail endpoint.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Rule ID. Use for direct lookup.",

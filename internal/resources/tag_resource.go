@@ -134,9 +134,16 @@ func (r *TagResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
+	desiredResourceIDs := plan.ResourceIDs
+	mapTagResponseToModel(tag, []int64{}, &plan)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// Apply resource assignments if specified.
-	if !plan.ResourceIDs.IsNull() && !plan.ResourceIDs.IsUnknown() {
-		ids := int64SetToSlice(plan.ResourceIDs)
+	if !desiredResourceIDs.IsNull() && !desiredResourceIDs.IsUnknown() {
+		ids := int64SetToSlice(desiredResourceIDs)
 		if err := r.client.SetTagAssignments(ctx, tag.ID, ids); err != nil {
 			resp.Diagnostics.AddError("Error assigning tag resources", err.Error())
 			return

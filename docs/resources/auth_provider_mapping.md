@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_auth_provider_mapping Resource - terraform-provider-mistershell"
+page_title: "mistershell_auth_provider_mapping Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell external group->role mapping under an auth provider. (provider_id, external_group) is unique. Import format is "<provider_id>:<mapping_id>". Create and update require an active license; deleting the parent provider cascades to its mappings.

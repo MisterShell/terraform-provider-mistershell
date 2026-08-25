@@ -2,8 +2,6 @@ package provider
 
 import (
 	"context"
-	"crypto/tls"
-	"net/http"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -49,7 +47,7 @@ func (p *MisterShellProvider) Schema(_ context.Context, _ provider.SchemaRequest
 				Optional:    true,
 			},
 			"api_key": schema.StringAttribute{
-				Description: "MisterShell API key (yami_ prefixed). Can also be set with the MISTERSHELL_API_KEY environment variable.",
+				Description: "MisterShell API key (apikey_ prefixed). Can also be set with the MISTERSHELL_API_KEY environment variable.",
 				Optional:    true,
 				Sensitive:   true,
 			},
@@ -102,13 +100,7 @@ func (p *MisterShellProvider) Configure(ctx context.Context, req provider.Config
 		insecure = config.Insecure.ValueBool()
 	}
 
-	httpClient := &http.Client{}
-	if insecure {
-		httpClient.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		}
-	}
-
+	httpClient := client.NewHTTPClient(insecure)
 	c := client.NewClient(url, apiKey, httpClient)
 	resp.DataSourceData = c
 	resp.ResourceData = c

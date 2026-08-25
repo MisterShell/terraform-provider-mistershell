@@ -38,7 +38,7 @@ func (d *SessionPolicyAclDataSource) Metadata(_ context.Context, req datasource.
 
 func (d *SessionPolicyAclDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Reads a MisterShell session-policy command ACL. Look up by id or by exact name (must match exactly one). Reads resolve through the list endpoint (there is no GET-single for ACLs).",
+		Description: "Reads a MisterShell session-policy command ACL. Look up by id or exact name (must match exactly one); the selected ACL is fetched from the MisterShell 2.0 detail endpoint.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "ACL ID. Use for direct lookup.",

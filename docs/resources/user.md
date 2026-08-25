@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_user Resource - terraform-provider-mistershell"
+page_title: "mistershell_user Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required for all auth types (the backend hashes it and enforces its own password policy); changing it rotates the password via the admin reset endpoint. Import by integer ID.
@@ -56,6 +56,7 @@ resource "mistershell_user" "oidc_bob" {
 - `created_at` (String) Creation timestamp.
 - `email_verified` (Boolean) Whether the user's email is verified (read-only).
 - `id` (Number) User ID.
+- `permissions` (Set of String) Flattened permission names granted through assigned roles (read-only).
 - `roles` (Attributes List) Roles assigned to this user, as objects with id, name, and description (read-only; manage assignments via mistershell_user_role). (see [below for nested schema](#nestedatt--roles))
 - `updated_at` (String) Last update timestamp.
 

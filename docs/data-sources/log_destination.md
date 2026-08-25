@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_log_destination Data Source - terraform-provider-mistershell"
+page_title: "mistershell_log_destination Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell log destination. Look up by id for a direct fetch, or by name (exact match). Note: webhook auth secrets in config are masked as '****' by the API.

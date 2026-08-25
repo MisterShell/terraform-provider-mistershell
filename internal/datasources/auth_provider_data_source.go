@@ -21,6 +21,7 @@ type AuthProviderDataSource struct {
 type AuthProviderDataSourceModel struct {
 	ID                 types.Int64          `tfsdk:"id"`
 	Name               types.String         `tfsdk:"name"`
+	Mnemonic           types.String         `tfsdk:"mnemonic"`
 	ProviderType       types.String         `tfsdk:"provider_type"`
 	IsEnabled          types.Bool           `tfsdk:"is_enabled"`
 	DisplayOrder       types.Int64          `tfsdk:"display_order"`
@@ -28,6 +29,7 @@ type AuthProviderDataSourceModel struct {
 	GroupMappingsCount types.Int64          `tfsdk:"group_mappings_count"`
 	SPEntityID         types.String         `tfsdk:"sp_entity_id"`
 	SPACSURL           types.String         `tfsdk:"sp_acs_url"`
+	OIDCRedirectURI    types.String         `tfsdk:"oidc_redirect_uri"`
 	CreatedAt          types.String         `tfsdk:"created_at"`
 	UpdatedAt          types.String         `tfsdk:"updated_at"`
 }
@@ -54,6 +56,10 @@ func (d *AuthProviderDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 				Optional:    true,
 				Computed:    true,
 			},
+			"mnemonic": schema.StringAttribute{
+				Description: "Stable URL token used by the provider's login and callback URLs.",
+				Computed:    true,
+			},
 			"provider_type": schema.StringAttribute{
 				Description: "Provider type (LDAP, OIDC, or SAML).",
 				Computed:    true,
@@ -77,11 +83,15 @@ func (d *AuthProviderDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 				Computed:    true,
 			},
 			"sp_entity_id": schema.StringAttribute{
-				Description: "SAML only (null for LDAP/OIDC): the service-provider entity ID this MisterShell instance presents to the IdP. Derived server-side from the app_base_url setting plus the provider ID.",
+				Description: "SAML only (null for LDAP/OIDC): service-provider entity ID derived from app_base_url and mnemonic.",
 				Computed:    true,
 			},
 			"sp_acs_url": schema.StringAttribute{
-				Description: "SAML only (null for LDAP/OIDC): the Assertion Consumer Service URL the IdP posts assertions to. Derived server-side from the app_base_url setting plus the provider ID.",
+				Description: "SAML only (null for LDAP/OIDC): Assertion Consumer Service URL derived from app_base_url and mnemonic.",
+				Computed:    true,
+			},
+			"oidc_redirect_uri": schema.StringAttribute{
+				Description: "OIDC callback URL to register with the identity provider.",
 				Computed:    true,
 			},
 			"created_at": schema.StringAttribute{
@@ -160,6 +170,7 @@ func (d *AuthProviderDataSource) Read(ctx context.Context, req datasource.ReadRe
 
 	config.ID = types.Int64Value(detail.ID)
 	config.Name = types.StringValue(detail.Name)
+	config.Mnemonic = types.StringValue(detail.Mnemonic)
 	config.ProviderType = types.StringValue(detail.ProviderType)
 	config.IsEnabled = types.BoolValue(detail.IsEnabled)
 	config.DisplayOrder = types.Int64Value(detail.DisplayOrder)
@@ -167,6 +178,7 @@ func (d *AuthProviderDataSource) Read(ctx context.Context, req datasource.ReadRe
 	config.GroupMappingsCount = types.Int64Value(detail.GroupMappingsCount)
 	config.SPEntityID = stringPtrToValue(detail.SPEntityID)
 	config.SPACSURL = stringPtrToValue(detail.SPACSURL)
+	config.OIDCRedirectURI = stringPtrToValue(detail.OIDCRedirectURI)
 	config.CreatedAt = types.StringValue(detail.CreatedAt)
 	config.UpdatedAt = types.StringValue(detail.UpdatedAt)
 

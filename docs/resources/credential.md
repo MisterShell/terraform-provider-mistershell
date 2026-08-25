@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_credential Resource - terraform-provider-mistershell"
+page_title: "mistershell_credential Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell credential. Credentials are encrypted at rest and used by network resources for authentication.
@@ -150,7 +150,7 @@ variable "kubeconfig" {
 ### Required
 
 - `credential_data` (String, Sensitive) Credential secret data as JSON. Use jsonencode() in HCL. Fields vary by credential_type; see the valid credential_type values table on this page for the fields per type. Note: the API masks secret values in responses, so this value is stored from config, not read back from the server.
-- `credential_type` (String) Credential type. One of `username_password`, `ssh_key`, `aws_credentials`, `azure_service_principal`, `kubeconfig`, `none`. Cannot be changed after creation. `none` is a system singleton the API rejects on create/edit/delete (403) and cannot be managed by this resource. See the valid credential_type values table on this page for the credential_data fields and resource_type compatibility per type.
+- `credential_type` (String) Installed RDK credential type. MisterShell validates it against its runtime credential catalog. Cannot be changed after creation; backend-managed singleton types cannot be managed by this resource.
 - `name` (String) Unique credential name.
 
 ### Optional
@@ -165,58 +165,14 @@ variable "kubeconfig" {
 - `id` (Number) Credential ID.
 - `updated_at` (String) Last update timestamp.
 
-## Valid `credential_type` values
+## Runtime credential catalog
 
-The `credential_type` determines the fields accepted in `credential_data` (set
-with `jsonencode(...)` in HCL) and which `resource_type`(s) can reference the
-credential; an incompatible pairing is rejected by the API. Required fields must
-be present. Secret fields are masked by the API in responses: their values are
-stored from your configuration and never read back from the server, so
-`credential_data` is managed entirely from config (after importing a credential
-by ID you must set `credential_data` in config yourself).
-
-| credential_type | Creatable | Purpose |
-|---|---|---|
-| `username_password` | yes | Username/password identity (SSH, RDP, web, database, VNC) |
-| `ssh_key` | yes | SSH key auth |
-| `aws_credentials` | yes | AWS access/secret key |
-| `azure_service_principal` | yes | Azure Entra service principal |
-| `kubeconfig` | yes | Kubernetes kubeconfig |
-| `none` | **no** — system singleton; the API returns 403 on create/edit/delete | No-auth, used by unauthenticated web / None-auth VNC |
-
-`none` is a backend-managed singleton exposed for reference (e.g. via the
-`mistershell_credential` data source) but cannot be created, edited, or deleted
-through this provider.
-
-### `credential_data` fields per type
-
-Secret fields are masked as `****` by the API in responses.
-
-| credential_type | Required fields | Optional fields | Secret (masked) fields |
-|---|---|---|---|
-| `username_password` | `username`, `password` | `enable_password`, `domain` | `password`, `enable_password` |
-| `ssh_key` | `username`, `private_key` | `passphrase`, `enable_password` | `private_key`, `passphrase`, `enable_password` |
-| `aws_credentials` | `access_key`, `secret_key` | _(none)_ | `secret_key` |
-| `azure_service_principal` | `client_id`, `client_secret` | _(none)_ | `client_secret` |
-| `kubeconfig` | `kubeconfig` | _(none)_ | `kubeconfig` |
-| `none` | _(none — empty `{}`)_ | _(none)_ | _(none)_ |
-
-### `credential_type` ↔ `resource_type` compatibility
-
-| resource_type | accepted credential_type(s) |
-|---|---|
-| `cisco_ios`, `cisco_iosxe`, `cisco_iosxe_sdwan`, `cisco_nxos`, `cisco_vmanage`, `cisco_vsmart`, `cisco_vbond`, `cisco_ise`, `generic_ssh`, `linux`, `windows`, `panos_ssh`, `infoblox_nios` | `username_password`, `ssh_key` |
-| `database` | `username_password` |
-| `generic_rdp` | `username_password` |
-| `generic_web` | `username_password`, `none` |
-| `generic_vnc` | `username_password`, `none` |
-| `aws_account` | `aws_credentials` |
-| `azure_subscription` | `azure_service_principal` |
-| `kubernetes_cluster` | `kubeconfig` |
-
-The SSH-family resource types are: `cisco_ios`, `cisco_iosxe`,
-`cisco_iosxe_sdwan`, `cisco_nxos`, `cisco_ise`, `cisco_vbond`, `cisco_vmanage`,
-`cisco_vsmart`, `generic_ssh`, `infoblox_nios`, `linux`, `panos_ssh`.
+Credential types and their JSON Schemas come from the RDK bundles installed on
+the target MisterShell instance. Extensions may add types, so the provider does
+not embed a closed list. Query `GET /api/v1/credentials/types` for current type
+IDs, schemas, and secret-field metadata, and `GET /api/v1/resources/types` for
+resource compatibility. API responses mask secrets; `credential_data` is kept
+from Terraform configuration rather than reconstructed from a read.
 
 ## Import
 

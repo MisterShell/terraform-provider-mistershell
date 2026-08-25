@@ -1,6 +1,7 @@
 // Command types generates internal/client/types_gen.go from the MisterShell
-// backend's checked-in OpenAPI spec, so the provider's supported resource and
-// credential type lists never drift behind upstream.
+// backend's checked-in OpenAPI spec, so stable provider enum lists never drift
+// behind upstream. Installed RDK resource and credential types are fetched at
+// runtime and are deliberately not generated here.
 //
 // Spec resolution order:
 //  1. -spec <path> flag or MISTERSHELL_OPENAPI env var: read that local JSON
@@ -11,8 +12,6 @@
 //     is no built-in default repo because the backend repository is private.
 //
 // The enum sets are read from these JSON pointers:
-//   - components.schemas.NetworkResourceType.enum -> resource types
-//   - components.schemas.CredentialType.enum       -> credential types
 //   - components.schemas.LogDestinationCreate.properties.type.enum         -> log destination types
 //   - components.schemas.LogDestinationCreate.properties.streams.items.enum -> log streams
 //   - components.schemas.LogDestinationCreate.properties.min_severity.enum  -> log severities
@@ -49,11 +48,9 @@ import (
 )
 
 const (
-	specRelPath   = "ui/openapi.json"
-	outputPath    = "internal/client/types_gen.go"
-	defaultRef    = "main"
-	resourcePtr   = "components.schemas.NetworkResourceType.enum"
-	credentialPtr = "components.schemas.CredentialType.enum"
+	specRelPath = "ui/openapi.json"
+	outputPath  = "internal/client/types_gen.go"
+	defaultRef  = "main"
 
 	logTypePtr           = "components.schemas.LogDestinationCreate.properties.type.enum"
 	logStreamsPtr        = "components.schemas.LogDestinationCreate.properties.streams.items.enum"
@@ -76,8 +73,7 @@ const (
 	aiAgentTypePtr     = "components.schemas.AIAgentType.enum"
 )
 
-// openAPISpec is a partial view of the OpenAPI document — only the two schemas
-// we care about.
+// openAPISpec is a partial view of the stable enums used by Terraform schemas.
 type enumProp struct {
 	Enum []string `json:"enum"`
 }
@@ -85,12 +81,6 @@ type enumProp struct {
 type openAPISpec struct {
 	Components struct {
 		Schemas struct {
-			NetworkResourceType struct {
-				Enum []string `json:"enum"`
-			} `json:"NetworkResourceType"`
-			CredentialType struct {
-				Enum []string `json:"enum"`
-			} `json:"CredentialType"`
 			LogDestinationCreate struct {
 				Properties struct {
 					Type    enumProp `json:"type"`
@@ -167,8 +157,6 @@ func run() error {
 
 	s := &spec.Components.Schemas
 	td := templateData{
-		ResourceTypes:       s.NetworkResourceType.Enum,
-		CredentialTypes:     s.CredentialType.Enum,
 		LogDestinationTypes: s.LogDestinationCreate.Properties.Type.Enum,
 		LogStreams:          s.LogDestinationCreate.Properties.Streams.Items.Enum,
 		LogSeverities:       s.LogDestinationCreate.Properties.MinSeverity.Enum,
@@ -194,8 +182,6 @@ func run() error {
 		ptr  string
 		vals []string
 	}{
-		{"SupportedResourceTypes", resourcePtr, td.ResourceTypes},
-		{"SupportedCredentialTypes", credentialPtr, td.CredentialTypes},
 		{"SupportedLogDestinationTypes", logTypePtr, td.LogDestinationTypes},
 		{"SupportedLogStreams", logStreamsPtr, td.LogStreams},
 		{"SupportedLogSeverities", logSeverityPtr, td.LogSeverities},
@@ -219,8 +205,6 @@ func run() error {
 		}
 	}
 
-	sort.Strings(td.ResourceTypes)
-	sort.Strings(td.CredentialTypes)
 	sort.Strings(td.LogDestinationTypes)
 	sort.Strings(td.LogStreams)
 	sort.Strings(td.LogSeverities)
@@ -248,8 +232,8 @@ func run() error {
 		return fmt.Errorf("writing %s: %w", outputPath, err)
 	}
 
-	fmt.Printf("gen/types: wrote %s from %s (%d resource types, %d credential types, %d log destination types, %d log streams, %d log severities)\n",
-		outputPath, source, len(td.ResourceTypes), len(td.CredentialTypes), len(td.LogDestinationTypes), len(td.LogStreams), len(td.LogSeverities))
+	fmt.Printf("gen/types: wrote %s from %s (%d log destination types, %d log streams, %d log severities)\n",
+		outputPath, source, len(td.LogDestinationTypes), len(td.LogStreams), len(td.LogSeverities))
 	return nil
 }
 
@@ -328,8 +312,6 @@ func loadSpecFromGit() ([]byte, string, error) {
 
 // templateData holds every generated enum slice rendered into types_gen.go.
 type templateData struct {
-	ResourceTypes       []string
-	CredentialTypes     []string
 	LogDestinationTypes []string
 	LogStreams          []string
 	LogSeverities       []string
@@ -355,8 +337,6 @@ package client
 
 // Supported type lists generated from the MisterShell OpenAPI spec
 // (ui/openapi.json):
-//   - SupportedResourceTypes          <- components.schemas.NetworkResourceType
-//   - SupportedCredentialTypes        <- components.schemas.CredentialType
 //   - SupportedLogDestinationTypes    <- LogDestinationCreate.properties.type
 //   - SupportedLogStreams             <- LogDestinationCreate.properties.streams.items
 //   - SupportedLogSeverities          <- LogDestinationCreate.properties.min_severity
@@ -376,22 +356,6 @@ package client
 //   - SupportedAIAgentTypes           <- AIAgentType
 //
 // Regenerate with: make generate
-
-// SupportedResourceTypes are the resource_type values accepted by the
-// MisterShell backend.
-var SupportedResourceTypes = []string{
-{{- range .ResourceTypes}}
-	{{printf "%q" .}},
-{{- end}}
-}
-
-// SupportedCredentialTypes are the credential_type values accepted by the
-// MisterShell backend.
-var SupportedCredentialTypes = []string{
-{{- range .CredentialTypes}}
-	{{printf "%q" .}},
-{{- end}}
-}
 
 // SupportedLogDestinationTypes are the log-destination type values.
 var SupportedLogDestinationTypes = []string{

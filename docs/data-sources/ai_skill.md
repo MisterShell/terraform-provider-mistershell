@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_ai_skill Data Source - terraform-provider-mistershell"
+page_title: "mistershell_ai_skill Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell AI skill (markdown platform brief surfaced to agents via list_skills). Look up by id for a direct fetch, or by name (exact match). Both user-defined and builtin skills (is_builtin=true) are exposed read-only here.

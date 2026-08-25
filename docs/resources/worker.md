@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_worker Resource - terraform-provider-mistershell"
+page_title: "mistershell_worker Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are opaque JSON blobs (the worker's task-handler config and its JSON Schema). The bootstrap default worker (is_default=true) is provisioned by the backend and cannot be edited or deleted (the API returns 403); do not manage it with this resource. The authentication token is returned only once at creation and is never readable again.
@@ -77,10 +77,14 @@ output "worker_token" {
 - `last_heartbeat_at` (String) Timestamp of the worker's last heartbeat.
 - `presence_ip` (String) IP address from which the worker is connected.
 - `presence_ip_source` (String) Source of the presence IP determination.
+- `rdk_catalog_identity` (String) RDK catalog identity reported by the worker.
+- `rdk_compatible` (Boolean) Whether the worker RDK is compatible with this MisterShell instance.
+- `rdk_contract_major` (Number) Major RDK contract version implemented by the worker.
 - `status` (String) Worker status.
 - `token` (String, Sensitive) Worker authentication token. Returned only once at creation and never readable again; not populated on import.
 - `total_task_count` (Number) Total number of tasks ever assigned to the worker.
 - `updated_at` (String) Last update timestamp.
+- `version` (String) Worker software version reported at registration.
 
 ## Top-level field values
 

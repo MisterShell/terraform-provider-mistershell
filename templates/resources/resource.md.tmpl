@@ -17,165 +17,45 @@ description: |-
 
 {{ .SchemaMarkdown | trimspace }}
 
-## Valid `resource_type` values
+## Onboarding modes
 
-The `resource_type` determines the connector used to reach the resource, the
-fields accepted in `connector_data` (set with `jsonencode(...)` in HCL), and
-which `credential_type`(s) it can pair with. `credential_id` must reference a
-credential whose type is compatible per the table below; an incompatible
-pairing is rejected by the API. Required `connector_data` fields must be
-present; optional fields fall back to the noted defaults when omitted.
+Creating a resource always performs a live connection test and can take several
+minutes. The provider waits up to five minutes for the worker task and its
+single-use discovery proof.
 
-| resource_type | Connector | Required connector_data | Optional connector_data (default) | Compatible credential_type(s) |
-|---|---|---|---|---|
-| `cisco_ios` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `cisco_iosxe` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `cisco_iosxe_sdwan` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `cisco_nxos` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `cisco_ise` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `cisco_vbond` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `cisco_vmanage` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `cisco_vsmart` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `generic_ssh` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `infoblox_nios` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `linux` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `panos_ssh` | SSH | `host` | `port` (22) | `username_password`, `ssh_key` |
-| `windows` | SSH/OpenSSH + RDP | `host` | `port` (22), `rdp_port` (3389), `nla_required` (true), `keyboard_layout` ("" = en-US) | `username_password`, `ssh_key` |
-| `generic_rdp` | RDP | `host` | `rdp_port` (3389), `nla_required` (true), `keyboard_layout` ("" = en-US) | `username_password` |
-| `generic_vnc` | VNC (RFB) | `host` | `vnc_port` (5900) | `username_password`, `none` |
-| `generic_web` | Web (CDP browser) | `url` | `origin_lock` (true), `ignore_cert_errors` (false), `auth_mode` (auto; see below) | `username_password`, `none` |
-| `database` | DB | `engine`, `host` | `port` (engine default; see below) | `username_password` |
-| `aws_account` | AWS API | _(none)_ | `hostname` (account alias) | `aws_credentials` |
-| `azure_subscription` | Azure API | `tenant_id`, `subscription_id` | `cloud` (AzureCloud) | `azure_service_principal` |
-| `kubernetes_cluster` | Kubernetes API | _(none)_ | `context` (kubeconfig context), `namespace` (default namespace) | `kubeconfig` |
+- Set `engine_id` without `resource_type` for automatic onboarding. MisterShell
+  tries the installed native detectors in RDK order. SSH falls back to
+  `generic_ssh` after a successful connection when no native type matches;
+  engines without a fallback fail when nothing matches.
+- Set `resource_type` for exact onboarding. The provider resolves its engine
+  from MisterShell's installed RDK catalog, and onboarding fails unless that
+  exact detector matches. `generic_ssh` is special: a successful SSH connection
+  is sufficient and no native discovery is needed.
+- If both are set, they must describe the same installed type/engine pair.
 
-`generic_vnc` and `generic_web` are remote-access-only types (graphical
-sessions; no operational handler, health metrics, or config snapshot) and are
-the only types that accept the `none` credential type, for unauthenticated
-targets.
+`external_id` is discovered by MisterShell and is read-only. It may legitimately
+be null, notably for `generic_ssh`, whose transport identity is its SSH host key.
+The provider never accepts a caller-supplied external identifier.
 
-### `generic_web` `auth_mode` values
+## Runtime catalogs and connector data
 
-`auth_mode` controls how the browser worker injects login credentials on
-`generic_web` targets; it defaults to `auto`.
+Resource and credential types come from the RDK bundles installed on the target
+MisterShell instance; extensions may add types. The provider therefore does not
+embed a closed list. Use MisterShell's `GET /api/v1/resources/types` and
+`GET /api/v1/credentials/types` endpoints to inspect the current type IDs,
+engine IDs, connector JSON Schemas, and compatible credential types.
 
-| auth_mode | meaning |
-|---|---|
-| `auto` | try HTTP Basic, then HTML form (default) |
-| `basic` | HTTP Basic auth only |
-| `form` | HTML form auto-fill only |
-| `sequence` | play a fixed key-sequence login macro |
-| `none` | no credential injection |
-
-When `auth_mode = "form"`, the optional `username_selector` /
-`password_selector` / `submit_selector` connector_data fields (CSS selector
-overrides, default `""`) can target a non-standard login form. When
-`auth_mode = "sequence"`, the optional `key_sequence` field (default `""`)
-supplies the macro (tokens `<TAB>`, `<ENTER>`, `<SPACE>`, `<ESC>`,
-`<BACKSPACE>`, arrow keys, `<SLEEP:n>`, and username/password placeholder
-tokens; other text is typed verbatim). These four are advanced, mode-specific
-fields kept minimal here — see the backend connector schema for exhaustive
-detail.
-
-### database `engine` values
-
-For `resource_type = "database"`, the `engine` field is required. When `port`
-is omitted, the engine default is used:
-
-| engine | default port |
-|---|---|
-| `postgres` | 5432 |
-| `mysql` | 3306 |
-| `sqlserver` | 1433 |
-| `clickhouse` | 9000 |
-
-### azure `cloud` values
-
-For `resource_type = "azure_subscription"`, the optional `cloud` field accepts:
-
-| cloud | notes |
-|---|---|
-| `AzureCloud` | default |
-| `AzureChinaCloud` | |
-| `AzureUSGovernment` | |
-| `AzureGermanCloud` | |
-
-## Read-only status values
-
-`status` is computed by the server and reported back on the resource.
-
-### `status` values
-
-| status | meaning |
-|---|---|
-| `unknown` | not yet evaluated |
-| `verified` | reachable and authenticated |
-| `unreachable` | host could not be reached |
-| `auth_failed` | reachable but authentication failed |
-| `error` | a collection or connectivity error occurred |
-| `identity_mismatch` | the device identity did not match expectations |
-| `snapshot_truncated` | the configuration snapshot was truncated |
+The API key needs permission to read both catalogs, start discovery worker
+tasks, read their status and discovery proof, create/update/delete resources,
+and read/reconcile tags when `tag_ids` is managed.
 
 ## Tagging
 
-A resource can carry zero or more tags ([`mistershell_tag`](tag.md)). This
-resource exposes two tag attributes: `tag_ids` (input, optional) and `tags`
-(computed, read-back).
-
-### `tag_ids` — resource-side, exclusive management
-
-| attribute | constraints |
-|---|---|
-| `tag_ids` | Optional. Set of tag IDs (`int64`). Order-independent. |
-
-`tag_ids` is the **complete set** of tags the resource carries, managed from the
-**resource side** via the resource-centric assignment endpoint. On every apply
-the provider adds and removes tags so the live set equals `tag_ids` **exactly** —
-tags assigned out of band (through the UI or another caller) are removed on the
-next apply, and tags you drop from the set are unassigned.
-
-Reference each tag by its **id**, e.g.:
-
-```hcl
-tag_ids = [
-  mistershell_tag.prod.id,
-  mistershell_tag.zurich.id,
-]
-```
-
-Referencing by id (rather than a literal integer) also establishes the correct
-Terraform dependency so the tags are created before they are assigned.
-
-**`null` (omitted) vs. `[]` (empty set)** — these are different:
-
-| value | behavior |
-|---|---|
-| omitted / `null` | **Unmanaged (hands-off).** The provider does not add, remove, or assert tags at all. The live tags are still read back into `tags` (see below). Use this when you manage the tag↔resource edges from the tag side instead. |
-| `[]` (empty set) | **Exclusively empty.** The provider actively clears **all** tags from the resource and keeps it tag-free on every apply. |
-
-**Exclusivity — own each edge from one side only.** A tag↔resource assignment
-can be expressed from either side: from the resource via `tag_ids`, or from the
-tag via [`mistershell_tag`](tag.md)'s `resource_ids`. Both attributes use
-whole-set replace semantics and take exclusive ownership of their side, so
-managing the **same** edge from both sides makes the two resources fight on every
-plan (each apply reverts the other), producing perpetual diffs. **Pick one side
-per edge** — set `tag_ids` here **or** list this resource in the tag's
-`resource_ids`, never both. Leaving `tag_ids` omitted (null) is what makes
-tag-side management safe.
-
-### `tags` — computed read-back
-
-`tags` is a **computed** list reflecting the live tags currently on the resource,
-read back from the server on every refresh. It is always populated from server
-state **regardless of whether `tag_ids` is managed** — including when `tag_ids`
-is omitted and the edges are managed from the tag side. Each element is an object:
-
-| field | description |
-|---|---|
-| `id` | Tag ID (`int64`). |
-| `name` | Tag name. |
-| `color` | Tag color (free-form string; see the [`mistershell_tag`](tag.md) page). |
-| `description` | Tag description (may be null). |
+`tag_ids` is the complete tag set managed from the resource side. Omit it to
+leave tags unmanaged, or set `[]` to actively clear and keep the resource free
+of tags. Do not manage the same tag-resource edge simultaneously through
+`mistershell_tag.resource_ids`. The computed `tags` list always reflects live
+server state.
 
 {{ if .HasImport -}}
 ## Import

@@ -65,7 +65,7 @@ func (r *SessionPolicyRuleResource) Schema(_ context.Context, _ resource.SchemaR
 	emptyStrSet, _ := types.SetValue(types.StringType, []attr.Value{})
 	emptyInt64Set, _ := types.SetValue(types.Int64Type, []attr.Value{})
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell session-policy rule. Rules form an ordered chain evaluated by position (lower runs first). Ordering is declarative: set distinct position values (e.g. 10, 20, 30) for deterministic order. Empty selector sets mean \"Any\". The backend exposes no GET-single endpoint for rules, so reads go through the list endpoint; the last remaining rule cannot be deleted.",
+		Description: "Manages a MisterShell session-policy rule. Rules form an ordered chain evaluated by position (lower runs first). Set distinct positions for deterministic order. Empty selector sets mean \"Any\"; the last remaining rule cannot be deleted.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Rule ID.",
@@ -104,9 +104,6 @@ func (r *SessionPolicyRuleResource) Schema(_ context.Context, _ resource.SchemaR
 				Computed:    true,
 				ElementType: types.StringType,
 				Default:     setdefault.StaticValue(emptyStrSet),
-				Validators: []validator.Set{
-					setvalidator.ValueStringsAre(stringvalidator.OneOf(client.SupportedResourceTypes...)),
-				},
 			},
 			"session_types": schema.SetAttribute{
 				Description: "Session types this rule applies to. Empty set means Any. One of: shell, graphical.",

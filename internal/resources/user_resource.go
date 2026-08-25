@@ -38,6 +38,7 @@ type UserResourceModel struct {
 	IsActive      types.Bool   `tfsdk:"is_active"`
 	EmailVerified types.Bool   `tfsdk:"email_verified"`
 	Roles         types.List   `tfsdk:"roles"`
+	Permissions   types.Set    `tfsdk:"permissions"`
 	CreatedAt     types.String `tfsdk:"created_at"`
 	UpdatedAt     types.String `tfsdk:"updated_at"`
 }
@@ -116,6 +117,11 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 					},
 				},
 			},
+			"permissions": schema.SetAttribute{
+				Description: "Flattened permission names granted through assigned roles (read-only).",
+				Computed:    true,
+				ElementType: types.StringType,
+			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
 				Computed:    true,
@@ -155,6 +161,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		FirstName: plan.FirstName.ValueString(),
 		LastName:  plan.LastName.ValueString(),
 		AuthType:  plan.AuthType.ValueString(),
+		IsActive:  plan.IsActive.ValueBool(),
 	}
 	input.Password = plan.Password.ValueString()
 
@@ -164,14 +171,12 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	// UserCreate has no is_active field; if the plan set it to a non-default,
-	// apply it with a follow-up PATCH.
-	if !plan.IsActive.IsNull() && !plan.IsActive.IsUnknown() && plan.IsActive.ValueBool() != created.IsActive {
-		active := plan.IsActive.ValueBool()
-		if _, err := r.client.UpdateUser(ctx, created.ID, client.UserUpdateInput{IsActive: &active}); err != nil {
-			resp.Diagnostics.AddError("Error setting user is_active", err.Error())
-			return
-		}
+	mapUserBaseResponseToModel(created, &plan)
+	plan.Roles = types.ListValueMust(roleObjectType, nil)
+	plan.Permissions = types.SetValueMust(types.StringType, nil)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	full, err := r.client.GetUser(ctx, created.ID)

@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_auth_provider Data Source - terraform-provider-mistershell"
+page_title: "mistershell_auth_provider Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell external authentication provider. Look up by id or by exact name (names are unique). The config output reflects the server's config with secrets masked as '****'.
@@ -48,9 +48,11 @@ output "mappings_count" {
 - `display_order` (Number) Login-page display order.
 - `group_mappings_count` (Number) Number of external group->role mappings attached to this provider.
 - `is_enabled` (Boolean) Whether the provider is enabled.
+- `mnemonic` (String) Stable URL token used by the provider's login and callback URLs.
+- `oidc_redirect_uri` (String) OIDC callback URL to register with the identity provider.
 - `provider_type` (String) Provider type (LDAP, OIDC, or SAML).
-- `sp_acs_url` (String) SAML only (null for LDAP/OIDC): the Assertion Consumer Service URL the IdP posts assertions to. Derived server-side from the app_base_url setting plus the provider ID.
-- `sp_entity_id` (String) SAML only (null for LDAP/OIDC): the service-provider entity ID this MisterShell instance presents to the IdP. Derived server-side from the app_base_url setting plus the provider ID.
+- `sp_acs_url` (String) SAML only (null for LDAP/OIDC): Assertion Consumer Service URL derived from app_base_url and mnemonic.
+- `sp_entity_id` (String) SAML only (null for LDAP/OIDC): service-provider entity ID derived from app_base_url and mnemonic.
 - `updated_at` (String) Last update timestamp.
 
 ## Lookup arguments

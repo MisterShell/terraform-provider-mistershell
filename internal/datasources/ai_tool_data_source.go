@@ -19,13 +19,14 @@ type AIToolDataSource struct {
 }
 
 type AIToolDataSourceModel struct {
-	ID                 types.Int64          `tfsdk:"id"`
-	Name               types.String         `tfsdk:"name"`
-	Description        types.String         `tfsdk:"description"`
-	Handler            types.String         `tfsdk:"handler"`
-	InputSchema        jsontypes.Normalized `tfsdk:"input_schema"`
-	RequiredPermission types.String         `tfsdk:"required_permission"`
-	CreatedAt          types.String         `tfsdk:"created_at"`
+	ID                     types.Int64          `tfsdk:"id"`
+	Name                   types.String         `tfsdk:"name"`
+	Description            types.String         `tfsdk:"description"`
+	Handler                types.String         `tfsdk:"handler"`
+	InputSchema            jsontypes.Normalized `tfsdk:"input_schema"`
+	RequiredPermission     types.String         `tfsdk:"required_permission"`
+	RestrictedToAgentTypes types.Set            `tfsdk:"restricted_to_agent_types"`
+	CreatedAt              types.String         `tfsdk:"created_at"`
 }
 
 func NewAIToolDataSource() datasource.DataSource {
@@ -66,6 +67,11 @@ func (d *AIToolDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			"required_permission": schema.StringAttribute{
 				Description: "Permission required to invoke the tool, if any.",
 				Computed:    true,
+			},
+			"restricted_to_agent_types": schema.SetAttribute{
+				Description: "Agent types allowed to use this tool; empty means unrestricted.",
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -151,6 +157,7 @@ func (d *AIToolDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	config.Handler = types.StringValue(tool.Handler)
 	config.InputSchema = rawJSONToNormalized(tool.InputSchema)
 	config.RequiredPermission = stringPtrToValue(tool.RequiredPermission)
+	config.RestrictedToAgentTypes = stringSliceToSet(tool.RestrictedToAgentTypes)
 	config.CreatedAt = types.StringValue(tool.CreatedAt)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)

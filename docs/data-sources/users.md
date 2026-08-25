@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_users Data Source - terraform-provider-mistershell"
+page_title: "mistershell_users Data Source - MisterShell"
 subcategory: ""
 description: |-
   Lists MisterShell users. With no filter it returns every user; set search to a substring to narrow the list (server-side fuzzy match on name/email). Use the singular mistershell_user data source to look up exactly one user (and its roles).

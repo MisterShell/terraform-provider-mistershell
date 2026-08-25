@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_location Data Source - terraform-provider-mistershell"
+page_title: "mistershell_location Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell location. Look up by id for a direct fetch, or use name/kind/parent_id to search. Search filters must match exactly one location.
@@ -47,6 +47,8 @@ data "mistershell_location" "child" {
 - `extra_data` (String) Additional metadata as JSON.
 - `latitude` (Number) Geographic latitude.
 - `longitude` (Number) Geographic longitude.
+- `path` (String) Resolved hierarchical location path.
+- `resource_count` (Number) Number of resources directly assigned to this location.
 - `updated_at` (String) Last update timestamp.
 
 ## Valid `kind` filter values

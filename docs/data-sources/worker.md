@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_worker Data Source - terraform-provider-mistershell"
+page_title: "mistershell_worker Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell worker. Look up by id for a direct fetch, or by name (exact match). The authentication token is not returned by reads.
@@ -54,9 +54,13 @@ output "worker_location_id" {
 - `location_id` (Number) ID of the location this worker belongs to.
 - `presence_ip` (String) IP address from which the worker is connected.
 - `presence_ip_source` (String) Source of the presence IP determination.
+- `rdk_catalog_identity` (String) RDK catalog identity reported by the worker.
+- `rdk_compatible` (Boolean) Whether the worker RDK is compatible with this MisterShell instance.
+- `rdk_contract_major` (Number) Major RDK contract version implemented by the worker.
 - `status` (String) Worker status.
 - `total_task_count` (Number) Total number of tasks ever assigned to the worker.
 - `updated_at` (String) Last update timestamp.
+- `version` (String) Worker software version reported at registration.
 
 ## Lookup arguments
 

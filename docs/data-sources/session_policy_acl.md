@@ -1,13 +1,13 @@
 ---
-page_title: "mistershell_session_policy_acl Data Source - terraform-provider-mistershell"
+page_title: "mistershell_session_policy_acl Data Source - MisterShell"
 subcategory: ""
 description: |-
-  Reads a MisterShell session-policy command ACL. Look up by id or by exact name (must match exactly one). Reads resolve through the list endpoint (there is no GET-single for ACLs).
+  Reads a MisterShell session-policy command ACL. Look up by id or exact name (must match exactly one); the selected ACL is fetched from the MisterShell 2.0 detail endpoint.
 ---
 
 # mistershell_session_policy_acl (Data Source)
 
-Reads a MisterShell session-policy command ACL. Look up by id or by exact name (must match exactly one). Reads resolve through the list endpoint (there is no GET-single for ACLs).
+Reads a MisterShell session-policy command ACL. Look up by id or exact name (must match exactly one); the selected ACL is fetched from the MisterShell 2.0 detail endpoint.
 
 ## Example Usage
 
@@ -58,7 +58,7 @@ Specify exactly one of:
 
 | argument | behavior |
 |---|---|
-| `id` | Direct lookup by integer ID (resolved through the list endpoint; there is no GET-single for ACLs). |
+| `id` | Direct lookup by integer ID through the detail endpoint. |
 | `name` | Exact-match lookup by name (fuzzy server search, then exact `name ==` filter). Errors if zero or more than one ACL matches. |
 
 ## Returned values

@@ -42,6 +42,10 @@ type WorkerResourceModel struct {
 	ActiveTaskCount  types.Int64          `tfsdk:"active_task_count"`
 	TotalTaskCount   types.Int64          `tfsdk:"total_task_count"`
 	LastHeartbeatAt  types.String         `tfsdk:"last_heartbeat_at"`
+	Version          types.String         `tfsdk:"version"`
+	RDKContractMajor types.Int64          `tfsdk:"rdk_contract_major"`
+	RDKCatalogID     types.String         `tfsdk:"rdk_catalog_identity"`
+	RDKCompatible    types.Bool           `tfsdk:"rdk_compatible"`
 	ConnectedAt      types.String         `tfsdk:"connected_at"`
 	PresenceIP       types.String         `tfsdk:"presence_ip"`
 	PresenceIPSource types.String         `tfsdk:"presence_ip_source"`
@@ -133,6 +137,22 @@ func (r *WorkerResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Description: "Timestamp of the worker's last heartbeat.",
 				Computed:    true,
 			},
+			"version": schema.StringAttribute{
+				Description: "Worker software version reported at registration.",
+				Computed:    true,
+			},
+			"rdk_contract_major": schema.Int64Attribute{
+				Description: "Major RDK contract version implemented by the worker.",
+				Computed:    true,
+			},
+			"rdk_catalog_identity": schema.StringAttribute{
+				Description: "RDK catalog identity reported by the worker.",
+				Computed:    true,
+			},
+			"rdk_compatible": schema.BoolAttribute{
+				Description: "Whether the worker RDK is compatible with this MisterShell instance.",
+				Computed:    true,
+			},
 			"connected_at": schema.StringAttribute{
 				Description: "Timestamp at which the worker connected.",
 				Computed:    true,
@@ -183,13 +203,7 @@ func (r *WorkerResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	input := client.WorkerCreateInput{
-		Name:         plan.Name.ValueString(),
-		Description:  stringValueToPtr(plan.Description),
-		LocationID:   plan.LocationID.ValueInt64(),
-		Config:       normalizedToRawJSON(plan.Config),
-		ConfigSchema: normalizedToRawJSON(plan.ConfigSchema),
-	}
+	input := buildWorkerCreateInput(&plan)
 
 	worker, err := r.client.CreateWorker(ctx, input)
 	if err != nil {
@@ -204,11 +218,45 @@ func (r *WorkerResource) Create(ctx context.Context, req resource.CreateRequest,
 	// value, which would break Terraform's apply-consistency contract.
 	savedConfig := plan.Config
 	savedConfigSchema := plan.ConfigSchema
-	mapWorkerResponseToModel(worker, &plan)
+	mapWorkerCreatedResponseToModel(worker, &plan)
 	plan.Token = token
 	plan.Config = savedConfig
 	plan.ConfigSchema = savedConfigSchema
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func mapWorkerCreatedResponseToModel(worker *client.WorkerCreatedResponse, m *WorkerResourceModel) {
+	m.ID = types.Int64Value(worker.ID)
+	m.Name = types.StringValue(worker.Name)
+	m.Description = stringPtrToValue(worker.Description)
+	m.LocationID = types.Int64Value(worker.LocationID)
+	m.IsEnabled = types.BoolValue(worker.IsEnabled)
+	m.Status = types.StringValue(worker.Status)
+	m.IsDefault = types.BoolValue(worker.IsDefault)
+	m.ConfigVersion = optStringPtrToValue(worker.ConfigVersion)
+	m.ActiveTaskCount = types.Int64Value(0)
+	m.TotalTaskCount = types.Int64Value(0)
+	m.LastHeartbeatAt = types.StringNull()
+	m.Version = types.StringNull()
+	m.RDKContractMajor = types.Int64Null()
+	m.RDKCatalogID = types.StringNull()
+	m.RDKCompatible = types.BoolValue(false)
+	m.ConnectedAt = types.StringNull()
+	m.PresenceIP = types.StringNull()
+	m.PresenceIPSource = types.StringNull()
+	m.CreatedAt = types.StringValue(worker.CreatedAt)
+	m.UpdatedAt = types.StringValue(worker.UpdatedAt)
+}
+
+func buildWorkerCreateInput(plan *WorkerResourceModel) client.WorkerCreateInput {
+	return client.WorkerCreateInput{
+		Name:         plan.Name.ValueString(),
+		Description:  stringValueToPtr(plan.Description),
+		LocationID:   plan.LocationID.ValueInt64(),
+		Config:       normalizedToRawJSON(plan.Config),
+		ConfigSchema: normalizedToRawJSON(plan.ConfigSchema),
+		IsEnabled:    plan.IsEnabled.ValueBool(),
+	}
 }
 
 func (r *WorkerResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -319,6 +367,10 @@ func mapWorkerResponseToModel(worker *client.WorkerResponse, m *WorkerResourceMo
 	m.ActiveTaskCount = types.Int64Value(worker.ActiveTaskCount)
 	m.TotalTaskCount = types.Int64Value(worker.TotalTaskCount)
 	m.LastHeartbeatAt = optStringPtrToValue(worker.LastHeartbeatAt)
+	m.Version = optStringPtrToValue(worker.Version)
+	m.RDKContractMajor = int64PtrToValue(worker.RDKContractMajor)
+	m.RDKCatalogID = optStringPtrToValue(worker.RDKCatalogID)
+	m.RDKCompatible = types.BoolValue(worker.RDKCompatible)
 	m.ConnectedAt = optStringPtrToValue(worker.ConnectedAt)
 	m.PresenceIP = optStringPtrToValue(worker.PresenceIP)
 	m.PresenceIPSource = optStringPtrToValue(worker.PresenceIPSource)

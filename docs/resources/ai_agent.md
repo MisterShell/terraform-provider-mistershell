@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_ai_agent Resource - terraform-provider-mistershell"
+page_title: "mistershell_ai_agent Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages user-defined AI agents (type chat or background) referencing a model and a system prompt; builtin agents (type builtin_*) are managed by MisterShell and exposed read-only via the data source.

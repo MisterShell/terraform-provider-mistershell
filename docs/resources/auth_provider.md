@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_auth_provider Resource - terraform-provider-mistershell"
+page_title: "mistershell_auth_provider Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is an opaque per-provider_type JSON blob carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.
@@ -14,13 +14,13 @@ Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). Th
 ```terraform
 # An OIDC auth provider. config is an opaque per-provider_type JSON blob set
 # with jsonencode(); client_secret is a secret (masked '****' by the API and
-# stored from your configuration, not read back). display_order is set
-# declaratively via a post-create PATCH; assign distinct values for a
-# deterministic login-page order.
+# stored from your configuration, not read back). mnemonic is immutable and is
+# used in stable login and callback URLs.
 #
 # Create and update require an active license.
 resource "mistershell_auth_provider" "corp_oidc" {
   name          = "corp-oidc"
+  mnemonic      = "corp-oidc"
   provider_type = "OIDC"
   is_enabled    = true
   display_order = 0
@@ -45,6 +45,7 @@ variable "oidc_client_secret" {
 ### Required
 
 - `config` (String, Sensitive) Per-provider_type config as JSON. Use jsonencode() in HCL. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout. For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.
+- `mnemonic` (String) Stable URL token used in login, callback, ACS, and metadata URLs. Immutable after creation.
 - `name` (String) Unique provider name (1-100 characters).
 - `provider_type` (String) Provider type. One of: LDAP, OIDC, SAML. Cannot be changed after creation (the config shape is type-coupled).
 
@@ -58,8 +59,9 @@ variable "oidc_client_secret" {
 - `created_at` (String) Creation timestamp.
 - `group_mappings_count` (Number) Number of external group->role mappings attached to this provider.
 - `id` (Number) Auth provider ID.
-- `sp_acs_url` (String) SAML only (null for LDAP/OIDC): the Assertion Consumer Service URL the IdP posts assertions to. Derived server-side from the app_base_url setting plus the provider ID; register it with your IdP.
-- `sp_entity_id` (String) SAML only (null for LDAP/OIDC): the service-provider entity ID this MisterShell instance presents to the IdP. Derived server-side from the app_base_url setting plus the provider ID; register it with your IdP.
+- `oidc_redirect_uri` (String) OIDC callback URL to register with the identity provider. Derived from app_base_url and mnemonic; null for LDAP/SAML.
+- `sp_acs_url` (String) SAML only (null for LDAP/OIDC): Assertion Consumer Service URL derived from app_base_url and mnemonic; register it with your IdP.
+- `sp_entity_id` (String) SAML only (null for LDAP/OIDC): service-provider entity ID derived from app_base_url and mnemonic; register it with your IdP.
 - `updated_at` (String) Last update timestamp.
 
 ## Field reference
@@ -67,9 +69,10 @@ variable "oidc_client_secret" {
 | attribute | constraints |
 |---|---|
 | `name` | Required. 1-100 characters. Unique. |
+| `mnemonic` | Required. 1-50 letters, digits, or hyphens. Unique and immutable; used in stable login/callback URLs. |
 | `provider_type` | Required. One of the `provider_type` values below. **Immutable** — changing it forces replacement (the `config` shape is type-coupled). |
 | `is_enabled` | Optional boolean. Defaults to `true`. |
-| `display_order` | Optional + computed integer `>= 0`. See **`display_order` semantics** below. |
+| `display_order` | Optional + computed integer `>= 0`; sent on create and update. |
 | `config` | Required, **sensitive**. Per-`provider_type` JSON blob set with `jsonencode(...)`; see the per-type tables below. |
 | `group_mappings_count` | Read-only. Number of attached group→role mappings. |
 
@@ -201,7 +204,7 @@ the apply with a `422` (`Extra inputs are not permitted`).
 
 **The SP URLs are derived, not configured.** MisterShell computes the service
 provider entity ID and ACS URL from the instance's `app_base_url` setting plus
-the provider ID. They are exposed as the read-only `sp_entity_id` / `sp_acs_url`
+the immutable provider `mnemonic`. They are exposed as the read-only `sp_entity_id` / `sp_acs_url`
 attributes — register those values with your IdP:
 
 ```hcl

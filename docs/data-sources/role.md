@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_role Data Source - terraform-provider-mistershell"
+page_title: "mistershell_role Data Source - MisterShell"
 subcategory: ""
 description: |-
   Reads a MisterShell role. Look up by id for a direct fetch, or by name (exact match, must resolve to exactly one role).
@@ -44,6 +44,7 @@ output "auditor_scope_location_ids" {
 
 - `created_at` (String) Creation timestamp.
 - `description` (String) Role description.
+- `location_scope_mode` (String) Location scope mode (global or restricted).
 - `permissions` (Set of String) Set of permission names assigned to this role.
 - `scope_location_ids` (Set of Number) Set of location IDs that scope this role. Empty means all locations.
 - `updated_at` (String) Last update timestamp.
@@ -64,7 +65,8 @@ Provide exactly one of:
 | `id` | Role ID (`int64`). |
 | `name` | Role name. |
 | `description` | Role description (may be null). |
-| `scope_location_ids` | Set of location IDs (`int64`) scoping the role. An empty set means the role is global (applies to all locations). |
+| `location_scope_mode` | `global` or `restricted`. |
+| `scope_location_ids` | Location roots for restricted roles; empty for global roles. |
 | `permissions` | Set of permission names assigned to the role (pattern `module.resource.action`, or `*.*.*` for superuser). For the full list of valid names, see the [`mistershell_permissions`](permissions.md) data source. |
 | `created_at` | Creation timestamp (RFC 3339). |
 | `updated_at` | Last-update timestamp (RFC 3339). |

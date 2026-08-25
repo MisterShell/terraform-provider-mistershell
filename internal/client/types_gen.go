@@ -4,8 +4,6 @@ package client
 
 // Supported type lists generated from the MisterShell OpenAPI spec
 // (ui/openapi.json):
-//   - SupportedResourceTypes          <- components.schemas.NetworkResourceType
-//   - SupportedCredentialTypes        <- components.schemas.CredentialType
 //   - SupportedLogDestinationTypes    <- LogDestinationCreate.properties.type
 //   - SupportedLogStreams             <- LogDestinationCreate.properties.streams.items
 //   - SupportedLogSeverities          <- LogDestinationCreate.properties.min_severity
@@ -26,42 +24,6 @@ package client
 //
 // Regenerate with: make generate
 
-// SupportedResourceTypes are the resource_type values accepted by the
-// MisterShell backend.
-var SupportedResourceTypes = []string{
-	"aws_account",
-	"azure_subscription",
-	"cisco_ios",
-	"cisco_iosxe",
-	"cisco_iosxe_sdwan",
-	"cisco_ise",
-	"cisco_nxos",
-	"cisco_vbond",
-	"cisco_vmanage",
-	"cisco_vsmart",
-	"database",
-	"generic_rdp",
-	"generic_ssh",
-	"generic_vnc",
-	"generic_web",
-	"infoblox_nios",
-	"kubernetes_cluster",
-	"linux",
-	"panos_ssh",
-	"windows",
-}
-
-// SupportedCredentialTypes are the credential_type values accepted by the
-// MisterShell backend.
-var SupportedCredentialTypes = []string{
-	"aws_credentials",
-	"azure_service_principal",
-	"kubeconfig",
-	"none",
-	"ssh_key",
-	"username_password",
-}
-
 // SupportedLogDestinationTypes are the log-destination type values.
 var SupportedLogDestinationTypes = []string{
 	"syslog",
@@ -70,6 +32,7 @@ var SupportedLogDestinationTypes = []string{
 
 // SupportedLogStreams are the log-destination stream values.
 var SupportedLogStreams = []string{
+	"ai",
 	"api",
 	"app",
 	"collector",

@@ -16,6 +16,9 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 
 func testAccPreCheck(t *testing.T) {
 	t.Helper()
+	if os.Getenv("TF_ACC") != "1" {
+		t.Skip("acceptance tests require TF_ACC=1")
+	}
 	if os.Getenv("MISTERSHELL_URL") == "" {
 		t.Fatal("MISTERSHELL_URL must be set for acceptance tests")
 	}

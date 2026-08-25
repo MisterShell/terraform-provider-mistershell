@@ -1,13 +1,13 @@
 ---
-page_title: "mistershell_resource Data Source - terraform-provider-mistershell"
+page_title: "mistershell_resource Data Source - MisterShell"
 subcategory: ""
 description: |-
-  Reads a MisterShell network resource. Look up by id for a direct fetch, or use name/resource_type/location_id/status to search. Search filters must match exactly one resource.
+  Reads a MisterShell network resource. Look up by id or search by name/resource_type/location_id/status. The engine is resolved from the target instance's installed RDK catalog.
 ---
 
 # mistershell_resource (Data Source)
 
-Reads a MisterShell network resource. Look up by id for a direct fetch, or use name/resource_type/location_id/status to search. Search filters must match exactly one resource.
+Reads a MisterShell network resource. Look up by id or search by name/resource_type/location_id/status. The engine is resolved from the target instance's installed RDK catalog.
 
 ## Example Usage
 
@@ -48,15 +48,16 @@ output "switch_tags" {
 - `id` (Number) Resource ID. Use for direct lookup.
 - `location_id` (Number) Location ID filter.
 - `name` (String) Resource name. Used as a search filter when id is not specified.
-- `resource_type` (String) Resource type filter (e.g. cisco_iosxe, linux, aws_account).
+- `resource_type` (String) Installed RDK resource type filter. Query MisterShell's runtime resource catalog for current values.
 - `status` (String) Connectivity status filter (unknown, verified, unreachable, auth_failed, error, identity_mismatch, snapshot_truncated).
 
 ### Read-Only
 
-- `connector_data` (String) Connection parameters as JSON. Fields vary by resource_type; see the valid resource_type values table on this page.
+- `connector_data` (String) Connection parameters as JSON; the shape is defined by the installed RDK type catalog.
 - `connector_id` (String) Connector type.
 - `created_at` (String) Creation timestamp.
 - `credential_id` (Number) Credential ID.
+- `engine_id` (String) Connection engine inferred from the installed RDK resource-type catalog.
 - `external_id` (String) External identifier.
 - `extra_data` (String) Discovered metadata as JSON.
 - `is_enabled` (Boolean) Whether the resource is enabled.
@@ -77,57 +78,13 @@ Read-Only:
 - `id` (Number) Tag ID.
 - `name` (String) Tag name.
 
-## Valid `resource_type` filter values
+## Runtime resource types
 
-The `resource_type` argument filters the search to a single resource type. Valid
-values:
+`resource_type` values are supplied by the RDK bundles installed on the target
+MisterShell instance; extensions may add types. Query
+`GET /api/v1/resources/types` for the current type and engine catalog. The
+computed `engine_id` is resolved from that catalog. `external_id` can be null,
+including for a valid Generic SSH target.
 
-| resource_type | Connector |
-|---|---|
-| `cisco_ios` | SSH |
-| `cisco_iosxe` | SSH |
-| `cisco_iosxe_sdwan` | SSH |
-| `cisco_nxos` | SSH |
-| `cisco_ise` | SSH |
-| `cisco_vbond` | SSH |
-| `cisco_vmanage` | SSH |
-| `cisco_vsmart` | SSH |
-| `generic_ssh` | SSH |
-| `infoblox_nios` | SSH |
-| `linux` | SSH |
-| `panos_ssh` | SSH |
-| `windows` | SSH/OpenSSH + RDP |
-| `generic_rdp` | RDP |
-| `generic_vnc` | VNC (RFB) |
-| `generic_web` | Web (CDP browser) |
-| `database` | DB |
-| `aws_account` | AWS API |
-| `azure_subscription` | Azure API |
-| `kubernetes_cluster` | Kubernetes API |
-
-## Valid `status` filter values
-
-| status | meaning |
-|---|---|
-| `unknown` | not yet evaluated |
-| `verified` | reachable and authenticated |
-| `unreachable` | host could not be reached |
-| `auth_failed` | reachable but authentication failed |
-| `error` | a collection or connectivity error occurred |
-| `identity_mismatch` | the device identity did not match expectations |
-| `snapshot_truncated` | the configuration snapshot was truncated |
-
-## Computed `tags`
-
-`tags` is a **computed** list reflecting the live tags currently assigned to the
-matched resource, read back from the server. Each element is an object:
-
-| field | description |
-|---|---|
-| `id` | Tag ID (`int64`). |
-| `name` | Tag name. |
-| `color` | Tag color (free-form string; see the [`mistershell_tag`](tag.md) data source). |
-| `description` | Tag description (may be null). |
-
-To list or search across all tags, see the
-[`mistershell_tags`](tags.md) data source.
+The computed `tags` list always reflects the live assignments for the matched
+resource. To list or search all tags, use the `mistershell_tags` data source.

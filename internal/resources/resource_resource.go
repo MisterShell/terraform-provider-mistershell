@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -20,8 +22,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &NetworkResourceResource{}
-	_ resource.ResourceWithImportState = &NetworkResourceResource{}
+	_ resource.Resource                     = &NetworkResourceResource{}
+	_ resource.ResourceWithConfigValidators = &NetworkResourceResource{}
+	_ resource.ResourceWithImportState      = &NetworkResourceResource{}
 )
 
 type NetworkResourceResource struct {
@@ -31,6 +34,7 @@ type NetworkResourceResource struct {
 type NetworkResourceResourceModel struct {
 	ID                     types.Int64          `tfsdk:"id"`
 	Name                   types.String         `tfsdk:"name"`
+	EngineID               types.String         `tfsdk:"engine_id"`
 	ResourceType           types.String         `tfsdk:"resource_type"`
 	ExternalID             types.String         `tfsdk:"external_id"`
 	LocationID             types.Int64          `tfsdk:"location_id"`
@@ -60,7 +64,7 @@ func (r *NetworkResourceResource) Metadata(_ context.Context, req resource.Metad
 
 func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell network resource (device, cloud account, Kubernetes cluster).",
+		Description: "Manages a MisterShell network resource through live RDK onboarding. Creation requires a successful connection and may take several minutes. Set engine_id for automatic discovery (SSH falls back to Generic SSH) or resource_type for exact-type discovery. external_id is discovered and may be null.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Resource ID.",
@@ -73,32 +77,44 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Description: "Resource display name.",
 				Required:    true,
 			},
-			"resource_type": schema.StringAttribute{
-				Description: "What the resource is (e.g. cisco_iosxe, linux, aws_account). Cannot be changed after creation.",
-				Required:    true,
+			"engine_id": schema.StringAttribute{
+				Description: "RDK connection engine used for automatic onboarding. Supply engine_id without resource_type to let MisterShell discover the native type.",
+				Optional:    true,
+				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf(client.SupportedResourceTypes...),
+					stringvalidator.LengthAtLeast(1),
+				},
+			},
+			"resource_type": schema.StringAttribute{
+				Description: "Optional exact installed RDK native type. When supplied, MisterShell must discover that type or onboarding fails.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(1),
 				},
 			},
 			"external_id": schema.StringAttribute{
-				Description: "Unique external identifier for the resource (hostname, account ID, etc.).",
-				Required:    true,
+				Description: "External identifier discovered by MisterShell. Null is valid for types such as Generic SSH.",
+				Computed:    true,
 			},
 			"location_id": schema.Int64Attribute{
 				Description: "Location ID where this resource resides.",
 				Required:    true,
 			},
 			"connector_data": schema.StringAttribute{
-				Description: "Type-specific connection parameters as JSON. Use jsonencode() in HCL. Fields vary by resource_type (e.g. host/port for SSH types, rdp_port/nla_required for windows and generic_rdp, engine/host/port for database); see the valid resource_type values table on this page for the fields per type.",
-				Optional:    true,
+				Description: "Connection parameters as JSON. Use jsonencode() in HCL. The accepted shape comes from the selected engine/type in MisterShell's installed RDK catalog.",
+				Required:    true,
 				CustomType:  jsontypes.NormalizedType{},
 			},
 			"credential_id": schema.Int64Attribute{
 				Description: "Credential ID for connecting to this resource.",
-				Optional:    true,
+				Required:    true,
 			},
 			"extra_data": schema.StringAttribute{
 				Description: "Discovered metadata as JSON. Auto-populated by MisterShell from connectivity checks.",
@@ -171,6 +187,12 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 	}
 }
 
+func (r *NetworkResourceResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.AtLeastOneOf(path.MatchRoot("engine_id"), path.MatchRoot("resource_type")),
+	}
+}
+
 func (r *NetworkResourceResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
@@ -190,24 +212,65 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
+	createCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	engineID, expectedTypeID, err := r.resolveOnboardingMode(createCtx, &plan)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid resource onboarding configuration", err.Error())
+		return
+	}
+	discovery, err := r.client.DiscoverNetworkResource(createCtx, client.DiscoveryTestInput{
+		EngineID:       engineID,
+		ExpectedTypeID: expectedTypeID,
+		CredentialID:   plan.CredentialID.ValueInt64(),
+		ConnectorData:  normalizedToRawJSON(plan.ConnectorData),
+		LocationID:     plan.LocationID.ValueInt64(),
+	})
+	if err != nil {
+		resp.Diagnostics.AddError("Error onboarding network resource", err.Error())
+		return
+	}
+
 	input := client.NetworkResourceCreateInput{
-		Name:          plan.Name.ValueString(),
-		ResourceType:  plan.ResourceType.ValueString(),
-		ExternalID:    plan.ExternalID.ValueString(),
-		LocationID:    plan.LocationID.ValueInt64(),
-		ConnectorData: normalizedToRawJSON(plan.ConnectorData),
+		Name:           plan.Name.ValueString(),
+		ResourceType:   discovery.ResourceType,
+		DiscoveryToken: discovery.DiscoveryToken,
+		LocationID:     plan.LocationID.ValueInt64(),
+		ConnectorData:  normalizedToRawJSON(plan.ConnectorData),
 	}
 	input.CredentialID = int64ValueToPtr(plan.CredentialID)
 
-	res, err := r.client.CreateNetworkResource(ctx, input)
+	res, err := r.client.CreateNetworkResource(createCtx, input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating network resource", err.Error())
 		return
 	}
 
-	// Preserve connector_data from plan — the API enriches it with server-side defaults.
+	desiredEnabled := plan.IsEnabled
+	configuredConnectorData := plan.ConnectorData
 	mapNetworkResourceResponseToModel(res, &plan)
-	if err := r.reconcileTags(ctx, res.ID, &plan); err != nil {
+	plan.EngineID = types.StringValue(discovery.EngineID)
+	plan.ConnectorData = configuredConnectorData
+	plan.Tags = types.ListNull(tagObjectType)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if !desiredEnabled.IsNull() && !desiredEnabled.IsUnknown() && desiredEnabled.ValueBool() != res.IsEnabled {
+		enabled := desiredEnabled.ValueBool()
+		res, err = r.client.UpdateNetworkResource(createCtx, res.ID, client.NetworkResourceUpdateInput{IsEnabled: &enabled})
+		if err != nil {
+			resp.Diagnostics.AddError("Error setting network resource enabled state", err.Error())
+			return
+		}
+		mapNetworkResourceResponseToModel(res, &plan)
+		plan.EngineID = types.StringValue(discovery.EngineID)
+		plan.ConnectorData = configuredConnectorData
+	}
+
+	if err := r.reconcileTags(createCtx, res.ID, &plan); err != nil {
 		resp.Diagnostics.AddError("Error setting resource tags", err.Error())
 		return
 	}
@@ -236,6 +299,12 @@ func (r *NetworkResourceResource) Read(ctx context.Context, req resource.ReadReq
 	savedConnectorData := state.ConnectorData
 	mapNetworkResourceResponseToModel(res, &state)
 	state.ConnectorData = savedConnectorData
+	resourceType, err := r.client.FindResourceType(ctx, res.ResourceType)
+	if err != nil {
+		resp.Diagnostics.AddError("Error resolving network resource engine", err.Error())
+		return
+	}
+	state.EngineID = types.StringValue(resourceType.EngineID)
 	if err := r.readTags(ctx, state.ID.ValueInt64(), &state); err != nil {
 		resp.Diagnostics.AddError("Error reading resource tags", err.Error())
 		return
@@ -256,25 +325,7 @@ func (r *NetworkResourceResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	input := client.NetworkResourceUpdateInput{}
-	if !plan.Name.Equal(state.Name) {
-		v := plan.Name.ValueString()
-		input.Name = &v
-	}
-	if !plan.ExternalID.Equal(state.ExternalID) {
-		v := plan.ExternalID.ValueString()
-		input.ExternalID = &v
-	}
-	if !plan.LocationID.Equal(state.LocationID) {
-		v := plan.LocationID.ValueInt64()
-		input.LocationID = &v
-	}
-	input.ConnectorData = normalizedToRawJSON(plan.ConnectorData)
-	input.CredentialID = int64ValueToPtr(plan.CredentialID)
-	if !plan.IsEnabled.Equal(state.IsEnabled) {
-		v := plan.IsEnabled.ValueBool()
-		input.IsEnabled = &v
-	}
+	input := buildNetworkResourceUpdate(&plan, &state)
 
 	res, err := r.client.UpdateNetworkResource(ctx, state.ID.ValueInt64(), input)
 	if err != nil {
@@ -282,7 +333,10 @@ func (r *NetworkResourceResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
+	configuredConnectorData := plan.ConnectorData
 	mapNetworkResourceResponseToModel(res, &plan)
+	plan.EngineID = state.EngineID
+	plan.ConnectorData = configuredConnectorData
 	if err := r.reconcileTags(ctx, state.ID.ValueInt64(), &plan); err != nil {
 		resp.Diagnostics.AddError("Error updating resource tags", err.Error())
 		return
@@ -359,7 +413,7 @@ func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *N
 	m.ID = types.Int64Value(res.ID)
 	m.Name = types.StringValue(res.Name)
 	m.ResourceType = types.StringValue(res.ResourceType)
-	m.ExternalID = types.StringValue(res.ExternalID)
+	m.ExternalID = stringPtrToValue(res.ExternalID)
 	m.LocationID = int64PtrToValue(res.LocationID)
 	// ConnectorData intentionally NOT set here — preserved from plan/state by the caller
 	// because the API enriches it with server-side defaults (e.g. strict_host_key).
@@ -374,4 +428,48 @@ func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *N
 	m.LastConnectivityResult = rawJSONToNormalized(res.LastConnectivityResult)
 	m.LastCollectionAt = optStringPtrToValue(res.LastCollectionAt)
 	m.NextCollectionAt = optStringPtrToValue(res.NextCollectionAt)
+}
+
+func (r *NetworkResourceResource) resolveOnboardingMode(ctx context.Context, plan *NetworkResourceResourceModel) (string, *string, error) {
+	hasEngine := !plan.EngineID.IsNull() && !plan.EngineID.IsUnknown()
+	hasType := !plan.ResourceType.IsNull() && !plan.ResourceType.IsUnknown()
+	if !hasEngine && !hasType {
+		return "", nil, fmt.Errorf("at least one of engine_id or resource_type must be configured")
+	}
+	if !hasType {
+		return plan.EngineID.ValueString(), nil, nil
+	}
+
+	typeID := plan.ResourceType.ValueString()
+	resourceType, err := r.client.FindResourceType(ctx, typeID)
+	if err != nil {
+		return "", nil, err
+	}
+	if hasEngine && plan.EngineID.ValueString() != resourceType.EngineID {
+		return "", nil, fmt.Errorf("resource type %q uses engine %q, not configured engine %q", typeID, resourceType.EngineID, plan.EngineID.ValueString())
+	}
+	return resourceType.EngineID, &typeID, nil
+}
+
+func buildNetworkResourceUpdate(plan, state *NetworkResourceResourceModel) client.NetworkResourceUpdateInput {
+	input := client.NetworkResourceUpdateInput{}
+	if !plan.Name.Equal(state.Name) {
+		value := plan.Name.ValueString()
+		input.Name = &value
+	}
+	if !plan.LocationID.Equal(state.LocationID) {
+		value := plan.LocationID.ValueInt64()
+		input.LocationID = &value
+	}
+	if !plan.ConnectorData.Equal(state.ConnectorData) {
+		input.ConnectorData = normalizedToRawJSON(plan.ConnectorData)
+	}
+	if !plan.CredentialID.Equal(state.CredentialID) {
+		input.CredentialID = int64ValueToPtr(plan.CredentialID)
+	}
+	if !plan.IsEnabled.Equal(state.IsEnabled) {
+		value := plan.IsEnabled.ValueBool()
+		input.IsEnabled = &value
+	}
+	return input
 }

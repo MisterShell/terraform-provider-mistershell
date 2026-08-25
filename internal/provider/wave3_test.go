@@ -471,6 +471,7 @@ func TestAccAuthProvider_samlRejectsRemovedSPFields(t *testing.T) {
 				Config: fmt.Sprintf(`
 resource "mistershell_auth_provider" "bad" {
   name          = %q
+  mnemonic      = %q
   provider_type = "SAML"
 
   config = jsonencode({
@@ -480,7 +481,7 @@ resource "mistershell_auth_provider" "bad" {
     sp_entity_id  = "https://sp.example.com"
   })
 }
-`, name, cert),
+`, name, name, cert),
 				// Terraform hard-wraps diagnostic text, so match across the
 				// wrapping rather than on a literal single-line string.
 				ExpectError: regexp.MustCompile(`sp_entity_id:\s+Extra\s+inputs\s+are\s+not\s+permitted`),
@@ -687,19 +688,21 @@ func testAccAuthProviderConfig(name, providerType string, enabled bool, displayO
 	return fmt.Sprintf(`
 resource "mistershell_auth_provider" "test" {
   name          = %q
+  mnemonic      = %q
   provider_type = %q
   is_enabled    = %t
   display_order = %d
 
   config = %s
 }
-`, name, providerType, enabled, displayOrder, configBody)
+`, name, name, providerType, enabled, displayOrder, configBody)
 }
 
 func testAccAuthProviderDataSourceConfig(name, providerType, configBody string) string {
 	return fmt.Sprintf(`
 resource "mistershell_auth_provider" "test" {
   name          = %q
+  mnemonic      = %q
   provider_type = %q
 
   config = %s
@@ -712,7 +715,7 @@ data "mistershell_auth_provider" "by_id" {
 data "mistershell_auth_provider" "by_name" {
   name = mistershell_auth_provider.test.name
 }
-`, name, providerType, configBody)
+`, name, name, providerType, configBody)
 }
 
 func testAccAuthProviderMappingConfig(name, providerType, configBody, externalGroup string) string {
@@ -725,6 +728,7 @@ resource "mistershell_role" "test" {
 
 resource "mistershell_auth_provider" "test" {
   name          = %q
+  mnemonic      = %q
   provider_type = %q
 
   config = %s
@@ -735,5 +739,5 @@ resource "mistershell_auth_provider_mapping" "test" {
   external_group = %q
   role_id        = mistershell_role.test.id
 }
-`, name+"-role", name+"-prov", providerType, configBody, externalGroup)
+`, name+"-role", name+"-prov", name+"-prov", providerType, configBody, externalGroup)
 }

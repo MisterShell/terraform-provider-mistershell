@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_user_role Resource - terraform-provider-mistershell"
+page_title: "mistershell_user_role Resource - MisterShell"
 subcategory: ""
 description: |-
   Assigns one MisterShell role to one user. (user_id, role_id) is unique. Both fields force replacement on change. Import format is "<user_id>:<role_id>".

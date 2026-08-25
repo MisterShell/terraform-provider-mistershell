@@ -1,6 +1,9 @@
 package provider_test
 
 import (
+	"fmt"
+	"os"
+	"strconv"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,23 +21,23 @@ import (
 // that every resource in this file depends on. The names are acctestPrefix-scoped
 // so the generic CheckDestroy / sweepers find them.
 func testAccTagsPreamble() string {
-	return `
+	return fmt.Sprintf(`
 resource "mistershell_location" "test" {
-  name      = "` + acctestPrefix + `tags-loc"
+  name      = %q
   kind      = "geo"
   parent_id = 1
 }
 
 resource "mistershell_credential" "test" {
-  name            = "` + acctestPrefix + `tags-cred"
+  name            = %q
   credential_type = "username_password"
 
   credential_data = jsonencode({
-    username = "testuser"
-    password = "testpass123"
+    username = %q
+    password = %q
   })
 }
-`
+`, acctestPrefix+"tags-loc", acctestPrefix+"tags-cred", os.Getenv("MISTERSHELL_ACC_SSH_USERNAME"), os.Getenv("MISTERSHELL_ACC_SSH_PASSWORD"))
 }
 
 // testAccTwoTags returns two standalone tag resources named
@@ -58,20 +61,19 @@ resource "mistershell_tag" "b" {
 // testAccResourceTagsConfig builds the preamble + two tags + a resource whose
 // tag_ids is whatever HCL expression the caller passes (e.g.
 // "[mistershell_tag.a.id, mistershell_tag.b.id]" or "[]").
-func testAccResourceTagsConfig(externalID, tagIDsExpr string) string {
+func testAccResourceTagsConfig(_ string, tagIDsExpr string) string {
 	return testAccTagsPreamble() + testAccTwoTags() + `
 resource "mistershell_resource" "test" {
   name          = "` + acctestPrefix + `tag-res"
-  resource_type = "linux"
-  external_id   = "` + externalID + `"
+  engine_id     = "ssh"
   location_id   = mistershell_location.test.id
   credential_id = mistershell_credential.test.id
 
   tag_ids = ` + tagIDsExpr + `
 
   connector_data = jsonencode({
-    host = "192.168.99.99"
-    port = 22
+    host = ` + strconv.Quote(os.Getenv("MISTERSHELL_ACC_SSH_HOST")) + `
+    port = ` + testAccSSHPort() + `
   })
 }
 `
@@ -79,25 +81,24 @@ resource "mistershell_resource" "test" {
 
 // testAccResourceUnmanagedTagsConfig builds the preamble + a resource with NO
 // tag_ids attribute at all (unmanaged tags).
-func testAccResourceUnmanagedTagsConfig(externalID string) string {
+func testAccResourceUnmanagedTagsConfig(_ string) string {
 	return testAccTagsPreamble() + `
 resource "mistershell_resource" "test" {
   name          = "` + acctestPrefix + `tag-res-unmanaged"
-  resource_type = "linux"
-  external_id   = "` + externalID + `"
+  engine_id     = "ssh"
   location_id   = mistershell_location.test.id
   credential_id = mistershell_credential.test.id
 
   connector_data = jsonencode({
-    host = "192.168.99.99"
-    port = 22
+    host = ` + strconv.Quote(os.Getenv("MISTERSHELL_ACC_SSH_HOST")) + `
+    port = ` + testAccSSHPort() + `
   })
 }
 `
 }
 
 func TestAccResourceTags_basic(t *testing.T) {
-	testAccPreCheck(t)
+	testAccSSHResourcePreCheck(t)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -149,7 +150,7 @@ func TestAccResourceTags_basic(t *testing.T) {
 }
 
 func TestAccResourceTags_unmanaged(t *testing.T) {
-	testAccPreCheck(t)
+	testAccSSHResourcePreCheck(t)
 
 	config := testAccResourceUnmanagedTagsConfig(acctestPrefix + "TAG-SN-002")
 
@@ -205,7 +206,7 @@ data "mistershell_tags" "filtered" {
 }
 
 func TestAccResourceDataSource_tags(t *testing.T) {
-	testAccPreCheck(t)
+	testAccSSHResourcePreCheck(t)
 
 	config := testAccTagsPreamble() + `
 resource "mistershell_tag" "a" {
@@ -216,16 +217,15 @@ resource "mistershell_tag" "a" {
 
 resource "mistershell_resource" "test" {
   name          = "` + acctestPrefix + `ds-tag-res"
-  resource_type = "linux"
-  external_id   = "` + acctestPrefix + `TAG-SN-003"
+  engine_id     = "ssh"
   location_id   = mistershell_location.test.id
   credential_id = mistershell_credential.test.id
 
   tag_ids = [mistershell_tag.a.id]
 
   connector_data = jsonencode({
-    host = "192.168.99.99"
-    port = 22
+    host = ` + strconv.Quote(os.Getenv("MISTERSHELL_ACC_SSH_HOST")) + `
+    port = ` + testAccSSHPort() + `
   })
 }
 

@@ -1,5 +1,5 @@
 ---
-page_title: "mistershell_tag Resource - terraform-provider-mistershell"
+page_title: "mistershell_tag Resource - MisterShell"
 subcategory: ""
 description: |-
   Manages a MisterShell tag. Tags are free-form labels (name, color, description) that can be assigned to network resources. The optional resource_ids set manages, with whole-set replace semantics, exactly which network resources carry this tag.
