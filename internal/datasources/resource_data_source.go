@@ -27,6 +27,10 @@ type NetworkResourceDataSourceModel struct {
 	ConnectorData          types.Dynamic `tfsdk:"connector_data"`
 	CredentialID           types.Int64   `tfsdk:"credential_id"`
 	LocationID             types.Int64   `tfsdk:"location_id"`
+	EffectiveLatitude      types.Float64 `tfsdk:"effective_latitude"`
+	EffectiveLongitude     types.Float64 `tfsdk:"effective_longitude"`
+	CoordinateSourceID     types.Int64   `tfsdk:"coordinate_source_location_id"`
+	CoordinateSourceName   types.String  `tfsdk:"coordinate_source_location_name"`
 	Status                 types.String  `tfsdk:"status"`
 	IsEnabled              types.Bool    `tfsdk:"is_enabled"`
 	Tags                   types.List    `tfsdk:"tags"`
@@ -89,6 +93,22 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 			"location_id": schema.Int64Attribute{
 				Description: "Location ID filter.",
 				Optional:    true,
+				Computed:    true,
+			},
+			"effective_latitude": schema.Float64Attribute{
+				Description: "Effective latitude resolved from the resource's location or its nearest ancestor with valid coordinates. Null when no location in that path has valid coordinates.",
+				Computed:    true,
+			},
+			"effective_longitude": schema.Float64Attribute{
+				Description: "Effective longitude resolved from the resource's location or its nearest ancestor with valid coordinates. Null when no location in that path has valid coordinates.",
+				Computed:    true,
+			},
+			"coordinate_source_location_id": schema.Int64Attribute{
+				Description: "Location ID that supplies the effective coordinates. Null when no effective coordinates exist or the source location is outside the caller's visible location scope.",
+				Computed:    true,
+			},
+			"coordinate_source_location_name": schema.StringAttribute{
+				Description: "Location name that supplies the effective coordinates. Null when no effective coordinates exist or the source location is outside the caller's visible location scope.",
 				Computed:    true,
 			},
 			"status": schema.StringAttribute{
@@ -256,6 +276,7 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 	}
 	config.CredentialID = int64PtrToValue(res.CredentialID)
 	config.LocationID = int64PtrToValue(res.LocationID)
+	mapNetworkResourceCoordinatesToDataSourceModel(res.EffectiveCoordinates, &config)
 	config.Status = types.StringValue(res.Status)
 	config.IsEnabled = types.BoolValue(res.IsEnabled)
 
@@ -283,4 +304,22 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 	config.NextCollectionAt = optStringPtrToValue(res.NextCollectionAt)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+func mapNetworkResourceCoordinatesToDataSourceModel(
+	coordinates *client.EffectiveCoordinates,
+	model *NetworkResourceDataSourceModel,
+) {
+	if coordinates == nil {
+		model.EffectiveLatitude = types.Float64Null()
+		model.EffectiveLongitude = types.Float64Null()
+		model.CoordinateSourceID = types.Int64Null()
+		model.CoordinateSourceName = types.StringNull()
+		return
+	}
+
+	model.EffectiveLatitude = types.Float64Value(coordinates.Latitude)
+	model.EffectiveLongitude = types.Float64Value(coordinates.Longitude)
+	model.CoordinateSourceID = int64PtrToValue(coordinates.SourceLocationID)
+	model.CoordinateSourceName = stringPtrToValue(coordinates.SourceLocationName)
 }

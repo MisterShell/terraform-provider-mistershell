@@ -5,6 +5,20 @@ Notable changes to the MisterShell Terraform provider, for people writing HCL ag
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-08-26
+
+**Requires MisterShell >= 2.0.1.**
+
+### Added
+
+- `mistershell_resource` and its data source now expose the computed
+  `effective_latitude` and `effective_longitude` inherited from the resource's
+  location or its nearest ancestor with valid coordinates.
+- The computed `coordinate_source_location_id` and
+  `coordinate_source_location_name` attributes identify the location supplying
+  those coordinates. They are null when that location is outside the caller's
+  visible location scope, while the effective coordinates remain available.
+
 ## [2.0.0] - 2026-08-25
 
 **Requires MisterShell >= 2.0.0.**

@@ -95,7 +95,11 @@ resource "mistershell_resource" "tagged" {
 ### Read-Only
 
 - `connector_id` (String) Connector type, derived by the server from resource_type.
+- `coordinate_source_location_id` (Number) Location ID that supplies the effective coordinates. Null when no effective coordinates exist or the source location is outside the caller's visible location scope.
+- `coordinate_source_location_name` (String) Location name that supplies the effective coordinates. Null when no effective coordinates exist or the source location is outside the caller's visible location scope.
 - `created_at` (String) Creation timestamp.
+- `effective_latitude` (Number) Effective latitude resolved from the resource's location or its nearest ancestor with valid coordinates. Null when no location in that path has valid coordinates.
+- `effective_longitude` (Number) Effective longitude resolved from the resource's location or its nearest ancestor with valid coordinates. Null when no location in that path has valid coordinates.
 - `external_id` (String) External identifier discovered by MisterShell. Null is valid for types such as Generic SSH.
 - `extra_data` (Dynamic) Discovered metadata as a native Terraform value. Auto-populated by MisterShell from connectivity checks.
 - `id` (Number) Resource ID.

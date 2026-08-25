@@ -55,8 +55,12 @@ output "switch_tags" {
 
 - `connector_data` (Dynamic) Connection parameters as a native Terraform object; the shape is defined by the installed type catalog.
 - `connector_id` (String) Connector type.
+- `coordinate_source_location_id` (Number) Location ID that supplies the effective coordinates. Null when no effective coordinates exist or the source location is outside the caller's visible location scope.
+- `coordinate_source_location_name` (String) Location name that supplies the effective coordinates. Null when no effective coordinates exist or the source location is outside the caller's visible location scope.
 - `created_at` (String) Creation timestamp.
 - `credential_id` (Number) Credential ID.
+- `effective_latitude` (Number) Effective latitude resolved from the resource's location or its nearest ancestor with valid coordinates. Null when no location in that path has valid coordinates.
+- `effective_longitude` (Number) Effective longitude resolved from the resource's location or its nearest ancestor with valid coordinates. Null when no location in that path has valid coordinates.
 - `engine_id` (String) Connection engine inferred from the installed resource-type catalog.
 - `external_id` (String) External identifier.
 - `extra_data` (Dynamic) Discovered metadata as a native Terraform value.

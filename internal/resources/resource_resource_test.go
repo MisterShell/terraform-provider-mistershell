@@ -44,6 +44,23 @@ func TestNetworkResourceSchemaUsesOnboardingInputs(t *testing.T) {
 		t.Fatalf("connector_data schema = %#v", connector)
 	}
 
+	effectiveLatitude, ok := resp.Schema.Attributes["effective_latitude"].(resourceschema.Float64Attribute)
+	if !ok || !effectiveLatitude.Computed {
+		t.Fatalf("effective_latitude schema = %#v", resp.Schema.Attributes["effective_latitude"])
+	}
+	effectiveLongitude, ok := resp.Schema.Attributes["effective_longitude"].(resourceschema.Float64Attribute)
+	if !ok || !effectiveLongitude.Computed {
+		t.Fatalf("effective_longitude schema = %#v", resp.Schema.Attributes["effective_longitude"])
+	}
+	sourceID, ok := resp.Schema.Attributes["coordinate_source_location_id"].(resourceschema.Int64Attribute)
+	if !ok || !sourceID.Computed {
+		t.Fatalf("coordinate_source_location_id schema = %#v", resp.Schema.Attributes["coordinate_source_location_id"])
+	}
+	sourceName := requireStringAttribute(t, resp.Schema.Attributes["coordinate_source_location_name"])
+	if !sourceName.Computed {
+		t.Fatalf("coordinate_source_location_name schema = %#v", sourceName)
+	}
+
 	validators := r.ConfigValidators(context.Background())
 	if len(validators) != 1 {
 		t.Fatalf("config validators = %d, want 1", len(validators))
@@ -74,6 +91,49 @@ func TestBuildNetworkResourceUpdateSendsOnlyChangedFields(t *testing.T) {
 	}
 	if string(got.ConnectorData) != `{"host":"new"}` {
 		t.Fatalf("connector update = %s", got.ConnectorData)
+	}
+}
+
+func TestMapNetworkResourceResponseMapsEffectiveCoordinates(t *testing.T) {
+	sourceID := int64(7)
+	sourceName := "Paris"
+	model := NetworkResourceResourceModel{}
+	response := client.NetworkResourceResponse{
+		EffectiveCoordinates: &client.EffectiveCoordinates{
+			Latitude:           48.8566,
+			Longitude:          2.3522,
+			SourceLocationID:   &sourceID,
+			SourceLocationName: &sourceName,
+		},
+	}
+
+	if err := mapNetworkResourceResponseToModel(&response, &model); err != nil {
+		t.Fatal(err)
+	}
+	if model.EffectiveLatitude.ValueFloat64() != 48.8566 || model.EffectiveLongitude.ValueFloat64() != 2.3522 {
+		t.Fatalf("effective coordinates = %v, %v", model.EffectiveLatitude, model.EffectiveLongitude)
+	}
+	if model.CoordinateSourceID.ValueInt64() != 7 || model.CoordinateSourceName.ValueString() != "Paris" {
+		t.Fatalf("coordinate source = %v, %v", model.CoordinateSourceID, model.CoordinateSourceName)
+	}
+
+	response.EffectiveCoordinates.SourceLocationID = nil
+	response.EffectiveCoordinates.SourceLocationName = nil
+	if err := mapNetworkResourceResponseToModel(&response, &model); err != nil {
+		t.Fatal(err)
+	}
+	if model.EffectiveLatitude.IsNull() || model.EffectiveLongitude.IsNull() ||
+		!model.CoordinateSourceID.IsNull() || !model.CoordinateSourceName.IsNull() {
+		t.Fatalf("redacted coordinate source must preserve coordinates only: %#v", model)
+	}
+
+	response.EffectiveCoordinates = nil
+	if err := mapNetworkResourceResponseToModel(&response, &model); err != nil {
+		t.Fatal(err)
+	}
+	if !model.EffectiveLatitude.IsNull() || !model.EffectiveLongitude.IsNull() ||
+		!model.CoordinateSourceID.IsNull() || !model.CoordinateSourceName.IsNull() {
+		t.Fatalf("missing effective coordinates must map to null: %#v", model)
 	}
 }
 

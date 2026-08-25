@@ -37,6 +37,10 @@ type NetworkResourceResourceModel struct {
 	ResourceType           types.String  `tfsdk:"resource_type"`
 	ExternalID             types.String  `tfsdk:"external_id"`
 	LocationID             types.Int64   `tfsdk:"location_id"`
+	EffectiveLatitude      types.Float64 `tfsdk:"effective_latitude"`
+	EffectiveLongitude     types.Float64 `tfsdk:"effective_longitude"`
+	CoordinateSourceID     types.Int64   `tfsdk:"coordinate_source_location_id"`
+	CoordinateSourceName   types.String  `tfsdk:"coordinate_source_location_name"`
 	ConnectorData          types.Dynamic `tfsdk:"connector_data"`
 	CredentialID           types.Int64   `tfsdk:"credential_id"`
 	ExtraData              types.Dynamic `tfsdk:"extra_data"`
@@ -105,6 +109,22 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 			"location_id": schema.Int64Attribute{
 				Description: "Location ID where this resource resides.",
 				Required:    true,
+			},
+			"effective_latitude": schema.Float64Attribute{
+				Description: "Effective latitude resolved from the resource's location or its nearest ancestor with valid coordinates. Null when no location in that path has valid coordinates.",
+				Computed:    true,
+			},
+			"effective_longitude": schema.Float64Attribute{
+				Description: "Effective longitude resolved from the resource's location or its nearest ancestor with valid coordinates. Null when no location in that path has valid coordinates.",
+				Computed:    true,
+			},
+			"coordinate_source_location_id": schema.Int64Attribute{
+				Description: "Location ID that supplies the effective coordinates. Null when no effective coordinates exist or the source location is outside the caller's visible location scope.",
+				Computed:    true,
+			},
+			"coordinate_source_location_name": schema.StringAttribute{
+				Description: "Location name that supplies the effective coordinates. Null when no effective coordinates exist or the source location is outside the caller's visible location scope.",
+				Computed:    true,
 			},
 			"connector_data": schema.DynamicAttribute{
 				Description: "Connection parameters as a native Terraform object. The accepted shape comes from the selected engine or resource type in MisterShell's installed type catalog.",
@@ -432,6 +452,17 @@ func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *N
 	m.ResourceType = types.StringValue(res.ResourceType)
 	m.ExternalID = stringPtrToValue(res.ExternalID)
 	m.LocationID = int64PtrToValue(res.LocationID)
+	if res.EffectiveCoordinates == nil {
+		m.EffectiveLatitude = types.Float64Null()
+		m.EffectiveLongitude = types.Float64Null()
+		m.CoordinateSourceID = types.Int64Null()
+		m.CoordinateSourceName = types.StringNull()
+	} else {
+		m.EffectiveLatitude = types.Float64Value(res.EffectiveCoordinates.Latitude)
+		m.EffectiveLongitude = types.Float64Value(res.EffectiveCoordinates.Longitude)
+		m.CoordinateSourceID = int64PtrToValue(res.EffectiveCoordinates.SourceLocationID)
+		m.CoordinateSourceName = stringPtrToValue(res.EffectiveCoordinates.SourceLocationName)
+	}
 	// ConnectorData intentionally NOT set here — preserved from plan/state by the caller
 	// because the API enriches it with server-side defaults (e.g. strict_host_key).
 	m.CredentialID = int64PtrToValue(res.CredentialID)

@@ -208,6 +208,34 @@ func TestNetworkResourceResponseAcceptsNullExternalID(t *testing.T) {
 	}
 }
 
+func TestNetworkResourceResponseDecodesEffectiveCoordinates(t *testing.T) {
+	var got NetworkResourceResponse
+	err := json.Unmarshal([]byte(`{
+		"id": 1,
+		"effective_coordinates": {
+			"latitude": 48.8566,
+			"longitude": 2.3522,
+			"source_location_id": 7,
+			"source_location_name": "Paris"
+		}
+	}`), &got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.EffectiveCoordinates == nil {
+		t.Fatal("effective coordinates are nil")
+	}
+	if got.EffectiveCoordinates.Latitude != 48.8566 || got.EffectiveCoordinates.Longitude != 2.3522 {
+		t.Fatalf("coordinates = %#v", got.EffectiveCoordinates)
+	}
+	if got.EffectiveCoordinates.SourceLocationID == nil || *got.EffectiveCoordinates.SourceLocationID != 7 {
+		t.Fatalf("source location id = %#v", got.EffectiveCoordinates.SourceLocationID)
+	}
+	if got.EffectiveCoordinates.SourceLocationName == nil || *got.EffectiveCoordinates.SourceLocationName != "Paris" {
+		t.Fatalf("source location name = %#v", got.EffectiveCoordinates.SourceLocationName)
+	}
+}
+
 func TestNetworkResourceUpdateInputIsSparse(t *testing.T) {
 	name := "new-name"
 	body, err := json.Marshal(NetworkResourceUpdateInput{Name: &name})

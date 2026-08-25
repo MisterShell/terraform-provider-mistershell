@@ -15,7 +15,13 @@ func TestMisterShell2DataSourceSchemas(t *testing.T) {
 		dataSource datasource.DataSource
 		attributes []string
 	}{
-		{"resource", NewNetworkResourceDataSource(), []string{"engine_id"}},
+		{"resource", NewNetworkResourceDataSource(), []string{
+			"engine_id",
+			"effective_latitude",
+			"effective_longitude",
+			"coordinate_source_location_id",
+			"coordinate_source_location_name",
+		}},
 		{"role", NewRoleDataSource(), []string{"location_scope_mode"}},
 		{"auth provider", NewAuthProviderDataSource(), []string{"mnemonic", "oidc_redirect_uri"}},
 		{"worker", NewWorkerDataSource(), []string{"version", "rdk_contract_major", "rdk_catalog_identity", "rdk_compatible"}},
