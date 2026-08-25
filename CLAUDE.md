@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Do **not** add AI/assistant attribution to commits or PRs — no `Co-Authored-By: Claude …` trailer and no "Generated with Claude Code" line. Commits are authored by the human contributor only.
 
+## Releases & CHANGELOG
+
+The **git tag is the version** — there is no version file (`main.go`'s `version = "dev"` is overwritten at build time by goreleaser's ldflags). Pushing a `v*` tag triggers `release.yml`, which publishes to the Terraform registry, so push a tag only when a release is intended.
+
+`CHANGELOG.md` is **required** and is written **for provider end users, not developers** — someone writing HCL, not someone reading this repo. Update it in the same commit as the change. Use [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) sections under `## [x.y.z] - YYYY-MM-DD`.
+
+- **Do** record: new/removed resources, data sources, attributes; HCL users must edit (before/after); **minimum MisterShell backend version** and other version constraints; plan/apply-visible behavior changes; new errors and how to resolve them.
+- **Do not** record: refactors, test/CI/lint work, internal client-struct or helper changes, doc generation mechanics — anything invisible from HCL.
+- State version constraints **explicitly** when a change depends on a backend release (e.g. "requires MisterShell >= 1.6.7"); the provider and backend ship separately, so users cannot infer the coupling.
+
 ## Overview
 
 A Terraform provider (built on the [terraform-plugin-framework](https://github.com/hashicorp/terraform-plugin-framework)) for managing [MisterShell](https://www.mistershell.com) inventory and configuration: locations, network resources, credentials, tags, roles, log destinations, application settings, session-policy ACLs/rules, external auth providers, workers, and AI models/prompts/agents/skills. This repo is the provider (client) only and talks to a running MisterShell instance over its REST API; the backend lives in a separate, private repository.
