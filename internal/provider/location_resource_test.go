@@ -9,15 +9,18 @@ import (
 
 func TestAccLocationResource_basic(t *testing.T) {
 	testAccPreCheck(t)
+	name := acctestPrefix + "loc"
+	updatedName := acctestPrefix + "loc-updated"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			// Create a location under Root (id=1)
 			{
-				Config: testAccLocationConfig("tf-acc-loc", "geo", "Acceptance test location"),
+				Config: testAccLocationConfig(name, "geo", "Acceptance test location"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mistershell_location.test", "name", "tf-acc-loc"),
+					resource.TestCheckResourceAttr("mistershell_location.test", "name", name),
 					resource.TestCheckResourceAttr("mistershell_location.test", "kind", "geo"),
 					resource.TestCheckResourceAttr("mistershell_location.test", "description", "Acceptance test location"),
 					resource.TestCheckResourceAttr("mistershell_location.test", "parent_id", "1"),
@@ -28,9 +31,9 @@ func TestAccLocationResource_basic(t *testing.T) {
 			},
 			// Update name and description
 			{
-				Config: testAccLocationConfig("tf-acc-loc-updated", "geo", "Updated description"),
+				Config: testAccLocationConfig(updatedName, "geo", "Updated description"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mistershell_location.test", "name", "tf-acc-loc-updated"),
+					resource.TestCheckResourceAttr("mistershell_location.test", "name", updatedName),
 					resource.TestCheckResourceAttr("mistershell_location.test", "description", "Updated description"),
 				),
 			},
@@ -49,12 +52,13 @@ func TestAccLocationResource_hierarchy(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccLocationHierarchyConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mistershell_location.parent", "name", "tf-acc-parent"),
-					resource.TestCheckResourceAttr("mistershell_location.child", "name", "tf-acc-child"),
+					resource.TestCheckResourceAttr("mistershell_location.parent", "name", acctestPrefix+"parent"),
+					resource.TestCheckResourceAttr("mistershell_location.child", "name", acctestPrefix+"child"),
 					resource.TestCheckResourceAttrPair("mistershell_location.child", "parent_id", "mistershell_location.parent", "id"),
 				),
 			},
@@ -67,6 +71,7 @@ func TestAccLocationResource_coordinates(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccLocationWithCoordinatesConfig(),
@@ -91,29 +96,29 @@ resource "mistershell_location" "test" {
 }
 
 func testAccLocationHierarchyConfig() string {
-	return `
+	return fmt.Sprintf(`
 resource "mistershell_location" "parent" {
-  name        = "tf-acc-parent"
+  name        = %q
   kind        = "geo"
   parent_id   = 1
 }
 
 resource "mistershell_location" "child" {
-  name      = "tf-acc-child"
+  name      = %q
   kind      = "geo"
   parent_id = mistershell_location.parent.id
 }
-`
+`, acctestPrefix+"parent", acctestPrefix+"child")
 }
 
 func testAccLocationWithCoordinatesConfig() string {
-	return `
+	return fmt.Sprintf(`
 resource "mistershell_location" "test" {
-  name      = "tf-acc-coords"
+  name      = %q
   kind      = "geo"
   parent_id = 1
   latitude  = 47.3769
   longitude = 8.5417
 }
-`
+`, acctestPrefix+"coords")
 }

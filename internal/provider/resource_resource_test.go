@@ -3,10 +3,12 @@ package provider_test
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func testAccSSHResourcePreCheck(t *testing.T) {
@@ -26,22 +28,24 @@ func testAccSSHResourcePreCheck(t *testing.T) {
 
 func TestAccNetworkResource_automaticSSHOnboarding(t *testing.T) {
 	testAccSSHResourcePreCheck(t)
+	name := acctestPrefix + "auto"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSSHResourceConfig("tf-acc-auto", ""),
+				Config: testAccSSHResourceConfig(name, ""),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mistershell_resource.test", "engine_id", "ssh"),
-					resource.TestCheckResourceAttrSet("mistershell_resource.test", "resource_type"),
+					resource.TestCheckResourceAttr("mistershell_resource.test", "resource_type", "linux"),
+					resource.TestCheckResourceAttrSet("mistershell_resource.test", "external_id"),
 					resource.TestCheckResourceAttrSet("mistershell_resource.test", "id"),
 					resource.TestCheckResourceAttrSet("mistershell_resource.test", "connector_id"),
 				),
 			},
 			{
-				Config:             testAccSSHResourceConfig("tf-acc-auto", ""),
+				Config:             testAccSSHResourceConfig(name, ""),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
 			},
@@ -60,12 +64,13 @@ func TestAccNetworkResource_automaticSSHOnboarding(t *testing.T) {
 
 func TestAccNetworkResource_explicitGenericSSH(t *testing.T) {
 	testAccSSHResourcePreCheck(t)
+	name := acctestPrefix + "explicit-generic"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{{
-			Config: testAccSSHResourceConfig("tf-acc-generic", "generic_ssh"),
+			Config: testAccSSHResourceConfig(name, "generic_ssh"),
 			Check: resource.ComposeAggregateTestCheckFunc(
 				resource.TestCheckResourceAttr("mistershell_resource.test", "engine_id", "ssh"),
 				resource.TestCheckResourceAttr("mistershell_resource.test", "resource_type", "generic_ssh"),
@@ -73,6 +78,219 @@ func TestAccNetworkResource_explicitGenericSSH(t *testing.T) {
 			),
 		}},
 	})
+}
+
+func TestAccNetworkResource_automaticGenericSSHFallback(t *testing.T) {
+	testAccPreCheck(t)
+
+	host, port, username, password := startGenericSSHFixture(t)
+	name := acctestPrefix + "auto-generic"
+	config := testAccSSHTargetConfig(name, "", discoverRootLocationID(t), host, port, username, password)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mistershell_resource.test", "engine_id", "ssh"),
+					resource.TestCheckResourceAttr("mistershell_resource.test", "resource_type", "generic_ssh"),
+					resource.TestCheckNoResourceAttr("mistershell_resource.test", "external_id"),
+				),
+			},
+			{Config: config, PlanOnly: true, ExpectNonEmptyPlan: false},
+		},
+	})
+}
+
+func TestAccNetworkResource_explicitLinux(t *testing.T) {
+	testAccSSHResourcePreCheck(t)
+	name := acctestPrefix + "exact-linux"
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
+		Steps: []resource.TestStep{{
+			Config: testAccSSHResourceConfig(name, "linux"),
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr("mistershell_resource.test", "engine_id", "ssh"),
+				resource.TestCheckResourceAttr("mistershell_resource.test", "resource_type", "linux"),
+				resource.TestCheckResourceAttrSet("mistershell_resource.test", "external_id"),
+			),
+		}},
+	})
+}
+
+func TestAccNetworkResource_explicitTypeMismatch(t *testing.T) {
+	testAccSSHResourcePreCheck(t)
+	name := acctestPrefix + "exact-mismatch"
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
+		Steps: []resource.TestStep{{
+			Config:      testAccSSHResourceConfig(name, "cisco_ios"),
+			ExpectError: regexp.MustCompile(`Resource discovery\s+returned type_mismatch`),
+		}},
+	})
+}
+
+func TestAccNetworkResource_mutableUpdate(t *testing.T) {
+	testAccSSHResourcePreCheck(t)
+	name := acctestPrefix + "mutable"
+	var createdID string
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccSSHResourceUpdateConfig(name, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					captureResourceID("mistershell_resource.test", &createdID),
+					resource.TestCheckResourceAttr("mistershell_resource.test", "name", name),
+					resource.TestCheckResourceAttr("mistershell_resource.test", "is_enabled", "true"),
+					resource.TestCheckResourceAttrPair("mistershell_resource.test", "location_id", "mistershell_location.a", "id"),
+					resource.TestCheckResourceAttrPair("mistershell_resource.test", "credential_id", "mistershell_credential.a", "id"),
+					resource.TestCheckTypeSetElemAttrPair("mistershell_resource.test", "tag_ids.*", "mistershell_tag.a", "id"),
+				),
+			},
+			{
+				Config: testAccSSHResourceUpdateConfig(name+"-updated", true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					checkResourceID("mistershell_resource.test", &createdID),
+					resource.TestCheckResourceAttr("mistershell_resource.test", "name", name+"-updated"),
+					resource.TestCheckResourceAttr("mistershell_resource.test", "is_enabled", "false"),
+					resource.TestCheckResourceAttrPair("mistershell_resource.test", "location_id", "mistershell_location.b", "id"),
+					resource.TestCheckResourceAttrPair("mistershell_resource.test", "credential_id", "mistershell_credential.b", "id"),
+					resource.TestCheckTypeSetElemAttrPair("mistershell_resource.test", "tag_ids.*", "mistershell_tag.b", "id"),
+				),
+			},
+		},
+	})
+}
+
+func captureResourceID(address string, target *string) resource.TestCheckFunc {
+	return func(state *terraform.State) error {
+		instance, ok := state.RootModule().Resources[address]
+		if !ok || instance.Primary.ID == "" {
+			return fmt.Errorf("%s has no state ID", address)
+		}
+		*target = instance.Primary.ID
+		return nil
+	}
+}
+
+func checkResourceID(address string, expected *string) resource.TestCheckFunc {
+	return func(state *terraform.State) error {
+		instance, ok := state.RootModule().Resources[address]
+		if !ok {
+			return fmt.Errorf("%s is missing from state", address)
+		}
+		if *expected == "" || instance.Primary.ID != *expected {
+			return fmt.Errorf("%s ID changed from %q to %q", address, *expected, instance.Primary.ID)
+		}
+		return nil
+	}
+}
+
+func testAccSSHTargetConfig(name, resourceType string, rootLocationID int64, host string, port int, username, password string) string {
+	typeLine := `  engine_id = "ssh"`
+	if resourceType != "" {
+		typeLine = "  resource_type = " + strconv.Quote(resourceType)
+	}
+
+	return fmt.Sprintf(`
+resource "mistershell_location" "test" {
+  name      = %q
+  kind      = "geo"
+  parent_id = %d
+}
+
+resource "mistershell_credential" "test" {
+  name            = %q
+  credential_type = "username_password"
+  credential_data = jsonencode({
+    username = %q
+    password = %q
+  })
+}
+
+resource "mistershell_resource" "test" {
+  name          = %q
+%s
+  location_id   = mistershell_location.test.id
+  credential_id = mistershell_credential.test.id
+  connector_data = jsonencode({
+    host = %q
+    port = %d
+  })
+}
+`, name+"-location", rootLocationID, name+"-credential", username, password, name, typeLine, host, port)
+}
+
+func testAccSSHResourceUpdateConfig(name string, updated bool) string {
+	locationRef := "mistershell_location.a.id"
+	credentialRef := "mistershell_credential.a.id"
+	tagRef := "mistershell_tag.a.id"
+	host := os.Getenv("MISTERSHELL_ACC_SSH_HOST")
+	enabled := "true"
+	if updated {
+		locationRef = "mistershell_location.b.id"
+		credentialRef = "mistershell_credential.b.id"
+		tagRef = "mistershell_tag.b.id"
+		enabled = "false"
+		if updateHost := os.Getenv("MISTERSHELL_ACC_SSH_UPDATE_HOST"); updateHost != "" {
+			host = updateHost
+		}
+	}
+
+	return fmt.Sprintf(`
+resource "mistershell_location" "a" {
+  name      = %q
+  kind      = "geo"
+  parent_id = 1
+}
+
+resource "mistershell_location" "b" {
+  name      = %q
+  kind      = "geo"
+  parent_id = 1
+}
+
+resource "mistershell_credential" "a" {
+  name            = %q
+  credential_type = "username_password"
+  credential_data = jsonencode({ username = %q, password = %q })
+}
+
+resource "mistershell_credential" "b" {
+  name            = %q
+  credential_type = "username_password"
+  credential_data = jsonencode({ username = %q, password = %q })
+}
+
+resource "mistershell_tag" "a" { name = %q }
+resource "mistershell_tag" "b" { name = %q }
+
+resource "mistershell_resource" "test" {
+  name          = %q
+  resource_type = "linux"
+  location_id   = %s
+  credential_id = %s
+  is_enabled    = %s
+  tag_ids       = [%s]
+  connector_data = jsonencode({
+    host = %q
+    port = %s
+  })
+}
+`, acctestPrefix+"mutable-loc-a", acctestPrefix+"mutable-loc-b",
+		acctestPrefix+"mutable-cred-a", os.Getenv("MISTERSHELL_ACC_SSH_USERNAME"), os.Getenv("MISTERSHELL_ACC_SSH_PASSWORD"),
+		acctestPrefix+"mutable-cred-b", os.Getenv("MISTERSHELL_ACC_SSH_USERNAME"), os.Getenv("MISTERSHELL_ACC_SSH_PASSWORD"),
+		acctestPrefix+"mutable-tag-a", acctestPrefix+"mutable-tag-b", name, locationRef, credentialRef, enabled, tagRef,
+		host, testAccSSHPort())
 }
 
 func testAccSSHResourceConfig(name, resourceType string) string {

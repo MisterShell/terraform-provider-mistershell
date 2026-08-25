@@ -1,10 +1,14 @@
 package provider_test
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	"terraform-provider-mistershell/internal/client"
 )
 
 // Wave 2 acceptance tests: mistershell_log_destination / mistershell_setting
@@ -197,6 +201,23 @@ func TestAccLogDestinationPresetsDataSource_basic(t *testing.T) {
 
 func TestAccSetting_basic(t *testing.T) {
 	testAccPreCheck(t)
+
+	c := testAccClient()
+	original, err := c.GetSetting(context.Background(), settingTestKey)
+	if err != nil {
+		t.Fatalf("reading original setting %q: %v", settingTestKey, err)
+	}
+	originalValue := append(json.RawMessage(nil), original.Value...)
+	t.Cleanup(func() {
+		restored, restoreErr := c.UpdateSetting(context.Background(), settingTestKey, client.SettingUpdateInput{Value: originalValue})
+		if restoreErr != nil {
+			t.Errorf("restoring original setting %q: %v", settingTestKey, restoreErr)
+			return
+		}
+		if !jsonRawEqual(restored.Value, originalValue) {
+			t.Errorf("setting %q restored to %s, want %s", settingTestKey, restored.Value, originalValue)
+		}
+	})
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

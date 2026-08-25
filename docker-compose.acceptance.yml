@@ -1,0 +1,6 @@
+services:
+  ssh-linux:
+    build: ./testdata/ssh-linux
+    container_name: mistershell_tfacc_ssh_linux
+    ports:
+      - "${MISTERSHELL_ACC_SSH_PORT:-12223}:22"

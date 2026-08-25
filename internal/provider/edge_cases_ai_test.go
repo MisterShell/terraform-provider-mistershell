@@ -475,6 +475,32 @@ func TestAccEdgeAI_ModelMutatedOutOfBand(t *testing.T) {
 func TestAccEdgeAI_IsDefaultFlip(t *testing.T) {
 	testAccPreCheck(t)
 
+	c := testAccClient()
+	models, err := c.ListAIModels(context.Background(), client.AIModelListFilter{})
+	if err != nil {
+		t.Fatalf("listing models before default flip: %v", err)
+	}
+	var originalDefaultID int64
+	for _, model := range models {
+		if model.IsDefault {
+			originalDefaultID = model.ID
+			break
+		}
+	}
+	if originalDefaultID != 0 {
+		t.Cleanup(func() {
+			makeDefault := true
+			restored, restoreErr := c.UpdateAIModel(context.Background(), originalDefaultID, client.AIModelUpdateInput{IsDefault: &makeDefault})
+			if restoreErr != nil {
+				t.Errorf("restoring original default AI model %d: %v", originalDefaultID, restoreErr)
+				return
+			}
+			if !restored.IsDefault {
+				t.Errorf("AI model %d was not restored as default", originalDefaultID)
+			}
+		})
+	}
+
 	nameA := acctestPrefix + "default-a"
 	nameB := acctestPrefix + "default-b"
 

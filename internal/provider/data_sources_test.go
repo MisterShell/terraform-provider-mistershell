@@ -1,6 +1,7 @@
 package provider_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -12,16 +13,18 @@ import (
 
 func TestAccLocationDataSource_byID(t *testing.T) {
 	testAccPreCheck(t)
+	name := acctestPrefix + "ds-loc-byid"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
 				// Self-contained: create a location, then read it back by id.
 				// (Avoids assuming any pre-existing location's id or name.)
-				Config: `
+				Config: fmt.Sprintf(`
 resource "mistershell_location" "test" {
-  name      = "tf-acc-ds-loc-byid"
+  name      = %q
   kind      = "geo"
   parent_id = 1
 }
@@ -29,10 +32,10 @@ resource "mistershell_location" "test" {
 data "mistershell_location" "by_id" {
   id = mistershell_location.test.id
 }
-`,
+`, name),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_location.by_id", "id", "mistershell_location.test", "id"),
-					resource.TestCheckResourceAttr("data.mistershell_location.by_id", "name", "tf-acc-ds-loc-byid"),
+					resource.TestCheckResourceAttr("data.mistershell_location.by_id", "name", name),
 					resource.TestCheckResourceAttr("data.mistershell_location.by_id", "kind", "geo"),
 					resource.TestCheckResourceAttrSet("data.mistershell_location.by_id", "created_at"),
 				),
@@ -43,28 +46,50 @@ data "mistershell_location" "by_id" {
 
 func TestAccLocationDataSource_byName(t *testing.T) {
 	testAccPreCheck(t)
+	name := acctestPrefix + "ds-loc"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
 				// Create a location, then look it up by name
-				Config: `
+				Config: fmt.Sprintf(`
 resource "mistershell_location" "test" {
-  name      = "tf-acc-ds-loc"
+  name      = %q
   kind      = "geo"
+  description = "initial description"
   parent_id = 1
 }
 
 data "mistershell_location" "lookup" {
   name      = mistershell_location.test.name
+  kind      = "geo"
   parent_id = 1
 }
-`,
+`, name),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_location.lookup", "id", "mistershell_location.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_location.lookup", "kind", "geo"),
+					resource.TestCheckResourceAttr("data.mistershell_location.lookup", "description", "initial description"),
 				),
+			},
+			{
+				Config: fmt.Sprintf(`
+resource "mistershell_location" "test" {
+  name        = %q
+  kind        = "geo"
+  description = "updated description"
+  parent_id   = 1
+}
+
+data "mistershell_location" "lookup" {
+  name      = mistershell_location.test.name
+  kind      = "geo"
+  parent_id = 1
+}
+`, name),
+				Check: resource.TestCheckResourceAttr("data.mistershell_location.lookup", "description", "updated description"),
 			},
 		},
 	})
@@ -79,15 +104,16 @@ func TestAccNetworkResourceDataSource_byID(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSSHResourceConfig("tf-acc-ds-res", "") + `
+				Config: testAccSSHResourceConfig(acctestPrefix+"ds-res", "") + `
 data "mistershell_resource" "lookup" {
   id = mistershell_resource.test.id
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "name", "tf-acc-ds-res"),
+					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "name", acctestPrefix+"ds-res"),
 					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "engine_id", "ssh"),
 					resource.TestCheckResourceAttrSet("data.mistershell_resource.lookup", "connector_id"),
 				),
@@ -101,17 +127,36 @@ func TestAccNetworkResourceDataSource_byName(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSSHResourceConfig("tf-acc-ds-res-name", "") + `
+				Config: testAccSSHResourceConfig(acctestPrefix+"ds-res-name", "") + `
 data "mistershell_resource" "lookup" {
-  name = mistershell_resource.test.name
+  name          = mistershell_resource.test.name
+  resource_type = "linux"
+  location_id   = mistershell_location.test.id
+  status        = mistershell_resource.test.status
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_resource.lookup", "id", "mistershell_resource.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "engine_id", "ssh"),
 					resource.TestCheckResourceAttrSet("data.mistershell_resource.lookup", "connector_data"),
+				),
+			},
+			{
+				Config: testAccSSHResourceConfig(acctestPrefix+"ds-res-name-updated", "") + `
+data "mistershell_resource" "lookup" {
+  name          = mistershell_resource.test.name
+  resource_type = "linux"
+  location_id   = mistershell_location.test.id
+  status        = mistershell_resource.test.status
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrPair("data.mistershell_resource.lookup", "id", "mistershell_resource.test", "id"),
+					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "name", acctestPrefix+"ds-res-name-updated"),
+					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "resource_type", "linux"),
 				),
 			},
 		},
@@ -124,14 +169,17 @@ data "mistershell_resource" "lookup" {
 
 func TestAccCredentialDataSource_byID(t *testing.T) {
 	testAccPreCheck(t)
+	name := acctestPrefix + "ds-cred-id"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: `
+				Config: fmt.Sprintf(`
 resource "mistershell_credential" "test" {
-  name            = "tf-acc-ds-cred-id"
+  name            = %q
+  description     = "initial description"
   credential_type = "username_password"
   credential_data = jsonencode({
     username = "testuser"
@@ -142,11 +190,30 @@ resource "mistershell_credential" "test" {
 data "mistershell_credential" "lookup" {
   id = mistershell_credential.test.id
 }
-`,
+`, name),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "name", "tf-acc-ds-cred-id"),
+					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "name", name),
 					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "credential_type", "username_password"),
+					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "description", "initial description"),
 				),
+			},
+			{
+				Config: fmt.Sprintf(`
+resource "mistershell_credential" "test" {
+  name            = %q
+  description     = "updated description"
+  credential_type = "username_password"
+  credential_data = jsonencode({
+    username = "testuser"
+    password = "testpass123"
+  })
+}
+
+data "mistershell_credential" "lookup" {
+  id = mistershell_credential.test.id
+}
+`, name),
+				Check: resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "description", "updated description"),
 			},
 		},
 	})
@@ -154,14 +221,16 @@ data "mistershell_credential" "lookup" {
 
 func TestAccCredentialDataSource_byName(t *testing.T) {
 	testAccPreCheck(t)
+	name := acctestPrefix + "ds-cred-name"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: `
+				Config: fmt.Sprintf(`
 resource "mistershell_credential" "test" {
-  name            = "tf-acc-ds-cred-name"
+  name            = %q
   credential_type = "username_password"
   credential_data = jsonencode({
     username = "testuser"
@@ -172,7 +241,7 @@ resource "mistershell_credential" "test" {
 data "mistershell_credential" "lookup" {
   name = mistershell_credential.test.name
 }
-`,
+`, name),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_credential.lookup", "id", "mistershell_credential.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "credential_type", "username_password"),
@@ -185,14 +254,16 @@ data "mistershell_credential" "lookup" {
 
 func TestAccCredentialDataSource_byType(t *testing.T) {
 	testAccPreCheck(t)
+	name := acctestPrefix + "ds-cred-type"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: `
+				Config: fmt.Sprintf(`
 resource "mistershell_credential" "test" {
-  name            = "tf-acc-ds-cred-type"
+  name            = %q
   credential_type = "kubeconfig"
   credential_data = jsonencode({
     kubeconfig = "apiVersion: v1\nkind: Config"
@@ -203,7 +274,7 @@ data "mistershell_credential" "lookup" {
   name            = mistershell_credential.test.name
   credential_type = "kubeconfig"
 }
-`,
+`, name),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_credential.lookup", "id", "mistershell_credential.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "credential_type", "kubeconfig"),

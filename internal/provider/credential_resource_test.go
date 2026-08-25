@@ -8,15 +8,17 @@ import (
 
 func TestAccCredentialResource_basic(t *testing.T) {
 	testAccPreCheck(t)
+	name := acctestPrefix + "cred"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			// Create
 			{
-				Config: testAccCredentialUsernamePasswordConfig("tf-acc-cred", "Test credential"),
+				Config: testAccCredentialUsernamePasswordConfig(name, "Test credential"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mistershell_credential.test", "name", "tf-acc-cred"),
+					resource.TestCheckResourceAttr("mistershell_credential.test", "name", name),
 					resource.TestCheckResourceAttr("mistershell_credential.test", "credential_type", "username_password"),
 					resource.TestCheckResourceAttr("mistershell_credential.test", "description", "Test credential"),
 					resource.TestCheckResourceAttr("mistershell_credential.test", "requires_user_mapping", "false"),
@@ -26,7 +28,7 @@ func TestAccCredentialResource_basic(t *testing.T) {
 			},
 			// Update description
 			{
-				Config: testAccCredentialUsernamePasswordConfig("tf-acc-cred", "Updated description"),
+				Config: testAccCredentialUsernamePasswordConfig(name, "Updated description"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mistershell_credential.test", "description", "Updated description"),
 				),
@@ -45,10 +47,11 @@ func TestAccCredentialResource_basic(t *testing.T) {
 func TestAccCredentialResource_idempotency(t *testing.T) {
 	testAccPreCheck(t)
 
-	config := testAccCredentialUsernamePasswordConfig("tf-acc-cred-idem", "Idempotency test")
+	config := testAccCredentialUsernamePasswordConfig(acctestPrefix+"cred-idem", "Idempotency test")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
 				Config: config,
@@ -65,16 +68,18 @@ func TestAccCredentialResource_idempotency(t *testing.T) {
 
 func TestAccCredentialResource_typeChange(t *testing.T) {
 	testAccPreCheck(t)
+	name := acctestPrefix + "cred-type"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCredentialUsernamePasswordConfig("tf-acc-cred-type", "Before type change"),
+				Config: testAccCredentialUsernamePasswordConfig(name, "Before type change"),
 			},
 			// Change credential_type — should force replacement
 			{
-				Config: testAccCredentialSSHKeyConfig("tf-acc-cred-type", "After type change"),
+				Config: testAccCredentialSSHKeyConfig(name, "After type change"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mistershell_credential.test", "credential_type", "ssh_key"),
 				),
@@ -85,14 +90,16 @@ func TestAccCredentialResource_typeChange(t *testing.T) {
 
 func TestAccCredentialResource_usernamePasswordWithDomain(t *testing.T) {
 	testAccPreCheck(t)
+	name := acctestPrefix + "cred-rdp"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCredentialUsernamePasswordDomainConfig("tf-acc-cred-rdp", "RDP credential"),
+				Config: testAccCredentialUsernamePasswordDomainConfig(name, "RDP credential"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mistershell_credential.test", "name", "tf-acc-cred-rdp"),
+					resource.TestCheckResourceAttr("mistershell_credential.test", "name", name),
 					resource.TestCheckResourceAttr("mistershell_credential.test", "credential_type", "username_password"),
 					resource.TestCheckResourceAttrSet("mistershell_credential.test", "id"),
 				),
@@ -109,14 +116,16 @@ func TestAccCredentialResource_usernamePasswordWithDomain(t *testing.T) {
 
 func TestAccCredentialResource_usernamePasswordMinimal(t *testing.T) {
 	testAccPreCheck(t)
+	name := acctestPrefix + "cred-db"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCredentialUsernamePasswordMinimalConfig("tf-acc-cred-db", "Database credential"),
+				Config: testAccCredentialUsernamePasswordMinimalConfig(name, "Database credential"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mistershell_credential.test", "name", "tf-acc-cred-db"),
+					resource.TestCheckResourceAttr("mistershell_credential.test", "name", name),
 					resource.TestCheckResourceAttr("mistershell_credential.test", "credential_type", "username_password"),
 					resource.TestCheckResourceAttrSet("mistershell_credential.test", "id"),
 				),

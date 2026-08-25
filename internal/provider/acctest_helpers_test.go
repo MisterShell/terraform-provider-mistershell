@@ -244,8 +244,15 @@ func init() {
 		F:    sweepTags,
 	})
 	resource.AddTestSweepers("mistershell_role", &resource.Sweeper{
-		Name: "mistershell_role",
-		F:    sweepRoles,
+		Name:         "mistershell_role",
+		Dependencies: []string{"mistershell_user"},
+		F:            sweepRoles,
+	})
+	// Users own user-role edges. Delete prefixed users before roles so crashed
+	// association tests cannot leave a role referenced by an orphaned user.
+	resource.AddTestSweepers("mistershell_user", &resource.Sweeper{
+		Name: "mistershell_user",
+		F:    sweepUsers,
 	})
 	// Log destinations have no FK dependents and sweep independently, by name prefix.
 	resource.AddTestSweepers("mistershell_log_destination", &resource.Sweeper{
@@ -635,6 +642,27 @@ func sweepRoles(_ string) error {
 		}
 		if err := c.DeleteRole(ctx, it.ID); err != nil && !client.IsNotFound(err) {
 			return fmt.Errorf("sweep: deleting role %d (%s): %w", it.ID, it.Name, err)
+		}
+	}
+	return nil
+}
+
+func sweepUsers(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListUsers(ctx, client.UserListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing users: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Email, sweepPrefix) {
+			continue
+		}
+		if err := c.DeleteUser(ctx, it.ID); err != nil && !client.IsNotFound(err) {
+			return fmt.Errorf("sweep: deleting user %d (%s): %w", it.ID, it.Email, err)
 		}
 	}
 	return nil

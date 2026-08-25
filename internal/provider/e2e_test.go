@@ -11,7 +11,7 @@ import (
 // synthetic graph of fake targets is neither valid nor useful.
 func TestAccEndToEnd_onboardingGraph(t *testing.T) {
 	testAccSSHResourcePreCheck(t)
-	config := testAccSSHResourceConfig("tf-acc-e2e", "") + `
+	config := testAccSSHResourceConfig(acctestPrefix+"e2e", "") + `
 data "mistershell_location" "test" {
   id = mistershell_location.test.id
 }

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -265,6 +266,8 @@ func TestAccSessionPolicyRuleDataSource_byID(t *testing.T) {
 					resource.TestCheckResourceAttr("data.mistershell_session_policy_rule.by_id", "name", name),
 					resource.TestCheckResourceAttr("data.mistershell_session_policy_rule.by_id", "position", "23456"),
 					resource.TestCheckResourceAttr("data.mistershell_session_policy_rule.by_id", "action", "deny"),
+					resource.TestCheckResourceAttrPair("data.mistershell_session_policy_rule.by_name", "id", "mistershell_session_policy_rule.test", "id"),
+					resource.TestCheckResourceAttr("data.mistershell_session_policy_rule.by_name", "name", name),
 				),
 			},
 		},
@@ -291,21 +294,23 @@ type authProviderFixture struct {
 	config func(altered bool) string
 	// extraChecks are assertions meaningful only for this provider_type; addr
 	// is the resource/data-source address to assert against.
-	extraChecks func(addr string) []resource.TestCheckFunc
+	extraChecks func(addr, mnemonic string) []resource.TestCheckFunc
 }
 
 // authProviderSPURLChecks asserts the derived SP URLs are surfaced for SAML.
-// They are computed backend-side from app_base_url + the provider id.
-func authProviderSPURLChecks(addr string) []resource.TestCheckFunc {
+// They are computed backend-side from app_base_url + the stable provider
+// mnemonic used by the public SAML routes.
+func authProviderSPURLChecks(addr, mnemonic string) []resource.TestCheckFunc {
+	escapedMnemonic := regexp.QuoteMeta(mnemonic)
 	return []resource.TestCheckFunc{
-		resource.TestMatchResourceAttr(addr, "sp_entity_id", regexp.MustCompile(`/auth/saml/\d+/metadata$`)),
-		resource.TestMatchResourceAttr(addr, "sp_acs_url", regexp.MustCompile(`/auth/saml/\d+/acs$`)),
+		resource.TestMatchResourceAttr(addr, "sp_entity_id", regexp.MustCompile(`/auth/saml/`+escapedMnemonic+`/metadata$`)),
+		resource.TestMatchResourceAttr(addr, "sp_acs_url", regexp.MustCompile(`/auth/saml/`+escapedMnemonic+`/acs$`)),
 	}
 }
 
 // authProviderNoSPURLChecks asserts the SP URL attributes stay null for the
 // non-SAML types (the API omits them).
-func authProviderNoSPURLChecks(addr string) []resource.TestCheckFunc {
+func authProviderNoSPURLChecks(addr, _ string) []resource.TestCheckFunc {
 	return []resource.TestCheckFunc{
 		resource.TestCheckNoResourceAttr(addr, "sp_entity_id"),
 		resource.TestCheckNoResourceAttr(addr, "sp_acs_url"),
@@ -410,7 +415,7 @@ func TestAccAuthProvider_basic(t *testing.T) {
 				resource.TestCheckResourceAttrSet(addr, "id"),
 				resource.TestCheckResourceAttrSet(addr, "created_at"),
 			}
-			createChecks = append(createChecks, fx.extraChecks(addr)...)
+			createChecks = append(createChecks, fx.extraChecks(addr, name)...)
 
 			resource.Test(t, resource.TestCase{
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -520,7 +525,7 @@ func TestAccAuthProviderDataSource_byIDAndName(t *testing.T) {
 			}
 			// The data source must surface the SP URLs on the same terms as the
 			// resource.
-			checks = append(checks, fx.extraChecks(byID)...)
+			checks = append(checks, fx.extraChecks(byID, name)...)
 
 			resource.Test(t, resource.TestCase{
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -552,6 +557,7 @@ func TestAccAuthProviderMapping_basic(t *testing.T) {
 		fx := fixtures[providerType]
 		t.Run(providerType, func(t *testing.T) {
 			name := acctestPrefix + strings.ToLower(providerType) + "-map"
+			var providerID, mappingID int64
 
 			resource.Test(t, resource.TestCase{
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -579,6 +585,7 @@ func TestAccAuthProviderMapping_basic(t *testing.T) {
 						Config: testAccAuthProviderMappingConfig(name, providerType, fx.config(false), "cn=ops,ou=groups,dc=example,dc=com"),
 						Check: resource.ComposeAggregateTestCheckFunc(
 							resource.TestCheckResourceAttr(addr, "external_group", "cn=ops,ou=groups,dc=example,dc=com"),
+							captureGroupMappingIDs(addr, &providerID, &mappingID),
 						),
 					},
 					// Import with the compound id "<provider_id>:<mapping_id>".
@@ -594,9 +601,55 @@ func TestAccAuthProviderMapping_basic(t *testing.T) {
 							return fmt.Sprintf("%s:%s", rs.Primary.Attributes["provider_id"], rs.Primary.ID), nil
 						},
 					},
+					// Remove only the mapping while its provider and role remain. This
+					// proves the mapping DELETE endpoint rather than a parent cascade.
+					{
+						Config: testAccAuthProviderMappingParentsConfig(name, providerType, fx.config(false)),
+						Check: resource.ComposeAggregateTestCheckFunc(
+							resource.TestCheckResourceAttr("mistershell_auth_provider.test", "name", name+"-prov"),
+							resource.TestCheckResourceAttr("mistershell_role.test", "name", name+"-role"),
+							checkGroupMappingAbsent(&providerID, &mappingID),
+						),
+					},
 				},
 			})
 		})
+	}
+}
+
+func captureGroupMappingIDs(addr string, providerID, mappingID *int64) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[addr]
+		if !ok {
+			return fmt.Errorf("mapping resource %q not found in state", addr)
+		}
+
+		var err error
+		*providerID, err = strconv.ParseInt(rs.Primary.Attributes["provider_id"], 10, 64)
+		if err != nil {
+			return fmt.Errorf("parsing mapping provider_id: %w", err)
+		}
+		*mappingID, err = strconv.ParseInt(rs.Primary.ID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("parsing mapping id: %w", err)
+		}
+		return nil
+	}
+}
+
+func checkGroupMappingAbsent(providerID, mappingID *int64) resource.TestCheckFunc {
+	return func(_ *terraform.State) error {
+		if *providerID == 0 || *mappingID == 0 {
+			return fmt.Errorf("mapping identifiers were not captured")
+		}
+		_, err := testAccClient().GetGroupMapping(context.Background(), *providerID, *mappingID)
+		if err == nil {
+			return fmt.Errorf("mapping %d still exists under provider %d", *mappingID, *providerID)
+		}
+		if !client.IsNotFound(err) {
+			return fmt.Errorf("checking removed mapping %d: %w", *mappingID, err)
+		}
+		return nil
 	}
 }
 
@@ -653,6 +706,10 @@ resource "mistershell_session_policy_rule" "test" {
 
 data "mistershell_session_policy_rule" "by_id" {
   id = mistershell_session_policy_rule.test.id
+}
+
+data "mistershell_session_policy_rule" "by_name" {
+  name = mistershell_session_policy_rule.test.name
 }
 `, name)
 }
@@ -740,4 +797,22 @@ resource "mistershell_auth_provider_mapping" "test" {
   role_id        = mistershell_role.test.id
 }
 `, name+"-role", name+"-prov", name+"-prov", providerType, configBody, externalGroup)
+}
+
+func testAccAuthProviderMappingParentsConfig(name, providerType, configBody string) string {
+	return fmt.Sprintf(`
+resource "mistershell_role" "test" {
+  name        = %q
+  description = "wave3 mapping role"
+  permissions = ["app.tags.read"]
+}
+
+resource "mistershell_auth_provider" "test" {
+  name          = %q
+  mnemonic      = %q
+  provider_type = %q
+
+  config = %s
+}
+`, name+"-role", name+"-prov", name+"-prov", providerType, configBody)
 }

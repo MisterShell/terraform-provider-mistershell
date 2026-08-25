@@ -114,6 +114,41 @@ make build
 MISTERSHELL_URL=http://localhost:13000 MISTERSHELL_API_KEY=apikey_xxx make test
 ```
 
+### Live acceptance suite
+
+The acceptance suite creates, changes, imports, and removes live MisterShell
+objects. Use an isolated development instance. Put `MISTERSHELL_URL`,
+`MISTERSHELL_API_KEY`, and optional `MISTERSHELL_INSECURE` values in a gitignored
+`.env` file, then start the deterministic Linux SSH discovery target:
+
+```bash
+make acceptance-fixture-up acceptance-fixture-wait
+make test-live-staged
+make sweep
+make acceptance-fixture-down
+```
+
+`test-live-staged` runs onboarding, core inventory, policy/auth, AI, and edge-case
+stages sequentially with Terraform parallelism disabled. The onboarding stage
+also starts an in-process unknown SSH server to prove automatic Generic SSH
+fallback. The Docker fixture is used to prove Linux discovery and explicit-type
+onboarding.
+
+The defaults are `127.0.0.1:12223`, user `tfacc`, and password
+`tfacc-password`. Override them with `MISTERSHELL_ACC_SSH_HOST`,
+`MISTERSHELL_ACC_SSH_PORT`, `MISTERSHELL_ACC_SSH_USERNAME`, and
+`MISTERSHELL_ACC_SSH_PASSWORD`; use `MISTERSHELL_ACC_SSH_UPDATE_HOST` for an
+equivalent hostname used to verify connector-data updates. Values in `.env`
+are honored by every staged target. To load credentials from a different file, set
+`MISTERSHELL_ENV_FILE=/absolute/path/to/.env`.
+
+For a MisterShell worker running on another host, expose the in-process Generic
+SSH fixture with `MISTERSHELL_ACC_GENERIC_SSH_BIND_ADDRESS=0.0.0.0:<port>` and
+set `MISTERSHELL_ACC_GENERIC_SSH_HOST` to an address reachable by that worker.
+
+Run `make sweep` before and after interrupted suites. Sweepers only target the
+per-run `tfacc-` namespace and delete dependent objects before their parents.
+
 ### Generated enums
 
 Stable non-RDK enums are generated from the MisterShell backend's checked-in
