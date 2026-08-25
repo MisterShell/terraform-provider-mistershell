@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	resourceschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -39,8 +39,8 @@ func TestNetworkResourceSchemaUsesOnboardingInputs(t *testing.T) {
 	if !ok || !credential.Required {
 		t.Fatalf("credential_id schema = %#v", resp.Schema.Attributes["credential_id"])
 	}
-	connector := requireStringAttribute(t, resp.Schema.Attributes["connector_data"])
-	if !connector.Required {
+	connector, ok := resp.Schema.Attributes["connector_data"].(resourceschema.DynamicAttribute)
+	if !ok || !connector.Required {
 		t.Fatalf("connector_data schema = %#v", connector)
 	}
 
@@ -53,22 +53,35 @@ func TestNetworkResourceSchemaUsesOnboardingInputs(t *testing.T) {
 func TestBuildNetworkResourceUpdateSendsOnlyChangedFields(t *testing.T) {
 	state := NetworkResourceResourceModel{
 		Name: types.StringValue("old"), LocationID: types.Int64Value(3),
-		CredentialID: types.Int64Value(7), ConnectorData: jsontypes.NewNormalizedValue(`{"host":"old"}`),
+		CredentialID: types.Int64Value(7), ConnectorData: testConnectorData("old"),
 		IsEnabled: types.BoolValue(true),
 	}
 	plan := state
 	plan.Name = types.StringValue("new")
 
-	got := buildNetworkResourceUpdate(&plan, &state)
+	got, err := buildNetworkResourceUpdate(&plan, &state)
+	if err != nil {
+		t.Fatalf("buildNetworkResourceUpdate() error: %v", err)
+	}
 	if got.Name == nil || *got.Name != "new" || got.LocationID != nil || got.CredentialID != nil || got.ConnectorData != nil || got.IsEnabled != nil {
 		t.Fatalf("name-only update = %#v", got)
 	}
 
-	plan.ConnectorData = jsontypes.NewNormalizedValue(`{"host":"new"}`)
-	got = buildNetworkResourceUpdate(&plan, &state)
+	plan.ConnectorData = testConnectorData("new")
+	got, err = buildNetworkResourceUpdate(&plan, &state)
+	if err != nil {
+		t.Fatalf("buildNetworkResourceUpdate() error: %v", err)
+	}
 	if string(got.ConnectorData) != `{"host":"new"}` {
 		t.Fatalf("connector update = %s", got.ConnectorData)
 	}
+}
+
+func testConnectorData(host string) types.Dynamic {
+	return types.DynamicValue(types.ObjectValueMust(
+		map[string]attr.Type{"host": types.StringType},
+		map[string]attr.Value{"host": types.StringValue(host)},
+	))
 }
 
 func TestResolveOnboardingMode(t *testing.T) {

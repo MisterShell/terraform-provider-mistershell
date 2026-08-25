@@ -2,12 +2,12 @@
 page_title: "mistershell_worker Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are opaque JSON blobs (the worker's task-handler config and its JSON Schema). The bootstrap default worker (is_default=true) is provisioned by the backend and cannot be edited or deleted (the API returns 403); do not manage it with this resource. The authentication token is returned only once at creation and is never readable again.
+  Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are native Terraform values (the worker's task-handler config and its JSON Schema). The bootstrap default worker (is_default=true) is provisioned by the backend and cannot be edited or deleted (the API returns 403); do not manage it with this resource. The authentication token is returned only once at creation and is never readable again.
 ---
 
 # mistershell_worker (Resource)
 
-Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are opaque JSON blobs (the worker's task-handler config and its JSON Schema). The bootstrap default worker (is_default=true) is provisioned by the backend and cannot be edited or deleted (the API returns 403); do not manage it with this resource. The authentication token is returned only once at creation and is never readable again.
+Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are native Terraform values (the worker's task-handler config and its JSON Schema). The bootstrap default worker (is_default=true) is provisioned by the backend and cannot be edited or deleted (the API returns 403); do not manage it with this resource. The authentication token is returned only once at creation and is never readable again.
 
 ## Example Usage
 
@@ -28,18 +28,18 @@ resource "mistershell_worker" "example" {
   # Keys are read by task handlers with get_config_value(key, default); the only
   # backend-recognized key today is manual_worker_presence_ip (admin override for
   # the IP shown in the UI). Everything else is consumed by your task handlers.
-  config = jsonencode({
+  config = {
     manual_worker_presence_ip = "203.0.113.10"
-  })
+  }
 
   # Optional JSON Schema the backend uses to validate the config above.
-  config_schema = jsonencode({
+  config_schema = {
     type = "object"
     properties = {
       manual_worker_presence_ip = { type = "string" }
     }
     additionalProperties = true
-  })
+  }
 }
 
 # The authentication token is returned ONLY at creation time and can never be
@@ -61,8 +61,8 @@ output "worker_token" {
 
 ### Optional
 
-- `config` (String) Opaque worker task-handler config as JSON. Use jsonencode() in HCL.
-- `config_schema` (String) JSON Schema used to validate the worker config, as JSON. Use jsonencode() in HCL.
+- `config` (Dynamic) Worker task-handler config as a native Terraform value.
+- `config_schema` (Dynamic) JSON Schema used to validate the worker config, represented as a native Terraform value.
 - `description` (String) Worker description.
 - `is_enabled` (Boolean) Whether the worker is enabled. Defaults to true.
 
@@ -93,8 +93,8 @@ output "worker_token" {
 | `name` | Required. 1-255 characters. Must be unique. |
 | `description` | Optional. Free-form text. |
 | `location_id` | Required. Integer ID of the location this worker is bound to. **Updatable** — changing it re-routes the worker, it does not force replacement. |
-| `config` | Optional, opaque JSON blob set with `jsonencode(...)`. Stored-from-config (see below). Excluded from import. |
-| `config_schema` | Optional, opaque JSON blob (a JSON Schema) set with `jsonencode(...)`. Stored-from-config. Excluded from import. |
+| `config` | Optional native Terraform value. Stored-from-config (see below). Excluded from import. |
+| `config_schema` | Optional native Terraform object containing a JSON Schema. Stored-from-config. Excluded from import. |
 | `is_enabled` | Optional. Boolean. Defaults to `true`. Admin intent — whether the worker is allowed to connect and accept tasks. Distinct from the operational `status` below. |
 | `id` | Read-only. Integer worker ID. |
 | `token` | Read-only, **sensitive**. Returned only once at creation (see below). |
@@ -152,8 +152,8 @@ If the token is lost, **regenerate it out of band** with
 
 ## `config` and `config_schema`
 
-Both are opaque JSON blobs written with `jsonencode(...)` and sent to the backend
-as JSON objects.
+Both are native Terraform values. The provider converts them to JSON only when
+calling the backend.
 
 - **`config`** is the worker's free-form **task-handler configuration**. The
   backend does not impose a fixed shape: keys are pushed to the worker via the
@@ -165,23 +165,23 @@ as JSON objects.
   keys** for your deployment. A representative example:
 
   ```hcl
-  config = jsonencode({
+  config = {
     manual_worker_presence_ip = "203.0.113.10" # optional admin override for presence_ip
     # ...any additional keys your task handlers read...
-  })
+  }
   ```
 
 - **`config_schema`** is an optional **JSON Schema** the backend uses to validate
   `config`. It too is free-form JSON:
 
   ```hcl
-  config_schema = jsonencode({
+  config_schema = {
     type = "object"
     properties = {
       manual_worker_presence_ip = { type = "string" }
     }
     additionalProperties = true
-  })
+  }
   ```
 
 **Stored-from-config.** As with `credential_data` and log-destination `config`,

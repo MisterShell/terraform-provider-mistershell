@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,14 +18,14 @@ type AIPromptDataSource struct {
 }
 
 type AIPromptDataSourceModel struct {
-	ID             types.Int64          `tfsdk:"id"`
-	Name           types.String         `tfsdk:"name"`
-	Type           types.String         `tfsdk:"type"`
-	Content        types.String         `tfsdk:"content"`
-	Description    types.String         `tfsdk:"description"`
-	VariableSchema jsontypes.Normalized `tfsdk:"variable_schema"`
-	CreatedAt      types.String         `tfsdk:"created_at"`
-	UpdatedAt      types.String         `tfsdk:"updated_at"`
+	ID             types.Int64   `tfsdk:"id"`
+	Name           types.String  `tfsdk:"name"`
+	Type           types.String  `tfsdk:"type"`
+	Content        types.String  `tfsdk:"content"`
+	Description    types.String  `tfsdk:"description"`
+	VariableSchema types.Dynamic `tfsdk:"variable_schema"`
+	CreatedAt      types.String  `tfsdk:"created_at"`
+	UpdatedAt      types.String  `tfsdk:"updated_at"`
 }
 
 func NewAIPromptDataSource() datasource.DataSource {
@@ -63,10 +62,9 @@ func (d *AIPromptDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 				Description: "Human-readable description of the prompt.",
 				Computed:    true,
 			},
-			"variable_schema": schema.StringAttribute{
+			"variable_schema": schema.DynamicAttribute{
 				Description: "JSON Schema documenting the template variables used in content.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -155,7 +153,12 @@ func (d *AIPromptDataSource) Read(ctx context.Context, req datasource.ReadReques
 	config.Type = types.StringValue(prompt.Type)
 	config.Content = types.StringValue(prompt.Content)
 	config.Description = stringPtrToValue(prompt.Description)
-	config.VariableSchema = rawJSONToNormalized(prompt.VariableSchema)
+	variableSchema, err := rawJSONToDynamic(prompt.VariableSchema)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding AI prompt variable_schema", err.Error())
+		return
+	}
+	config.VariableSchema = variableSchema
 	config.CreatedAt = types.StringValue(prompt.CreatedAt)
 	config.UpdatedAt = types.StringValue(prompt.UpdatedAt)
 

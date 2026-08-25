@@ -2,35 +2,35 @@
 page_title: "mistershell_setting Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell application setting (a predefined key/value pair). Settings cannot be created or deleted — the key set is fixed by the backend registry. Create/Update PUT the value; Delete (terraform destroy) RESETS the key to its registry default rather than removing it. value is JSON (use jsonencode()) because values are heterogeneous (bool/int/string). Secret keys are masked as '****' by the API and stored from config, not read back. See the valid keys table on this page.
+  Manages a MisterShell application setting (a predefined key/value pair). Settings cannot be created or deleted — the key set is fixed by the backend registry. Create/Update PUT the value; Delete (terraform destroy) RESETS the key to its registry default rather than removing it. value uses its native Terraform type because settings are heterogeneous (bool/number/string). Secret keys are masked as '****' by the API and stored from config, not read back. See the valid keys table on this page.
 ---
 
 # mistershell_setting (Resource)
 
-Manages a MisterShell application setting (a predefined key/value pair). Settings cannot be created or deleted — the key set is fixed by the backend registry. Create/Update PUT the value; Delete (terraform destroy) RESETS the key to its registry default rather than removing it. value is JSON (use jsonencode()) because values are heterogeneous (bool/int/string). Secret keys are masked as '****' by the API and stored from config, not read back. See the valid keys table on this page.
+Manages a MisterShell application setting (a predefined key/value pair). Settings cannot be created or deleted — the key set is fixed by the backend registry. Create/Update PUT the value; Delete (terraform destroy) RESETS the key to its registry default rather than removing it. value uses its native Terraform type because settings are heterogeneous (bool/number/string). Secret keys are masked as '****' by the API and stored from config, not read back. See the valid keys table on this page.
 
 ## Example Usage
 
 ```terraform
-# A setting value is JSON; use jsonencode() to match the key's native type
-# (bool / int / string). The key set is fixed by the backend registry.
+# A setting value uses its native Terraform type (bool / number / string).
+# The key set is fixed by the backend registry.
 
 # Boolean setting.
 resource "mistershell_setting" "session_resume" {
   key   = "enable_session_resume"
-  value = jsonencode(true)
+  value = true
 }
 
 # Integer setting.
 resource "mistershell_setting" "security_log_retention" {
   key   = "security_log_retention_days"
-  value = jsonencode(120)
+  value = 120
 }
 
 # String setting.
 resource "mistershell_setting" "smtp_from" {
   key   = "smtp_from_email"
-  value = jsonencode("alerts@example.com")
+  value = "alerts@example.com"
 }
 ```
 
@@ -40,17 +40,17 @@ resource "mistershell_setting" "smtp_from" {
 ### Required
 
 - `key` (String) Setting key (the resource ID). Must be a key in the backend settings registry; unknown keys return 404. Cannot be changed after creation.
-- `value` (String, Sensitive) Setting value as JSON. Use jsonencode(): jsonencode(true), jsonencode(90), jsonencode("localhost"). For secret keys the API masks the value as '****'; it is stored from config, not read back.
+- `value` (Dynamic, Sensitive) Setting value using its native Terraform type, for example true, 90, or "localhost". For secret keys the API masks the value as '****'; it is stored from config, not read back.
 
 ### Read-Only
 
 - `created_at` (String) Creation timestamp.
-- `default` (String) Registry default value as JSON. Masked as '****' for non-empty secret keys.
+- `default` (Dynamic) Registry default value using its native Terraform type. Masked as '****' for non-empty secret keys.
 - `description` (String) Human description of the setting (from the registry).
 - `id` (String) Setting ID (mirrors key).
 - `is_encrypted` (Boolean) Whether the stored value is encrypted at rest.
 - `is_secret` (Boolean) Whether the value is a secret (masked as '****' in responses).
-- `schema` (String) JSON Schema used by MisterShell to validate this setting.
+- `schema` (Dynamic) JSON Schema used by MisterShell to validate this setting.
 - `updated_at` (String) Last update timestamp.
 
 ## Lifecycle — settings cannot be created or deleted
@@ -70,14 +70,13 @@ resource:
 
 ## Setting the `value`
 
-`value` is **JSON** set with `jsonencode(...)`, because setting values are
-heterogeneous across keys (boolean, integer, or string). Match the key's native
-type from the table below:
+`value` uses the setting's native Terraform type. Settings are heterogeneous
+across keys (boolean, number, or string), so match the type from the table below:
 
 ```hcl
-value = jsonencode(true)                 # boolean key
-value = jsonencode(90)                   # integer key
-value = jsonencode("alerts@example.com") # string key
+value = true                 # boolean key
+value = 90                   # integer key
+value = "alerts@example.com" # string key
 ```
 
 The backend validates `value` against the key's JSON Schema; an invalid value is

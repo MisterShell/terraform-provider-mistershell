@@ -29,7 +29,7 @@ resource "mistershell_ai_prompt" "resource_summary" {
   # Optional JSON Schema documenting the variables this prompt expects.
   # Stored from configuration; informational only (the backend does not
   # reject undeclared variables based on this schema).
-  variable_schema = jsonencode({
+  variable_schema = {
     type = "object"
     properties = {
       resource_id   = { type = "integer", description = "Target resource ID." }
@@ -37,7 +37,7 @@ resource "mistershell_ai_prompt" "resource_summary" {
       resource_type = { type = "string", description = "Resource type descriptor key." }
     }
     required = ["resource_id"]
-  })
+  }
 }
 ```
 
@@ -53,7 +53,7 @@ resource "mistershell_ai_prompt" "resource_summary" {
 
 - `description` (String) Optional human-readable description of the prompt.
 - `type` (String) Prompt type. Must be "user" (the default). Builtin "system" prompts are read-only and cannot be managed by this resource — use the mistershell_ai_prompt data source to read them. Immutable: changing it forces replacement.
-- `variable_schema` (String) Optional JSON Schema documenting the template variables used in content. Use jsonencode() in HCL. Stored from config.
+- `variable_schema` (Dynamic) Optional JSON Schema documenting the template variables used in content, represented as a native Terraform object. Stored from config.
 
 ### Read-Only
 
@@ -69,7 +69,7 @@ resource "mistershell_ai_prompt" "resource_summary" {
 | `type` | Optional, computed. Defaults to `user`. **Only `user` is allowed** — see the table below. **Immutable**; changing it forces replacement. |
 | `content` | Required. The prompt text (minLength 1). May contain Jinja2 `{{ variable }}` placeholders — see Template variables below. |
 | `description` | Optional. Up to 2000 characters. |
-| `variable_schema` | Optional. JSON Schema object set with `jsonencode(...)`, documenting the template variables the prompt expects. Stored from configuration; informational. See the note below. |
+| `variable_schema` | Optional. Native Terraform object containing the JSON Schema that documents the template variables the prompt expects. Stored from configuration; informational. See the note below. |
 
 Computed (read-only) attributes: `id` (integer), `created_at`, `updated_at`.
 
@@ -154,7 +154,7 @@ builtin agent).
 ## The `variable_schema` field
 
 `variable_schema` is an **optional** JSON Schema (a JSON object set with
-`jsonencode(...)`) that documents the variables a prompt expects — names, types,
+a native Terraform object) that documents the variables a prompt expects — names, types,
 and which are required. It is advisory metadata for the prompt editor; it does
 **not** gate rendering (an undeclared variable still renders, and a missing
 optional one renders empty).

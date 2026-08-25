@@ -26,7 +26,7 @@ description: |-
 | `provider_type` | Required. One of the `provider_type` values below. **Immutable** — changing it forces replacement (the `config` shape is type-coupled). |
 | `is_enabled` | Optional boolean. Defaults to `true`. |
 | `display_order` | Optional + computed integer `>= 0`; sent on create and update. |
-| `config` | Required, **sensitive**. Per-`provider_type` JSON blob set with `jsonencode(...)`; see the per-type tables below. |
+| `config` | Required, **sensitive**. Native Terraform object whose shape depends on `provider_type`; see the per-type tables below. |
 | `group_mappings_count` | Read-only. Number of attached group→role mappings. |
 
 ### `provider_type` values
@@ -50,10 +50,9 @@ description: |-
   a value, the provider applies it with a follow-up PATCH after create; thereafter
   it is set on update. The provider **never** calls the backend's reorder endpoint.
 
-## The `config` JSON blob
+## The `config` object
 
-`config` is an opaque, per-`provider_type` JSON object written with
-`jsonencode(...)`. Its shape is determined by `provider_type` (one table per type
+`config` is a native Terraform object. Its shape is determined by `provider_type` (one table per type
 below). Each type carries at least one **secret** field.
 
 **Secret & drift handling.** Every secret field (LDAP `bind_password`, OIDC
@@ -105,13 +104,13 @@ defaults to `true`.)
 Example:
 
 ```hcl
-config = jsonencode({
+config = {
   server_url    = "ldaps://ldap.example.com:636"
   bind_dn       = "cn=svc,dc=example,dc=com"
   bind_password = var.ldap_bind_password # secret; masked by the API, stored from config
   base_dn       = "ou=people,dc=example,dc=com"
   use_tls       = true
-})
+}
 ```
 
 ### `provider_type = "OIDC"` config
@@ -130,12 +129,12 @@ config = jsonencode({
 Example:
 
 ```hcl
-config = jsonencode({
+config = {
   issuer_url    = "https://login.example.com"
   client_id     = "mistershell"
   client_secret = var.oidc_client_secret # secret; masked by the API, stored from config
   scopes        = ["openid", "profile", "email"]
-})
+}
 ```
 
 ### `provider_type = "SAML"` config
@@ -173,12 +172,12 @@ above, so drop them from `config` when upgrading.
 Example:
 
 ```hcl
-config = jsonencode({
+config = {
   idp_entity_id  = "https://idp.example.com/metadata"
   idp_sso_url    = "https://idp.example.com/sso"
   idp_x509_cert  = file("idp.crt")
   sp_private_key = var.saml_sp_private_key # secret; masked by the API, stored from config
-})
+}
 ```
 
 {{ if .HasImport -}}

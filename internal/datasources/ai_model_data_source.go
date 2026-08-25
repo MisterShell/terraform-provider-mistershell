@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,14 +18,14 @@ type AIModelDataSource struct {
 }
 
 type AIModelDataSourceModel struct {
-	ID        types.Int64          `tfsdk:"id"`
-	Name      types.String         `tfsdk:"name"`
-	Provider  types.String         `tfsdk:"model_provider"`
-	ModelID   types.String         `tfsdk:"model_id"`
-	Config    jsontypes.Normalized `tfsdk:"config"`
-	IsDefault types.Bool           `tfsdk:"is_default"`
-	CreatedAt types.String         `tfsdk:"created_at"`
-	UpdatedAt types.String         `tfsdk:"updated_at"`
+	ID        types.Int64   `tfsdk:"id"`
+	Name      types.String  `tfsdk:"name"`
+	Provider  types.String  `tfsdk:"model_provider"`
+	ModelID   types.String  `tfsdk:"model_id"`
+	Config    types.Dynamic `tfsdk:"config"`
+	IsDefault types.Bool    `tfsdk:"is_default"`
+	CreatedAt types.String  `tfsdk:"created_at"`
+	UpdatedAt types.String  `tfsdk:"updated_at"`
 }
 
 func NewAIModelDataSource() datasource.DataSource {
@@ -59,11 +58,10 @@ func (d *AIModelDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Description: "Provider-specific model identifier.",
 				Computed:    true,
 			},
-			"config": schema.StringAttribute{
-				Description: "Per-provider config as JSON. Provider secrets (e.g. api_key) are masked as '***' by the API.",
+			"config": schema.DynamicAttribute{
+				Description: "Per-provider config as a native Terraform object. Provider secrets (e.g. api_key) are masked as '***' by the API.",
 				Computed:    true,
 				Sensitive:   true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"is_default": schema.BoolAttribute{
 				Description: "Whether this is the default AI model.",
@@ -155,7 +153,12 @@ func (d *AIModelDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	config.Name = types.StringValue(model.Name)
 	config.Provider = types.StringValue(model.Provider)
 	config.ModelID = types.StringValue(model.ModelID)
-	config.Config = rawJSONToNormalized(model.Config)
+	nativeConfig, err := rawJSONToDynamic(model.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding AI model config", err.Error())
+		return
+	}
+	config.Config = nativeConfig
 	config.IsDefault = types.BoolValue(model.IsDefault)
 	config.CreatedAt = types.StringValue(model.CreatedAt)
 	config.UpdatedAt = types.StringValue(model.UpdatedAt)

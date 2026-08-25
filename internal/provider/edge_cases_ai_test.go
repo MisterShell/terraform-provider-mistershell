@@ -640,7 +640,7 @@ func TestAccEdgeAI_ModelConfigStable(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: cfg,
-				Check:  resource.TestCheckResourceAttrSet("mistershell_ai_model.test", "config"),
+				Check:  resource.TestCheckResourceAttrSet("mistershell_ai_model.test", "config.%"),
 			},
 			{
 				Config:             cfg,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,14 +18,14 @@ type AIToolDataSource struct {
 }
 
 type AIToolDataSourceModel struct {
-	ID                     types.Int64          `tfsdk:"id"`
-	Name                   types.String         `tfsdk:"name"`
-	Description            types.String         `tfsdk:"description"`
-	Handler                types.String         `tfsdk:"handler"`
-	InputSchema            jsontypes.Normalized `tfsdk:"input_schema"`
-	RequiredPermission     types.String         `tfsdk:"required_permission"`
-	RestrictedToAgentTypes types.Set            `tfsdk:"restricted_to_agent_types"`
-	CreatedAt              types.String         `tfsdk:"created_at"`
+	ID                     types.Int64   `tfsdk:"id"`
+	Name                   types.String  `tfsdk:"name"`
+	Description            types.String  `tfsdk:"description"`
+	Handler                types.String  `tfsdk:"handler"`
+	InputSchema            types.Dynamic `tfsdk:"input_schema"`
+	RequiredPermission     types.String  `tfsdk:"required_permission"`
+	RestrictedToAgentTypes types.Set     `tfsdk:"restricted_to_agent_types"`
+	CreatedAt              types.String  `tfsdk:"created_at"`
 }
 
 func NewAIToolDataSource() datasource.DataSource {
@@ -59,10 +58,9 @@ func (d *AIToolDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 				Description: "Backend handler identifier for the tool.",
 				Computed:    true,
 			},
-			"input_schema": schema.StringAttribute{
+			"input_schema": schema.DynamicAttribute{
 				Description: "The tool's JSON Schema describing its input parameters.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"required_permission": schema.StringAttribute{
 				Description: "Permission required to invoke the tool, if any.",
@@ -155,7 +153,12 @@ func (d *AIToolDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	config.Name = types.StringValue(tool.Name)
 	config.Description = types.StringValue(tool.Description)
 	config.Handler = types.StringValue(tool.Handler)
-	config.InputSchema = rawJSONToNormalized(tool.InputSchema)
+	inputSchema, err := rawJSONToDynamic(tool.InputSchema)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding AI tool input_schema", err.Error())
+		return
+	}
+	config.InputSchema = inputSchema
 	config.RequiredPermission = stringPtrToValue(tool.RequiredPermission)
 	config.RestrictedToAgentTypes = stringSliceToSet(tool.RestrictedToAgentTypes)
 	config.CreatedAt = types.StringValue(tool.CreatedAt)

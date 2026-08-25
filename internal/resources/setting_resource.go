@@ -2,9 +2,8 @@ package resources
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,16 +25,16 @@ type SettingResource struct {
 }
 
 type SettingResourceModel struct {
-	ID          types.String         `tfsdk:"id"`
-	Key         types.String         `tfsdk:"key"`
-	Value       jsontypes.Normalized `tfsdk:"value"`
-	Description types.String         `tfsdk:"description"`
-	IsSecret    types.Bool           `tfsdk:"is_secret"`
-	Default     jsontypes.Normalized `tfsdk:"default"`
-	Schema      jsontypes.Normalized `tfsdk:"schema"`
-	IsEncrypted types.Bool           `tfsdk:"is_encrypted"`
-	CreatedAt   types.String         `tfsdk:"created_at"`
-	UpdatedAt   types.String         `tfsdk:"updated_at"`
+	ID          types.String  `tfsdk:"id"`
+	Key         types.String  `tfsdk:"key"`
+	Value       types.Dynamic `tfsdk:"value"`
+	Description types.String  `tfsdk:"description"`
+	IsSecret    types.Bool    `tfsdk:"is_secret"`
+	Default     types.Dynamic `tfsdk:"default"`
+	Schema      types.Dynamic `tfsdk:"schema"`
+	IsEncrypted types.Bool    `tfsdk:"is_encrypted"`
+	CreatedAt   types.String  `tfsdk:"created_at"`
+	UpdatedAt   types.String  `tfsdk:"updated_at"`
 }
 
 func NewSettingResource() resource.Resource {
@@ -48,7 +47,7 @@ func (r *SettingResource) Metadata(_ context.Context, req resource.MetadataReque
 
 func (r *SettingResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell application setting (a predefined key/value pair). Settings cannot be created or deleted — the key set is fixed by the backend registry. Create/Update PUT the value; Delete (terraform destroy) RESETS the key to its registry default rather than removing it. value is JSON (use jsonencode()) because values are heterogeneous (bool/int/string). Secret keys are masked as '****' by the API and stored from config, not read back. See the valid keys table on this page.",
+		Description: "Manages a MisterShell application setting (a predefined key/value pair). Settings cannot be created or deleted — the key set is fixed by the backend registry. Create/Update PUT the value; Delete (terraform destroy) RESETS the key to its registry default rather than removing it. value uses its native Terraform type because settings are heterogeneous (bool/number/string). Secret keys are masked as '****' by the API and stored from config, not read back. See the valid keys table on this page.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Setting ID (mirrors key).",
@@ -64,11 +63,10 @@ func (r *SettingResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"value": schema.StringAttribute{
-				Description: "Setting value as JSON. Use jsonencode(): jsonencode(true), jsonencode(90), jsonencode(\"localhost\"). For secret keys the API masks the value as '****'; it is stored from config, not read back.",
+			"value": schema.DynamicAttribute{
+				Description: "Setting value using its native Terraform type, for example true, 90, or \"localhost\". For secret keys the API masks the value as '****'; it is stored from config, not read back.",
 				Required:    true,
 				Sensitive:   true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"description": schema.StringAttribute{
 				Description: "Human description of the setting (from the registry).",
@@ -78,15 +76,13 @@ func (r *SettingResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "Whether the value is a secret (masked as '****' in responses).",
 				Computed:    true,
 			},
-			"default": schema.StringAttribute{
-				Description: "Registry default value as JSON. Masked as '****' for non-empty secret keys.",
+			"default": schema.DynamicAttribute{
+				Description: "Registry default value using its native Terraform type. Masked as '****' for non-empty secret keys.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
-			"schema": schema.StringAttribute{
+			"schema": schema.DynamicAttribute{
 				Description: "JSON Schema used by MisterShell to validate this setting.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"is_encrypted": schema.BoolAttribute{
 				Description: "Whether the stored value is encrypted at rest.",
@@ -131,7 +127,10 @@ func (r *SettingResource) Create(ctx context.Context, req resource.CreateRequest
 		resp.Diagnostics.AddError("Error updating setting", err.Error())
 		return
 	}
-	applySettingValue(setting, &plan)
+	if err := applySettingValue(setting, &plan); err != nil {
+		resp.Diagnostics.AddError("Error decoding setting", err.Error())
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -153,13 +152,28 @@ func (r *SettingResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 
 	savedValue := state.Value
-	mapSettingResponseToModel(setting, &state)
+	if err := mapSettingResponseToModel(setting, &state); err != nil {
+		resp.Diagnostics.AddError("Error decoding setting", err.Error())
+		return
+	}
 	if setting.IsSecret {
 		// Secret value is masked **** — keep the user's plaintext from state.
 		state.Value = savedValue
 	} else {
-		// Non-secret: reflect server value so out-of-band drift is detected.
-		state.Value = rawJSONToNormalized(setting.Value)
+		valueUnchanged, err := dynamicJSONEqual(savedValue, setting.Value)
+		if err != nil {
+			resp.Diagnostics.AddError("Error comparing setting value", err.Error())
+			return
+		}
+		if valueUnchanged {
+			state.Value = savedValue
+		} else {
+			state.Value, err = rawJSONToDynamic(setting.Value)
+			if err != nil {
+				resp.Diagnostics.AddError("Error decoding setting value", err.Error())
+				return
+			}
+		}
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -176,7 +190,10 @@ func (r *SettingResource) Update(ctx context.Context, req resource.UpdateRequest
 		resp.Diagnostics.AddError("Error updating setting", err.Error())
 		return
 	}
-	applySettingValue(setting, &plan)
+	if err := applySettingValue(setting, &plan); err != nil {
+		resp.Diagnostics.AddError("Error decoding setting", err.Error())
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -208,31 +225,42 @@ func (r *SettingResource) ImportState(ctx context.Context, req resource.ImportSt
 
 // putValue PUTs the planned value (shared by Create/Update).
 func (r *SettingResource) putValue(ctx context.Context, plan *SettingResourceModel) (*client.SettingResponse, error) {
-	input := client.SettingUpdateInput{Value: json.RawMessage(plan.Value.ValueString())}
+	value, err := dynamicToRawJSON(plan.Value)
+	if err != nil {
+		return nil, fmt.Errorf("value: %w", err)
+	}
+	input := client.SettingUpdateInput{Value: value}
 	return r.client.UpdateSetting(ctx, plan.Key.ValueString(), input)
 }
 
 // applySettingValue maps the response into the model, preserving the planned
-// value for secret keys (masked ****) and reflecting the server value otherwise.
-func applySettingValue(setting *client.SettingResponse, plan *SettingResourceModel) {
+// value for all keys. Read reflects later non-secret drift from the server.
+func applySettingValue(setting *client.SettingResponse, plan *SettingResourceModel) error {
 	plannedValue := plan.Value
-	mapSettingResponseToModel(setting, plan)
-	if setting.IsSecret {
-		plan.Value = plannedValue
-	} else {
-		plan.Value = rawJSONToNormalized(setting.Value)
+	if err := mapSettingResponseToModel(setting, plan); err != nil {
+		return err
 	}
+	plan.Value = plannedValue
+	return nil
 }
 
-func mapSettingResponseToModel(setting *client.SettingResponse, m *SettingResourceModel) {
+func mapSettingResponseToModel(setting *client.SettingResponse, m *SettingResourceModel) error {
 	m.ID = types.StringValue(setting.Key)
 	m.Key = types.StringValue(setting.Key)
 	// value is set by the caller per the secret/non-secret rules.
 	m.Description = types.StringValue(setting.Description)
 	m.IsSecret = types.BoolValue(setting.IsSecret)
-	m.Default = rawJSONToNormalized(setting.Default)
-	m.Schema = rawJSONToNormalized(setting.Schema)
+	var err error
+	m.Default, err = rawJSONToDynamic(setting.Default)
+	if err != nil {
+		return fmt.Errorf("default: %w", err)
+	}
+	m.Schema, err = rawJSONToDynamic(setting.Schema)
+	if err != nil {
+		return fmt.Errorf("schema: %w", err)
+	}
 	m.IsEncrypted = types.BoolValue(setting.IsEncrypted)
 	m.CreatedAt = types.StringValue(setting.CreatedAt)
 	m.UpdatedAt = types.StringValue(setting.UpdatedAt)
+	return nil
 }

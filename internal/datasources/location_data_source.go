@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -21,18 +20,18 @@ type LocationDataSource struct {
 }
 
 type LocationDataSourceModel struct {
-	ID            types.Int64          `tfsdk:"id"`
-	Name          types.String         `tfsdk:"name"`
-	Kind          types.String         `tfsdk:"kind"`
-	Description   types.String         `tfsdk:"description"`
-	ParentID      types.Int64          `tfsdk:"parent_id"`
-	Latitude      types.Float64        `tfsdk:"latitude"`
-	Longitude     types.Float64        `tfsdk:"longitude"`
-	ExtraData     jsontypes.Normalized `tfsdk:"extra_data"`
-	ResourceCount types.Int64          `tfsdk:"resource_count"`
-	Path          types.String         `tfsdk:"path"`
-	CreatedAt     types.String         `tfsdk:"created_at"`
-	UpdatedAt     types.String         `tfsdk:"updated_at"`
+	ID            types.Int64   `tfsdk:"id"`
+	Name          types.String  `tfsdk:"name"`
+	Kind          types.String  `tfsdk:"kind"`
+	Description   types.String  `tfsdk:"description"`
+	ParentID      types.Int64   `tfsdk:"parent_id"`
+	Latitude      types.Float64 `tfsdk:"latitude"`
+	Longitude     types.Float64 `tfsdk:"longitude"`
+	ExtraData     types.Dynamic `tfsdk:"extra_data"`
+	ResourceCount types.Int64   `tfsdk:"resource_count"`
+	Path          types.String  `tfsdk:"path"`
+	CreatedAt     types.String  `tfsdk:"created_at"`
+	UpdatedAt     types.String  `tfsdk:"updated_at"`
 }
 
 func NewLocationDataSource() datasource.DataSource {
@@ -82,10 +81,9 @@ func (d *LocationDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 				Description: "Geographic longitude.",
 				Computed:    true,
 			},
-			"extra_data": schema.StringAttribute{
-				Description: "Additional metadata as JSON.",
+			"extra_data": schema.DynamicAttribute{
+				Description: "Additional metadata as a native Terraform value.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"resource_count": schema.Int64Attribute{Description: "Number of resources directly assigned to this location.", Computed: true},
 			"path":           schema.StringAttribute{Description: "Resolved hierarchical location path.", Computed: true},
@@ -186,7 +184,12 @@ func (d *LocationDataSource) Read(ctx context.Context, req datasource.ReadReques
 	config.ParentID = int64PtrToValue(loc.ParentID)
 	config.Latitude = float64PtrToValue(loc.Latitude)
 	config.Longitude = float64PtrToValue(loc.Longitude)
-	config.ExtraData = rawJSONToNormalized(loc.ExtraData)
+	extraData, err := rawJSONToDynamic(loc.ExtraData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding location extra_data", err.Error())
+		return
+	}
+	config.ExtraData = extraData
 	config.ResourceCount = int64PtrToValue(loc.ResourceCount)
 	config.Path = stringPtrToValue(loc.Path)
 	config.CreatedAt = types.StringValue(loc.CreatedAt)

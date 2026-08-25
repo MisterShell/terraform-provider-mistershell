@@ -41,7 +41,7 @@ output "destination_streams" {
 
 ### Read-Only
 
-- `config` (String, Sensitive) Per-type config as JSON. Webhook auth secrets are masked as '****' by the API.
+- `config` (Dynamic, Sensitive) Per-type config as a native Terraform object. Webhook auth secrets are masked as '****' by the API.
 - `created_at` (String) Creation timestamp.
 - `enabled` (Boolean) Whether the destination is enabled.
 - `min_severity` (String) Minimum severity forwarded.

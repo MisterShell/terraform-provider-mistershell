@@ -62,7 +62,7 @@ resource "mistershell_ai_agent" "assistant" {
 - `created_at` (String) Creation timestamp.
 - `description` (String) Human-readable description of the tool.
 - `handler` (String) Backend handler identifier for the tool.
-- `input_schema` (String) The tool's JSON Schema describing its input parameters.
+- `input_schema` (Dynamic) The tool's JSON Schema describing its input parameters.
 - `required_permission` (String) Permission required to invoke the tool, if any.
 - `restricted_to_agent_types` (Set of String) Agent types allowed to use this tool; empty means unrestricted.
 
@@ -83,7 +83,7 @@ Specify exactly one of:
 | `name` | Tool name (the stable identifier, e.g. `search`). |
 | `description` | Human-readable description of what the tool does. |
 | `handler` | Backend handler identifier the tool dispatches to (e.g. `mcp.list_resources`). Informational. |
-| `input_schema` | The tool's **JSON Schema** (as a JSON string) describing its input parameters. |
+| `input_schema` | The tool's **JSON Schema** as a native Terraform object describing its input parameters. |
 | `required_permission` | The permission a caller must hold to invoke the tool, or empty if none (e.g. `app.resources.read`, `app.session.read`, `app.resources.session`). |
 | `created_at` | Creation timestamp (when the tool was seeded). |
 

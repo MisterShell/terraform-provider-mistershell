@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -29,29 +28,29 @@ type WorkerResource struct {
 }
 
 type WorkerResourceModel struct {
-	ID               types.Int64          `tfsdk:"id"`
-	Name             types.String         `tfsdk:"name"`
-	Description      types.String         `tfsdk:"description"`
-	LocationID       types.Int64          `tfsdk:"location_id"`
-	Config           jsontypes.Normalized `tfsdk:"config"`
-	ConfigSchema     jsontypes.Normalized `tfsdk:"config_schema"`
-	IsEnabled        types.Bool           `tfsdk:"is_enabled"`
-	Token            types.String         `tfsdk:"token"`
-	Status           types.String         `tfsdk:"status"`
-	IsDefault        types.Bool           `tfsdk:"is_default"`
-	ActiveTaskCount  types.Int64          `tfsdk:"active_task_count"`
-	TotalTaskCount   types.Int64          `tfsdk:"total_task_count"`
-	LastHeartbeatAt  types.String         `tfsdk:"last_heartbeat_at"`
-	Version          types.String         `tfsdk:"version"`
-	RDKContractMajor types.Int64          `tfsdk:"rdk_contract_major"`
-	RDKCatalogID     types.String         `tfsdk:"rdk_catalog_identity"`
-	RDKCompatible    types.Bool           `tfsdk:"rdk_compatible"`
-	ConnectedAt      types.String         `tfsdk:"connected_at"`
-	PresenceIP       types.String         `tfsdk:"presence_ip"`
-	PresenceIPSource types.String         `tfsdk:"presence_ip_source"`
-	ConfigVersion    types.String         `tfsdk:"config_version"`
-	CreatedAt        types.String         `tfsdk:"created_at"`
-	UpdatedAt        types.String         `tfsdk:"updated_at"`
+	ID               types.Int64   `tfsdk:"id"`
+	Name             types.String  `tfsdk:"name"`
+	Description      types.String  `tfsdk:"description"`
+	LocationID       types.Int64   `tfsdk:"location_id"`
+	Config           types.Dynamic `tfsdk:"config"`
+	ConfigSchema     types.Dynamic `tfsdk:"config_schema"`
+	IsEnabled        types.Bool    `tfsdk:"is_enabled"`
+	Token            types.String  `tfsdk:"token"`
+	Status           types.String  `tfsdk:"status"`
+	IsDefault        types.Bool    `tfsdk:"is_default"`
+	ActiveTaskCount  types.Int64   `tfsdk:"active_task_count"`
+	TotalTaskCount   types.Int64   `tfsdk:"total_task_count"`
+	LastHeartbeatAt  types.String  `tfsdk:"last_heartbeat_at"`
+	Version          types.String  `tfsdk:"version"`
+	RDKContractMajor types.Int64   `tfsdk:"rdk_contract_major"`
+	RDKCatalogID     types.String  `tfsdk:"rdk_catalog_identity"`
+	RDKCompatible    types.Bool    `tfsdk:"rdk_compatible"`
+	ConnectedAt      types.String  `tfsdk:"connected_at"`
+	PresenceIP       types.String  `tfsdk:"presence_ip"`
+	PresenceIPSource types.String  `tfsdk:"presence_ip_source"`
+	ConfigVersion    types.String  `tfsdk:"config_version"`
+	CreatedAt        types.String  `tfsdk:"created_at"`
+	UpdatedAt        types.String  `tfsdk:"updated_at"`
 }
 
 func NewWorkerResource() resource.Resource {
@@ -69,7 +68,7 @@ func (r *WorkerResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 		// edited or deleted — the API returns 403 — so it must not be managed
 		// here. The worker authentication token is returned only once, at
 		// creation, and can never be read back afterwards.
-		Description: "Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are opaque JSON blobs (the worker's task-handler config and its JSON Schema). The bootstrap default worker (is_default=true) is provisioned by the backend and cannot be edited or deleted (the API returns 403); do not manage it with this resource. The authentication token is returned only once at creation and is never readable again.",
+		Description: "Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are native Terraform values (the worker's task-handler config and its JSON Schema). The bootstrap default worker (is_default=true) is provisioned by the backend and cannot be edited or deleted (the API returns 403); do not manage it with this resource. The authentication token is returned only once at creation and is never readable again.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Worker ID.",
@@ -93,15 +92,13 @@ func (r *WorkerResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Description: "ID of the location this worker belongs to. Updatable.",
 				Required:    true,
 			},
-			"config": schema.StringAttribute{
-				Description: "Opaque worker task-handler config as JSON. Use jsonencode() in HCL.",
+			"config": schema.DynamicAttribute{
+				Description: "Worker task-handler config as a native Terraform value.",
 				Optional:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
-			"config_schema": schema.StringAttribute{
-				Description: "JSON Schema used to validate the worker config, as JSON. Use jsonencode() in HCL.",
+			"config_schema": schema.DynamicAttribute{
+				Description: "JSON Schema used to validate the worker config, represented as a native Terraform value.",
 				Optional:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"is_enabled": schema.BoolAttribute{
 				Description: "Whether the worker is enabled. Defaults to true.",
@@ -203,7 +200,11 @@ func (r *WorkerResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	input := buildWorkerCreateInput(&plan)
+	input, err := buildWorkerCreateInput(&plan)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding worker configuration", err.Error())
+		return
+	}
 
 	worker, err := r.client.CreateWorker(ctx, input)
 	if err != nil {
@@ -248,15 +249,23 @@ func mapWorkerCreatedResponseToModel(worker *client.WorkerCreatedResponse, m *Wo
 	m.UpdatedAt = types.StringValue(worker.UpdatedAt)
 }
 
-func buildWorkerCreateInput(plan *WorkerResourceModel) client.WorkerCreateInput {
+func buildWorkerCreateInput(plan *WorkerResourceModel) (client.WorkerCreateInput, error) {
+	config, err := dynamicToRawJSON(plan.Config)
+	if err != nil {
+		return client.WorkerCreateInput{}, fmt.Errorf("config: %w", err)
+	}
+	configSchema, err := dynamicToRawJSON(plan.ConfigSchema)
+	if err != nil {
+		return client.WorkerCreateInput{}, fmt.Errorf("config_schema: %w", err)
+	}
 	return client.WorkerCreateInput{
 		Name:         plan.Name.ValueString(),
 		Description:  stringValueToPtr(plan.Description),
 		LocationID:   plan.LocationID.ValueInt64(),
-		Config:       normalizedToRawJSON(plan.Config),
-		ConfigSchema: normalizedToRawJSON(plan.ConfigSchema),
+		Config:       config,
+		ConfigSchema: configSchema,
 		IsEnabled:    plan.IsEnabled.ValueBool(),
-	}
+	}, nil
 }
 
 func (r *WorkerResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -304,12 +313,22 @@ func (r *WorkerResource) Update(ctx context.Context, req resource.UpdateRequest,
 	name := plan.Name.ValueString()
 	locationID := plan.LocationID.ValueInt64()
 	isEnabled := plan.IsEnabled.ValueBool()
+	config, err := dynamicToRawJSON(plan.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding worker config", err.Error())
+		return
+	}
+	configSchema, err := dynamicToRawJSON(plan.ConfigSchema)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding worker config_schema", err.Error())
+		return
+	}
 	input := client.WorkerUpdateInput{
 		Name:         &name,
 		Description:  stringValueToPtr(plan.Description),
 		LocationID:   &locationID,
-		Config:       normalizedToRawJSON(plan.Config),
-		ConfigSchema: normalizedToRawJSON(plan.ConfigSchema),
+		Config:       config,
+		ConfigSchema: configSchema,
 		IsEnabled:    &isEnabled,
 	}
 

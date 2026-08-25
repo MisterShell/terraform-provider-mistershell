@@ -25,7 +25,7 @@ description: |-
 | `type` | Optional, computed. Defaults to `user`. **Only `user` is allowed** — see the table below. **Immutable**; changing it forces replacement. |
 | `content` | Required. The prompt text (minLength 1). May contain Jinja2 `{{`{{`}} variable {{`}}`}}` placeholders — see Template variables below. |
 | `description` | Optional. Up to 2000 characters. |
-| `variable_schema` | Optional. JSON Schema object set with `jsonencode(...)`, documenting the template variables the prompt expects. Stored from configuration; informational. See the note below. |
+| `variable_schema` | Optional. Native Terraform object containing the JSON Schema that documents the template variables the prompt expects. Stored from configuration; informational. See the note below. |
 
 Computed (read-only) attributes: `id` (integer), `created_at`, `updated_at`.
 
@@ -110,7 +110,7 @@ builtin agent).
 ## The `variable_schema` field
 
 `variable_schema` is an **optional** JSON Schema (a JSON object set with
-`jsonencode(...)`) that documents the variables a prompt expects — names, types,
+a native Terraform object) that documents the variables a prompt expects — names, types,
 and which are required. It is advisory metadata for the prompt editor; it does
 **not** gate rendering (an undeclared variable still renders, and a missing
 optional one renders empty).

@@ -26,7 +26,7 @@ description: |-
 | `type` | Required. One of the values below. **Immutable** — changing it forces replacement (the `config` shape is type-coupled). |
 | `streams` | Required. Set of stream values below; **at least one**. |
 | `min_severity` | Optional. One of the severity values below. Defaults to `info`. |
-| `config` | Required, sensitive. Per-type JSON blob set with `jsonencode(...)`; see the per-type tables below. |
+| `config` | Required, sensitive. Native Terraform object whose shape depends on `type`; see the per-type tables below. |
 
 ### `type` values
 
@@ -60,9 +60,9 @@ Only events at or above this severity are forwarded. Defaults to `info`.
 | `high` | high and above |
 | `critical` | critical only (highest threshold) |
 
-## The `config` JSON blob
+## The `config` object
 
-`config` is an opaque, per-`type` JSON object written with `jsonencode(...)`. Its
+`config` is a native Terraform object. Its
 shape is determined by `type` and must include a matching `type` discriminator
 field inside the blob. The fields below are the complete set the backend accepts;
 any other key is rejected.
@@ -123,7 +123,7 @@ Syslog has **no secret fields**.
 Example:
 
 ```hcl
-config = jsonencode({
+config = {
   type       = "syslog"
   host       = "logs.example.com"
   port       = 6514
@@ -131,7 +131,7 @@ config = jsonencode({
   format     = "RFC5424" # RFC3164 | RFC5424 | CEF
   facility   = "local1"  # local0..local7 (default local0)
   tls_verify = true
-})
+}
 ```
 
 ### `type = "webhook"` config
@@ -177,7 +177,7 @@ from config (see the secret-handling note above).
 Example (bearer auth):
 
 ```hcl
-config = jsonencode({
+config = {
   type            = "webhook"
   url             = "https://siem.example.com/ingest"
   method          = "POST" # POST | PUT
@@ -191,13 +191,13 @@ config = jsonencode({
     type  = "bearer"
     token = var.webhook_token # secret; masked by the API, stored from config
   }
-})
+}
 ```
 
 Example (basic auth):
 
 ```hcl
-config = jsonencode({
+config = {
   type = "webhook"
   url  = "https://siem.example.com/ingest"
   auth = {
@@ -205,7 +205,7 @@ config = jsonencode({
     username = "svc-logs"
     password = var.webhook_password # secret
   }
-})
+}
 ```
 
 {{ if .HasImport -}}

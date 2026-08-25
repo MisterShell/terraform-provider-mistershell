@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,15 +18,15 @@ type LogDestinationDataSource struct {
 }
 
 type LogDestinationDataSourceModel struct {
-	ID          types.Int64          `tfsdk:"id"`
-	Name        types.String         `tfsdk:"name"`
-	Enabled     types.Bool           `tfsdk:"enabled"`
-	Type        types.String         `tfsdk:"type"`
-	Streams     types.Set            `tfsdk:"streams"`
-	MinSeverity types.String         `tfsdk:"min_severity"`
-	Config      jsontypes.Normalized `tfsdk:"config"`
-	CreatedAt   types.String         `tfsdk:"created_at"`
-	UpdatedAt   types.String         `tfsdk:"updated_at"`
+	ID          types.Int64   `tfsdk:"id"`
+	Name        types.String  `tfsdk:"name"`
+	Enabled     types.Bool    `tfsdk:"enabled"`
+	Type        types.String  `tfsdk:"type"`
+	Streams     types.Set     `tfsdk:"streams"`
+	MinSeverity types.String  `tfsdk:"min_severity"`
+	Config      types.Dynamic `tfsdk:"config"`
+	CreatedAt   types.String  `tfsdk:"created_at"`
+	UpdatedAt   types.String  `tfsdk:"updated_at"`
 }
 
 func NewLogDestinationDataSource() datasource.DataSource {
@@ -69,11 +68,10 @@ func (d *LogDestinationDataSource) Schema(_ context.Context, _ datasource.Schema
 				Description: "Minimum severity forwarded.",
 				Computed:    true,
 			},
-			"config": schema.StringAttribute{
-				Description: "Per-type config as JSON. Webhook auth secrets are masked as '****' by the API.",
+			"config": schema.DynamicAttribute{
+				Description: "Per-type config as a native Terraform object. Webhook auth secrets are masked as '****' by the API.",
 				Computed:    true,
 				Sensitive:   true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -156,7 +154,12 @@ func (d *LogDestinationDataSource) Read(ctx context.Context, req datasource.Read
 	config.Type = types.StringValue(dest.Type)
 	config.Streams = stringSliceToSet(dest.Streams)
 	config.MinSeverity = types.StringValue(dest.MinSeverity)
-	config.Config = rawJSONToNormalized(dest.Config)
+	nativeConfig, err := rawJSONToDynamic(dest.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding log destination config", err.Error())
+		return
+	}
+	config.Config = nativeConfig
 	config.CreatedAt = types.StringValue(dest.CreatedAt)
 	config.UpdatedAt = types.StringValue(dest.UpdatedAt)
 

@@ -141,7 +141,7 @@ data "mistershell_resource" "lookup" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_resource.lookup", "id", "mistershell_resource.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_resource.lookup", "engine_id", "ssh"),
-					resource.TestCheckResourceAttrSet("data.mistershell_resource.lookup", "connector_data"),
+					resource.TestCheckResourceAttrSet("data.mistershell_resource.lookup", "connector_data.%"),
 				),
 			},
 			{
@@ -181,10 +181,10 @@ resource "mistershell_credential" "test" {
   name            = %q
   description     = "initial description"
   credential_type = "username_password"
-  credential_data = jsonencode({
+  credential_data = {
     username = "testuser"
     password = "testpass123"
-  })
+  }
 }
 
 data "mistershell_credential" "lookup" {
@@ -203,10 +203,10 @@ resource "mistershell_credential" "test" {
   name            = %q
   description     = "updated description"
   credential_type = "username_password"
-  credential_data = jsonencode({
+  credential_data = {
     username = "testuser"
     password = "testpass123"
-  })
+  }
 }
 
 data "mistershell_credential" "lookup" {
@@ -232,10 +232,10 @@ func TestAccCredentialDataSource_byName(t *testing.T) {
 resource "mistershell_credential" "test" {
   name            = %q
   credential_type = "username_password"
-  credential_data = jsonencode({
+  credential_data = {
     username = "testuser"
     password = "testpass123"
-  })
+  }
 }
 
 data "mistershell_credential" "lookup" {
@@ -245,7 +245,7 @@ data "mistershell_credential" "lookup" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("data.mistershell_credential.lookup", "id", "mistershell_credential.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_credential.lookup", "credential_type", "username_password"),
-					resource.TestCheckResourceAttrSet("data.mistershell_credential.lookup", "credential_data"),
+					resource.TestCheckResourceAttrSet("data.mistershell_credential.lookup", "credential_data.%"),
 				),
 			},
 		},
@@ -265,9 +265,9 @@ func TestAccCredentialDataSource_byType(t *testing.T) {
 resource "mistershell_credential" "test" {
   name            = %q
   credential_type = "kubeconfig"
-  credential_data = jsonencode({
+  credential_data = {
     kubeconfig = "apiVersion: v1\nkind: Config"
-  })
+  }
 }
 
 data "mistershell_credential" "lookup" {

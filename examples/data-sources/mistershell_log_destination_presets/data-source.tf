@@ -20,14 +20,14 @@ resource "mistershell_log_destination" "splunk" {
   type    = local.splunk.type
   streams = ["security"]
 
-  config = jsonencode(merge(jsondecode(local.splunk.default_config), {
+  config = merge(local.splunk.default_config, {
     url = "https://splunk.example.com:8088/services/collector"
     auth = {
       type         = "header"
       header_name  = "Authorization"
       header_value = "Splunk ${var.splunk_token}"
     }
-  }))
+  })
 }
 
 variable "splunk_token" {

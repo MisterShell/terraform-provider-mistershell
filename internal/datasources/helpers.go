@@ -3,18 +3,15 @@ package datasources
 import (
 	"encoding/json"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-mistershell/internal/client"
+	"terraform-provider-mistershell/internal/tfjson"
 )
 
-func rawJSONToNormalized(raw json.RawMessage) jsontypes.Normalized {
-	if raw == nil || string(raw) == "null" || string(raw) == "" {
-		return jsontypes.NewNormalizedNull()
-	}
-	return jsontypes.NewNormalizedValue(string(raw))
+func rawJSONToDynamic(raw json.RawMessage) (types.Dynamic, error) {
+	return tfjson.FromRawJSON(raw)
 }
 
 func stringPtrToValue(s *string) types.String {

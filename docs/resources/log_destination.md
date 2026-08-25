@@ -2,12 +2,12 @@
 page_title: "mistershell_log_destination Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is an opaque per-type JSON blob (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).
+  Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).
 ---
 
 # mistershell_log_destination (Resource)
 
-Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is an opaque per-type JSON blob (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).
+Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).
 
 ## Example Usage
 
@@ -20,7 +20,7 @@ resource "mistershell_log_destination" "syslog" {
   streams      = ["security", "policy"]
   min_severity = "medium"
 
-  config = jsonencode({
+  config = {
     type       = "syslog"
     host       = "logs.example.com"
     port       = 6514
@@ -28,7 +28,7 @@ resource "mistershell_log_destination" "syslog" {
     format     = "RFC5424"
     facility   = "local1"
     tls_verify = true
-  })
+  }
 }
 
 # Webhook destination with bearer-token auth, forwarding all streams.
@@ -39,7 +39,7 @@ resource "mistershell_log_destination" "webhook" {
   streams      = ["security", "policy", "api", "app", "ids", "collector"]
   min_severity = "info"
 
-  config = jsonencode({
+  config = {
     type            = "webhook"
     url             = "https://siem.example.com/ingest"
     method          = "POST"
@@ -53,7 +53,7 @@ resource "mistershell_log_destination" "webhook" {
       type  = "bearer"
       token = var.webhook_token # secret; masked by the API, stored from config
     }
-  })
+  }
 }
 
 variable "webhook_token" {
@@ -67,7 +67,7 @@ variable "webhook_token" {
 
 ### Required
 
-- `config` (String, Sensitive) Per-type config as JSON. Use jsonencode() in HCL. For type=syslog: host, port, protocol, format, facility, tls_verify. For type=webhook: url, method, headers, auth, body_format, timeout_seconds, tls_verify. Webhook auth secrets (bearer token, basic password, header value) are masked as '****' by the API and stored from config, not read back. See the config field tables on this page.
+- `config` (Dynamic, Sensitive) Per-type config as a native Terraform object. For type=syslog: host, port, protocol, format, facility, tls_verify. For type=webhook: url, method, headers, auth, body_format, timeout_seconds, tls_verify. Webhook auth secrets (bearer token, basic password, header value) are masked as '****' by the API and stored from config, not read back. See the config field tables on this page.
 - `name` (String) Log destination name (1-128 characters).
 - `streams` (Set of String) Log streams to forward. At least one of: security, policy, api, app, ids, collector.
 - `type` (String) Destination type. One of: syslog, webhook. Cannot be changed after creation (the config shape is type-coupled).
@@ -92,7 +92,7 @@ variable "webhook_token" {
 | `type` | Required. One of the values below. **Immutable** — changing it forces replacement (the `config` shape is type-coupled). |
 | `streams` | Required. Set of stream values below; **at least one**. |
 | `min_severity` | Optional. One of the severity values below. Defaults to `info`. |
-| `config` | Required, sensitive. Per-type JSON blob set with `jsonencode(...)`; see the per-type tables below. |
+| `config` | Required, sensitive. Native Terraform object whose shape depends on `type`; see the per-type tables below. |
 
 ### `type` values
 
@@ -126,9 +126,9 @@ Only events at or above this severity are forwarded. Defaults to `info`.
 | `high` | high and above |
 | `critical` | critical only (highest threshold) |
 
-## The `config` JSON blob
+## The `config` object
 
-`config` is an opaque, per-`type` JSON object written with `jsonencode(...)`. Its
+`config` is a native Terraform object. Its
 shape is determined by `type` and must include a matching `type` discriminator
 field inside the blob. The fields below are the complete set the backend accepts;
 any other key is rejected.
@@ -189,7 +189,7 @@ Syslog has **no secret fields**.
 Example:
 
 ```hcl
-config = jsonencode({
+config = {
   type       = "syslog"
   host       = "logs.example.com"
   port       = 6514
@@ -197,7 +197,7 @@ config = jsonencode({
   format     = "RFC5424" # RFC3164 | RFC5424 | CEF
   facility   = "local1"  # local0..local7 (default local0)
   tls_verify = true
-})
+}
 ```
 
 ### `type = "webhook"` config
@@ -243,7 +243,7 @@ from config (see the secret-handling note above).
 Example (bearer auth):
 
 ```hcl
-config = jsonencode({
+config = {
   type            = "webhook"
   url             = "https://siem.example.com/ingest"
   method          = "POST" # POST | PUT
@@ -257,13 +257,13 @@ config = jsonencode({
     type  = "bearer"
     token = var.webhook_token # secret; masked by the API, stored from config
   }
-})
+}
 ```
 
 Example (basic auth):
 
 ```hcl
-config = jsonencode({
+config = {
   type = "webhook"
   url  = "https://siem.example.com/ingest"
   auth = {
@@ -271,7 +271,7 @@ config = jsonencode({
     username = "svc-logs"
     password = var.webhook_password # secret
   }
-})
+}
 ```
 
 ## Import

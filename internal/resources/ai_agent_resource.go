@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -30,18 +29,18 @@ type AIAgentResource struct {
 }
 
 type AIAgentResourceModel struct {
-	ID             types.Int64          `tfsdk:"id"`
-	Name           types.String         `tfsdk:"name"`
-	Type           types.String         `tfsdk:"type"`
-	Description    types.String         `tfsdk:"description"`
-	ModelID        types.Int64          `tfsdk:"model_id"`
-	SystemPromptID types.Int64          `tfsdk:"system_prompt_id"`
-	Config         jsontypes.Normalized `tfsdk:"config"`
-	ToolIDs        types.Set            `tfsdk:"tool_ids"`
-	IsBuiltin      types.Bool           `tfsdk:"is_builtin"`
-	IsFunctional   types.Bool           `tfsdk:"is_functional"`
-	CreatedAt      types.String         `tfsdk:"created_at"`
-	UpdatedAt      types.String         `tfsdk:"updated_at"`
+	ID             types.Int64   `tfsdk:"id"`
+	Name           types.String  `tfsdk:"name"`
+	Type           types.String  `tfsdk:"type"`
+	Description    types.String  `tfsdk:"description"`
+	ModelID        types.Int64   `tfsdk:"model_id"`
+	SystemPromptID types.Int64   `tfsdk:"system_prompt_id"`
+	Config         types.Dynamic `tfsdk:"config"`
+	ToolIDs        types.Set     `tfsdk:"tool_ids"`
+	IsBuiltin      types.Bool    `tfsdk:"is_builtin"`
+	IsFunctional   types.Bool    `tfsdk:"is_functional"`
+	CreatedAt      types.String  `tfsdk:"created_at"`
+	UpdatedAt      types.String  `tfsdk:"updated_at"`
 }
 
 func NewAIAgentResource() resource.Resource {
@@ -94,10 +93,9 @@ func (r *AIAgentResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "FK to a mistershell_ai_prompt providing the agent's system prompt.",
 				Required:    true,
 			},
-			"config": schema.StringAttribute{
-				Description: "Agent config as JSON (token_budget, temperature, label, icon, etc.). Use jsonencode() in HCL. The server may enrich/reorder this blob, so the planned value is stored from config.",
+			"config": schema.DynamicAttribute{
+				Description: "Agent config as a native Terraform object (token_budget, temperature, label, icon, etc.). The server may enrich this value, so the planned value is stored from config.",
 				Optional:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"tool_ids": schema.SetAttribute{
 				Description: "Tool IDs the agent may use; empty or unset means ALL tools are allowed. Look up ids with the mistershell_ai_tool data source.",
@@ -149,12 +147,17 @@ func (r *AIAgentResource) Create(ctx context.Context, req resource.CreateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	config, err := dynamicToRawJSON(plan.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding AI agent config", err.Error())
+		return
+	}
 
 	input := client.AIAgentCreateInput{
 		Name:           plan.Name.ValueString(),
 		Type:           plan.Type.ValueString(),
 		SystemPromptID: plan.SystemPromptID.ValueInt64(),
-		Config:         normalizedToRawJSON(plan.Config),
+		Config:         config,
 		ToolIDs:        int64SetToSlice(plan.ToolIDs),
 	}
 	input.Description = stringValueToPtr(plan.Description)
@@ -213,9 +216,14 @@ func (r *AIAgentResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	id := state.ID.ValueInt64()
+	config, err := dynamicToRawJSON(plan.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding AI agent config", err.Error())
+		return
+	}
 
 	input := client.AIAgentUpdateInput{
-		Config: normalizedToRawJSON(plan.Config),
+		Config: config,
 	}
 	if !plan.Name.Equal(state.Name) {
 		v := plan.Name.ValueString()

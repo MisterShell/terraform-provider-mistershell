@@ -45,7 +45,7 @@ func TestAccAIModel_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("mistershell_ai_model.test", "model_id", "llama3"),
 					resource.TestCheckResourceAttr("mistershell_ai_model.test", "is_default", "false"),
 					resource.TestCheckResourceAttrSet("mistershell_ai_model.test", "id"),
-					resource.TestCheckResourceAttrSet("mistershell_ai_model.test", "config"),
+					resource.TestCheckResourceAttrSet("mistershell_ai_model.test", "config.%"),
 				),
 			},
 			// Update model_id + name.
@@ -87,7 +87,7 @@ func TestAccAIModel_dataSource(t *testing.T) {
 					// by name
 					resource.TestCheckResourceAttrPair("data.mistershell_ai_model.by_name", "id", "mistershell_ai_model.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_ai_model.by_name", "model_id", "llama3"),
-					resource.TestCheckResourceAttrSet("data.mistershell_ai_model.by_name", "config"),
+					resource.TestCheckResourceAttrSet("data.mistershell_ai_model.by_name", "config.%"),
 				),
 			},
 		},
@@ -363,9 +363,9 @@ resource "mistershell_ai_model" "test" {
   model_provider = "ollama"
   model_id = %q
 
-  config = jsonencode({
+  config = {
     base_url = "http://localhost:11434"
-  })
+  }
 }
 `, name, modelID)
 }
@@ -377,9 +377,9 @@ resource "mistershell_ai_model" "test" {
   model_provider = "ollama"
   model_id = "llama3"
 
-  config = jsonencode({
+  config = {
     base_url = "http://localhost:11434"
-  })
+  }
 }
 
 data "mistershell_ai_model" "by_id" {
@@ -426,9 +426,9 @@ resource "mistershell_ai_model" "test" {
   model_provider = "ollama"
   model_id = "llama3"
 
-  config = jsonencode({
+  config = {
     base_url = "http://localhost:11434"
-  })
+  }
 }
 
 resource "mistershell_ai_prompt" "test" {
@@ -443,9 +443,9 @@ resource "mistershell_ai_agent" "test" {
   model_id         = mistershell_ai_model.test.id
   system_prompt_id = mistershell_ai_prompt.test.id
 
-  config = jsonencode({
+  config = {
     token_budget = %d
-  })
+  }
 }
 `, acctestPrefix+"agent-model", acctestPrefix+"agent-prompt", name, description, tokenBudget)
 }
@@ -457,9 +457,9 @@ resource "mistershell_ai_model" "test" {
   model_provider = "ollama"
   model_id = "llama3"
 
-  config = jsonencode({
+  config = {
     base_url = "http://localhost:11434"
-  })
+  }
 }
 
 resource "mistershell_ai_prompt" "test" {
@@ -473,9 +473,9 @@ resource "mistershell_ai_agent" "test" {
   model_id         = mistershell_ai_model.test.id
   system_prompt_id = mistershell_ai_prompt.test.id
 
-  config = jsonencode({
+  config = {
     token_budget = 1000
-  })
+  }
 }
 
 data "mistershell_ai_agent" "by_id" {

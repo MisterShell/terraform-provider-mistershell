@@ -14,18 +14,18 @@ resource "mistershell_worker" "example" {
   # Keys are read by task handlers with get_config_value(key, default); the only
   # backend-recognized key today is manual_worker_presence_ip (admin override for
   # the IP shown in the UI). Everything else is consumed by your task handlers.
-  config = jsonencode({
+  config = {
     manual_worker_presence_ip = "203.0.113.10"
-  })
+  }
 
   # Optional JSON Schema the backend uses to validate the config above.
-  config_schema = jsonencode({
+  config_schema = {
     type = "object"
     properties = {
       manual_worker_presence_ip = { type = "string" }
     }
     additionalProperties = true
-  })
+  }
 }
 
 # The authentication token is returned ONLY at creation time and can never be

@@ -6,7 +6,7 @@ resource "mistershell_log_destination" "syslog" {
   streams      = ["security", "policy"]
   min_severity = "medium"
 
-  config = jsonencode({
+  config = {
     type       = "syslog"
     host       = "logs.example.com"
     port       = 6514
@@ -14,7 +14,7 @@ resource "mistershell_log_destination" "syslog" {
     format     = "RFC5424"
     facility   = "local1"
     tls_verify = true
-  })
+  }
 }
 
 # Webhook destination with bearer-token auth, forwarding all streams.
@@ -25,7 +25,7 @@ resource "mistershell_log_destination" "webhook" {
   streams      = ["security", "policy", "api", "app", "ids", "collector"]
   min_severity = "info"
 
-  config = jsonencode({
+  config = {
     type            = "webhook"
     url             = "https://siem.example.com/ingest"
     method          = "POST"
@@ -39,7 +39,7 @@ resource "mistershell_log_destination" "webhook" {
       type  = "bearer"
       token = var.webhook_token # secret; masked by the API, stored from config
     }
-  })
+  }
 }
 
 variable "webhook_token" {

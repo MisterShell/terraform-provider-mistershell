@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,25 +18,25 @@ type NetworkResourceDataSource struct {
 }
 
 type NetworkResourceDataSourceModel struct {
-	ID                     types.Int64          `tfsdk:"id"`
-	Name                   types.String         `tfsdk:"name"`
-	ResourceType           types.String         `tfsdk:"resource_type"`
-	EngineID               types.String         `tfsdk:"engine_id"`
-	ConnectorID            types.String         `tfsdk:"connector_id"`
-	ExternalID             types.String         `tfsdk:"external_id"`
-	ConnectorData          jsontypes.Normalized `tfsdk:"connector_data"`
-	CredentialID           types.Int64          `tfsdk:"credential_id"`
-	LocationID             types.Int64          `tfsdk:"location_id"`
-	Status                 types.String         `tfsdk:"status"`
-	IsEnabled              types.Bool           `tfsdk:"is_enabled"`
-	Tags                   types.List           `tfsdk:"tags"`
-	ExtraData              jsontypes.Normalized `tfsdk:"extra_data"`
-	CreatedAt              types.String         `tfsdk:"created_at"`
-	UpdatedAt              types.String         `tfsdk:"updated_at"`
-	LastConnectivityCheck  types.String         `tfsdk:"last_connectivity_check"`
-	LastConnectivityResult jsontypes.Normalized `tfsdk:"last_connectivity_result"`
-	LastCollectionAt       types.String         `tfsdk:"last_collection_at"`
-	NextCollectionAt       types.String         `tfsdk:"next_collection_at"`
+	ID                     types.Int64   `tfsdk:"id"`
+	Name                   types.String  `tfsdk:"name"`
+	ResourceType           types.String  `tfsdk:"resource_type"`
+	EngineID               types.String  `tfsdk:"engine_id"`
+	ConnectorID            types.String  `tfsdk:"connector_id"`
+	ExternalID             types.String  `tfsdk:"external_id"`
+	ConnectorData          types.Dynamic `tfsdk:"connector_data"`
+	CredentialID           types.Int64   `tfsdk:"credential_id"`
+	LocationID             types.Int64   `tfsdk:"location_id"`
+	Status                 types.String  `tfsdk:"status"`
+	IsEnabled              types.Bool    `tfsdk:"is_enabled"`
+	Tags                   types.List    `tfsdk:"tags"`
+	ExtraData              types.Dynamic `tfsdk:"extra_data"`
+	CreatedAt              types.String  `tfsdk:"created_at"`
+	UpdatedAt              types.String  `tfsdk:"updated_at"`
+	LastConnectivityCheck  types.String  `tfsdk:"last_connectivity_check"`
+	LastConnectivityResult types.Dynamic `tfsdk:"last_connectivity_result"`
+	LastCollectionAt       types.String  `tfsdk:"last_collection_at"`
+	NextCollectionAt       types.String  `tfsdk:"next_collection_at"`
 }
 
 func NewNetworkResourceDataSource() datasource.DataSource {
@@ -79,10 +78,9 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Description: "External identifier.",
 				Computed:    true,
 			},
-			"connector_data": schema.StringAttribute{
-				Description: "Connection parameters as JSON; the shape is defined by the installed RDK type catalog.",
+			"connector_data": schema.DynamicAttribute{
+				Description: "Connection parameters as a native Terraform object; the shape is defined by the installed RDK type catalog.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"credential_id": schema.Int64Attribute{
 				Description: "Credential ID.",
@@ -114,10 +112,9 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 					},
 				},
 			},
-			"extra_data": schema.StringAttribute{
-				Description: "Discovered metadata as JSON.",
+			"extra_data": schema.DynamicAttribute{
+				Description: "Discovered metadata as a native Terraform value.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -131,10 +128,9 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Description: "Timestamp of last connectivity check.",
 				Computed:    true,
 			},
-			"last_connectivity_result": schema.StringAttribute{
+			"last_connectivity_result": schema.DynamicAttribute{
 				Description: "Structured result of the most recent connectivity check (read-only).",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"last_collection_at": schema.StringAttribute{
 				Description: "Timestamp of last data collection.",
@@ -253,7 +249,11 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 	config.EngineID = types.StringValue(resourceType.EngineID)
 	config.ConnectorID = types.StringValue(res.ConnectorID)
 	config.ExternalID = stringPtrToValue(res.ExternalID)
-	config.ConnectorData = rawJSONToNormalized(res.ConnectorData)
+	config.ConnectorData, err = rawJSONToDynamic(res.ConnectorData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding resource connector_data", err.Error())
+		return
+	}
 	config.CredentialID = int64PtrToValue(res.CredentialID)
 	config.LocationID = int64PtrToValue(res.LocationID)
 	config.Status = types.StringValue(res.Status)
@@ -266,11 +266,19 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 	}
 	config.Tags = tagsToList(tags)
 
-	config.ExtraData = rawJSONToNormalized(res.ExtraData)
+	config.ExtraData, err = rawJSONToDynamic(res.ExtraData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding resource extra_data", err.Error())
+		return
+	}
 	config.CreatedAt = types.StringValue(res.CreatedAt)
 	config.UpdatedAt = types.StringValue(res.UpdatedAt)
 	config.LastConnectivityCheck = optStringPtrToValue(res.LastConnectivityCheck)
-	config.LastConnectivityResult = rawJSONToNormalized(res.LastConnectivityResult)
+	config.LastConnectivityResult, err = rawJSONToDynamic(res.LastConnectivityResult)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding resource last_connectivity_result", err.Error())
+		return
+	}
 	config.LastCollectionAt = optStringPtrToValue(res.LastCollectionAt)
 	config.NextCollectionAt = optStringPtrToValue(res.NextCollectionAt)
 

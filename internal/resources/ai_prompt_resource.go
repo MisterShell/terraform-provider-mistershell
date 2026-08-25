@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -29,14 +28,14 @@ type AIPromptResource struct {
 }
 
 type AIPromptResourceModel struct {
-	ID             types.Int64          `tfsdk:"id"`
-	Name           types.String         `tfsdk:"name"`
-	Type           types.String         `tfsdk:"type"`
-	Content        types.String         `tfsdk:"content"`
-	Description    types.String         `tfsdk:"description"`
-	VariableSchema jsontypes.Normalized `tfsdk:"variable_schema"`
-	CreatedAt      types.String         `tfsdk:"created_at"`
-	UpdatedAt      types.String         `tfsdk:"updated_at"`
+	ID             types.Int64   `tfsdk:"id"`
+	Name           types.String  `tfsdk:"name"`
+	Type           types.String  `tfsdk:"type"`
+	Content        types.String  `tfsdk:"content"`
+	Description    types.String  `tfsdk:"description"`
+	VariableSchema types.Dynamic `tfsdk:"variable_schema"`
+	CreatedAt      types.String  `tfsdk:"created_at"`
+	UpdatedAt      types.String  `tfsdk:"updated_at"`
 }
 
 func NewAIPromptResource() resource.Resource {
@@ -88,10 +87,9 @@ func (r *AIPromptResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Description: "Optional human-readable description of the prompt.",
 				Optional:    true,
 			},
-			"variable_schema": schema.StringAttribute{
-				Description: "Optional JSON Schema documenting the template variables used in content. Use jsonencode() in HCL. Stored from config.",
+			"variable_schema": schema.DynamicAttribute{
+				Description: "Optional JSON Schema documenting the template variables used in content, represented as a native Terraform object. Stored from config.",
 				Optional:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -126,13 +124,18 @@ func (r *AIPromptResource) Create(ctx context.Context, req resource.CreateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	variableSchema, err := dynamicToRawJSON(plan.VariableSchema)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding AI prompt variable_schema", err.Error())
+		return
+	}
 
 	input := client.AIPromptCreateInput{
 		Name:           plan.Name.ValueString(),
 		Type:           plan.Type.ValueString(),
 		Content:        plan.Content.ValueString(),
 		Description:    stringValueToPtr(plan.Description),
-		VariableSchema: normalizedToRawJSON(plan.VariableSchema),
+		VariableSchema: variableSchema,
 	}
 
 	prompt, err := r.client.CreateAIPrompt(ctx, input)
@@ -185,12 +188,17 @@ func (r *AIPromptResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	variableSchema, err := dynamicToRawJSON(plan.VariableSchema)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding AI prompt variable_schema", err.Error())
+		return
+	}
 
 	input := client.AIPromptUpdateInput{
 		Name:           stringValueToPtr(plan.Name),
 		Content:        stringValueToPtr(plan.Content),
 		Description:    stringValueToPtr(plan.Description),
-		VariableSchema: normalizedToRawJSON(plan.VariableSchema),
+		VariableSchema: variableSchema,
 	}
 
 	prompt, err := r.client.UpdateAIPrompt(ctx, state.ID.ValueInt64(), input)

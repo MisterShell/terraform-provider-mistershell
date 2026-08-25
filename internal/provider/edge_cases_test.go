@@ -42,10 +42,10 @@ resource "mistershell_credential" "test" {
   name            = "` + acctestPrefix + `edge-cred"
   credential_type = "username_password"
 
-  credential_data = jsonencode({
+  credential_data = {
     username = "testuser"
     password = "testpass123"
-  })
+  }
 }
 `
 }
@@ -70,10 +70,10 @@ resource "mistershell_log_destination" "bad" {
   streams      = ["security"]
   min_severity = "info"
 
-  config = jsonencode({
+  config = {
     host = "192.168.99.99"
     port = 514
-  })
+  }
 }
 `
 
@@ -84,10 +84,10 @@ resource "mistershell_log_destination" "bad" {
   streams      = ["security"]
   min_severity = "nope"
 
-  config = jsonencode({
+  config = {
     host = "192.168.99.99"
     port = 514
-  })
+  }
 }
 `
 
@@ -98,10 +98,10 @@ resource "mistershell_log_destination" "bad" {
   streams      = ["bogus"]
   min_severity = "info"
 
-  config = jsonencode({
+  config = {
     host = "192.168.99.99"
     port = 514
-  })
+  }
 }
 `
 
@@ -174,10 +174,10 @@ resource "mistershell_resource" "a" {
   location_id   = mistershell_location.test.id
   credential_id = mistershell_credential.test.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host = "192.168.99.99"
     port = 22
-  })
+  }
 }
 
 resource "mistershell_resource" "b" {
@@ -186,10 +186,10 @@ resource "mistershell_resource" "b" {
   location_id   = mistershell_location.test.id
   credential_id = mistershell_credential.test.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host = "192.168.99.99"
     port = 22
-  })
+  }
 }
 `
 		withDataSource := twoResources + `
@@ -277,10 +277,10 @@ resource "mistershell_credential" "test" {
   name            = "` + acctestPrefix + `edge-mismatch-cred"
   credential_type = "aws_credentials"
 
-  credential_data = jsonencode({
+  credential_data = {
     access_key = "AKIAIOSFODNN7EXAMPLE"
     secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-  })
+  }
 }
 
 resource "mistershell_resource" "test" {
@@ -289,13 +289,13 @@ resource "mistershell_resource" "test" {
   location_id   = mistershell_location.test.id
   credential_id = mistershell_credential.test.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host            = "192.168.99.99"
     port            = 22
     rdp_port        = 3389
     nla_required    = true
     keyboard_layout = "0x0000040C"
-  })
+  }
 }
 `
 		resource.Test(t, resource.TestCase{
@@ -478,10 +478,10 @@ resource "mistershell_resource" "test" {
 
   tag_ids = [mistershell_tag.a.id]
 
-  connector_data = jsonencode({
+  connector_data = {
     host = "192.168.99.99"
     port = 22
-  })
+  }
 }
 `
 
@@ -583,10 +583,10 @@ resource "mistershell_credential" "test" {
   credential_type = "username_password"
   description     = "initial description"
 
-  credential_data = jsonencode({
+  credential_data = {
     username = "testuser"
     password = "testpass123"
-  })
+  }
 }
 `
 	withoutDesc := `
@@ -599,10 +599,10 @@ resource "mistershell_credential" "test" {
   name            = "` + acctestPrefix + `edge-clear-cred"
   credential_type = "username_password"
 
-  credential_data = jsonencode({
+  credential_data = {
     username = "testuser"
     password = "testpass123"
-  })
+  }
 }
 `
 
@@ -638,73 +638,6 @@ resource "mistershell_credential" "test" {
 	})
 }
 
-// TestAccEdge_NormalizedJSON is a CHARACTERIZATION test for the opaque-JSON
-// fields. It documents two distinct, currently-true behaviors:
-//
-//  1. Re-applying the BYTE-IDENTICAL connector_data is a no-op (stored-from-config
-//     Read-preserve does not drift) — asserted as an empty plan.
-//  2. Re-applying a SEMANTICALLY-EQUAL but reformatted connector_data (extra
-//     whitespace / reordered keys) currently DOES produce a cosmetic in-place
-//     update. jsontypes.Normalized implements semantic equality, but for these
-//     stored-from-config Optional attributes the framework is not suppressing the
-//     reformat diff. Tracked as an API/provider follow-up; users avoid it by
-//     writing connector_data with jsonencode() (deterministic output).
-//
-// If the reformat diff ever starts being suppressed, step 2 flips to a non-empty
-// failure and this test must be updated — that is the intended early warning.
-func TestAccEdge_NormalizedJSON(t *testing.T) {
-	testAccPreCheck(t)
-	t.Skip("superseded by normalized JSON unit contracts and live onboarding idempotency")
-
-	base := edgePreamble() + `
-resource "mistershell_resource" "test" {
-  name          = "` + acctestPrefix + `edge-json-res"
-  resource_type = "linux"
-  location_id   = mistershell_location.test.id
-  credential_id = mistershell_credential.test.id
-
-  connector_data = jsonencode({
-    host = "192.168.99.99"
-    port = 22
-  })
-}
-`
-	// Same JSON, keys reordered + extra whitespace, as a raw string literal.
-	reordered := edgePreamble() + `
-resource "mistershell_resource" "test" {
-  name          = "` + acctestPrefix + `edge-json-res"
-  resource_type = "linux"
-  location_id   = mistershell_location.test.id
-  credential_id = mistershell_credential.test.id
-
-  connector_data = "{\"host\": \"192.168.99.99\",  \"port\": 22}"
-}
-`
-
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:             testAccCheckAllDestroyed,
-		Steps: []resource.TestStep{
-			{Config: base},
-			// (1) Byte-identical connector_data -> empty plan (stored-from-config
-			// Read-preserve does not drift).
-			{
-				Config:             base,
-				PlanOnly:           true,
-				ExpectNonEmptyPlan: false,
-			},
-			// (2) Semantically equal but reformatted connector_data -> currently a
-			// cosmetic in-place update (see the function comment). Characterized as a
-			// non-empty plan so a future suppression change is caught here.
-			{
-				Config:             reordered,
-				PlanOnly:           true,
-				ExpectNonEmptyPlan: true,
-			},
-		},
-	})
-}
-
 // TestAccEdge_TagIDsTransitions walks tag_ids through its lifecycle to prove the
 // distinction between "managed empty" (tags.#=0) and "released/unmanaged"
 // (tags left in place), plus the release-while-set semantics.
@@ -727,10 +660,10 @@ resource "mistershell_resource" "test" {
   location_id   = mistershell_location.test.id
   credential_id = mistershell_credential.test.id
 ` + tagIDsBlock + `
-  connector_data = jsonencode({
+  connector_data = {
     host = "192.168.99.99"
     port = 22
-  })
+  }
 }
 `
 	}

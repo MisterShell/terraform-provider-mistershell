@@ -49,7 +49,7 @@ the [`mistershell_worker` resource](../resources/worker.md) page).
 | `presence_ip_source` | `detected` or `manual`. |
 | `config` | Opaque task-handler config JSON (free-form). See the resource page. |
 | `config_version` | SHA-256-derived version hash of the applied `config`. |
-| `config_schema` | JSON Schema used to validate `config`, as JSON. |
+| `config_schema` | JSON Schema used to validate `config`, represented as a native Terraform object. |
 | `created_at` | Creation timestamp. |
 | `updated_at` | Last-update timestamp. |
 

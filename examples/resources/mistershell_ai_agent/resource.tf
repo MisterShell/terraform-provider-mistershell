@@ -9,9 +9,9 @@ resource "mistershell_ai_model" "claude" {
   model_id       = "claude-3-5-sonnet-latest"
   is_default     = true
 
-  config = jsonencode({
+  config = {
     api_key = var.anthropic_api_key # secret; masked as "***" by the API, stored from config
-  })
+  }
 }
 
 # 2. The system prompt the agent renders on every run (type "user").
@@ -45,10 +45,10 @@ resource "mistershell_ai_agent" "ops_assistant" {
 
   # Agent-side execution config. Stored from configuration (the server may
   # enrich/reorder this blob) and excluded from import — re-supply after import.
-  config = jsonencode({
+  config = {
     token_budget = 120000 # max total tokens of context the run may consume
     temperature  = 0.2    # sampling temperature override (agent-side, not model-side)
-  })
+  }
 
   # Restrict the agent to these tool IDs. Omit tool_ids entirely (or set it to
   # the empty set) to allow ALL tools.

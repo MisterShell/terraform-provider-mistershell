@@ -1,5 +1,5 @@
-# An OIDC auth provider. config is an opaque per-provider_type JSON blob set
-# with jsonencode(); client_secret is a secret (masked '****' by the API and
+# An OIDC auth provider. config is a native per-provider_type Terraform object;
+# client_secret is a secret (masked '****' by the API and
 # stored from your configuration, not read back). mnemonic is immutable and is
 # used in stable login and callback URLs.
 #
@@ -11,12 +11,12 @@ resource "mistershell_auth_provider" "corp_oidc" {
   is_enabled    = true
   display_order = 0
 
-  config = jsonencode({
+  config = {
     issuer_url    = "https://login.example.com"
     client_id     = "mistershell"
     client_secret = var.oidc_client_secret # secret
     scopes        = ["openid", "profile", "email"]
-  })
+  }
 }
 
 variable "oidc_client_secret" {

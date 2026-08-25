@@ -42,8 +42,8 @@ output "worker_location_id" {
 ### Read-Only
 
 - `active_task_count` (Number) Number of currently active tasks assigned to the worker.
-- `config` (String) Opaque worker task-handler config as JSON.
-- `config_schema` (String) JSON Schema used to validate the worker config, as JSON.
+- `config` (Dynamic) Worker task-handler config as a native Terraform value.
+- `config_schema` (Dynamic) JSON Schema used to validate the worker config, represented as a native Terraform value.
 - `config_version` (String) Version identifier of the currently applied worker config.
 - `connected_at` (String) Timestamp at which the worker connected.
 - `created_at` (String) Creation timestamp.
@@ -94,7 +94,7 @@ the [`mistershell_worker` resource](../resources/worker.md) page).
 | `presence_ip_source` | `detected` or `manual`. |
 | `config` | Opaque task-handler config JSON (free-form). See the resource page. |
 | `config_version` | SHA-256-derived version hash of the applied `config`. |
-| `config_schema` | JSON Schema used to validate `config`, as JSON. |
+| `config_schema` | JSON Schema used to validate `config`, represented as a native Terraform object. |
 | `created_at` | Creation timestamp. |
 | `updated_at` | Last-update timestamp. |
 

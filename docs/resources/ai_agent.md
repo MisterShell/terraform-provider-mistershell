@@ -23,9 +23,9 @@ resource "mistershell_ai_model" "claude" {
   model_id       = "claude-3-5-sonnet-latest"
   is_default     = true
 
-  config = jsonencode({
+  config = {
     api_key = var.anthropic_api_key # secret; masked as "***" by the API, stored from config
-  })
+  }
 }
 
 # 2. The system prompt the agent renders on every run (type "user").
@@ -59,10 +59,10 @@ resource "mistershell_ai_agent" "ops_assistant" {
 
   # Agent-side execution config. Stored from configuration (the server may
   # enrich/reorder this blob) and excluded from import — re-supply after import.
-  config = jsonencode({
+  config = {
     token_budget = 120000 # max total tokens of context the run may consume
     temperature  = 0.2    # sampling temperature override (agent-side, not model-side)
-  })
+  }
 
   # Restrict the agent to these tool IDs. Omit tool_ids entirely (or set it to
   # the empty set) to allow ALL tools.
@@ -85,7 +85,7 @@ variable "anthropic_api_key" {
 
 ### Optional
 
-- `config` (String) Agent config as JSON (token_budget, temperature, label, icon, etc.). Use jsonencode() in HCL. The server may enrich/reorder this blob, so the planned value is stored from config.
+- `config` (Dynamic) Agent config as a native Terraform object (token_budget, temperature, label, icon, etc.). The server may enrich this value, so the planned value is stored from config.
 - `description` (String) Agent description.
 - `model_id` (Number) FK to a mistershell_ai_model. If omitted the default model is used.
 - `tool_ids` (Set of Number) Tool IDs the agent may use; empty or unset means ALL tools are allowed. Look up ids with the mistershell_ai_tool data source.
@@ -108,7 +108,7 @@ variable "anthropic_api_key" {
 | `description` | Optional. Up to 2000 characters. |
 | `model_id` | Optional. Integer ID of a `mistershell_ai_model`. If omitted, the default model is used. See the note below. |
 | `system_prompt_id` | **Required.** Integer ID of a `mistershell_ai_prompt`. See the note below. |
-| `config` | Optional, **not sensitive**. Agent execution config as JSON via `jsonencode(...)`; see the `config` blob table below. Stored from configuration and **excluded from import**. |
+| `config` | Optional, **not sensitive**. Agent execution config as a native Terraform object; see the `config` table below. Stored from configuration and **excluded from import**. |
 | `tool_ids` | Optional + Computed. Set of integer tool IDs. Empty or unset = **all tools allowed**. A non-empty set restricts the agent to those tools. See the tools section. |
 | `id` | Read-only. Agent integer ID. |
 | `is_builtin` | Read-only. `true` for `builtin_*` agents (always `false` for agents managed by this resource). |
@@ -157,9 +157,9 @@ registry-defined config (the backend preserves identity keys such as
 `capability`, `label`, and `icon`), **not** replaced wholesale. To read a
 builtin agent's current settings from Terraform, use the data source.
 
-## The `config` JSON blob
+## The `config` object
 
-`config` is an agent-execution config object written with `jsonencode(...)`. It
+`config` is a native Terraform object containing agent-execution settings. It
 is **not sensitive**. It tunes how the agent's model is invoked and how the run
 is bounded. All keys are optional; an empty/omitted `config` uses the defaults
 below.
@@ -192,13 +192,13 @@ read-back. Two consequences, identical to other stored-from-config fields:
 Example:
 
 ```hcl
-config = jsonencode({
+config = {
   token_budget = 120000 # max total tokens per run
   max_steps    = 12     # max tool-call rounds per run
   max_tokens   = 4096   # max output tokens per model call (agent-side)
   temperature  = 0.2    # agent-side override (not model-side)
   top_p        = 0.9    # agent-side override (not model-side)
-})
+}
 ```
 
 ## Tools (`tool_ids`)

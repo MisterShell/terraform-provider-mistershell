@@ -28,10 +28,10 @@ description: |-
 | attribute | description |
 |---|---|
 | `key` | The setting key. |
-| `value` | Current value as JSON (sensitive). Decode with `jsondecode()`. **Masked as `****` for secret keys.** |
+| `value` | Current value using its native Terraform type (sensitive). **Masked as `****` for secret keys.** |
 | `description` | Human-readable description from the registry. |
 | `is_secret` | Whether the value is a secret (masked in responses). |
-| `default` | Registry default value as JSON. Masked as `****` for non-empty secret keys. |
+| `default` | Registry default value using its native Terraform type. Masked as `****` for non-empty secret keys. |
 | `created_at` | Creation timestamp. |
 | `updated_at` | Last update timestamp. |
 

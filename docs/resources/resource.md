@@ -21,10 +21,10 @@ resource "mistershell_resource" "automatic" {
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host = "10.0.1.1"
     port = 22
-  })
+  }
 }
 
 # Exact onboarding: when resource_type is supplied, MisterShell infers the
@@ -35,10 +35,10 @@ resource "mistershell_resource" "known_ios" {
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host = "10.0.1.2"
     port = 22
-  })
+  }
 }
 
 # Generic SSH is the exact-type special case: a successful SSH connection is
@@ -49,10 +49,10 @@ resource "mistershell_resource" "generic_ssh" {
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host = "10.0.1.3"
     port = 22
-  })
+  }
 }
 
 resource "mistershell_tag" "production" {
@@ -67,10 +67,10 @@ resource "mistershell_resource" "tagged" {
   engine_id     = "ssh"
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
-  connector_data = jsonencode({
+  connector_data = {
     host = "10.0.1.4"
     port = 22
-  })
+  }
   tag_ids = [mistershell_tag.production.id]
 }
 ```
@@ -80,7 +80,7 @@ resource "mistershell_resource" "tagged" {
 
 ### Required
 
-- `connector_data` (String) Connection parameters as JSON. Use jsonencode() in HCL. The accepted shape comes from the selected engine/type in MisterShell's installed RDK catalog.
+- `connector_data` (Dynamic) Connection parameters as a native Terraform object. The accepted shape comes from the selected engine/type in MisterShell's installed RDK catalog.
 - `credential_id` (Number) Credential ID for connecting to this resource.
 - `location_id` (Number) Location ID where this resource resides.
 - `name` (String) Resource display name.
@@ -97,11 +97,11 @@ resource "mistershell_resource" "tagged" {
 - `connector_id` (String) Connector type, derived by the server from resource_type.
 - `created_at` (String) Creation timestamp.
 - `external_id` (String) External identifier discovered by MisterShell. Null is valid for types such as Generic SSH.
-- `extra_data` (String) Discovered metadata as JSON. Auto-populated by MisterShell from connectivity checks.
+- `extra_data` (Dynamic) Discovered metadata as a native Terraform value. Auto-populated by MisterShell from connectivity checks.
 - `id` (Number) Resource ID.
 - `last_collection_at` (String) Timestamp of last data collection.
 - `last_connectivity_check` (String) Timestamp of last connectivity check.
-- `last_connectivity_result` (String) Structured result of the most recent connectivity check (read-only).
+- `last_connectivity_result` (Dynamic) Structured result of the most recent connectivity check (read-only).
 - `next_collection_at` (String) Scheduled time for next data collection.
 - `status` (String) Connectivity status (unknown, verified, unreachable, auth_failed, error, identity_mismatch, snapshot_truncated).
 - `tags` (Attributes List) The tags currently assigned to this resource (read-back), as objects with id, name, color, and description. Always reflects server state regardless of whether tag_ids is managed. (see [below for nested schema](#nestedatt--tags))

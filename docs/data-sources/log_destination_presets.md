@@ -34,14 +34,14 @@ resource "mistershell_log_destination" "splunk" {
   type    = local.splunk.type
   streams = ["security"]
 
-  config = jsonencode(merge(jsondecode(local.splunk.default_config), {
+  config = merge(local.splunk.default_config, {
     url = "https://splunk.example.com:8088/services/collector"
     auth = {
       type         = "header"
       header_name  = "Authorization"
       header_value = "Splunk ${var.splunk_token}"
     }
-  }))
+  })
 }
 
 variable "splunk_token" {
@@ -56,18 +56,7 @@ variable "splunk_token" {
 ### Read-Only
 
 - `id` (String) Synthetic identifier for this data source.
-- `presets` (Attributes List) List of available log-destination presets. (see [below for nested schema](#nestedatt--presets))
-
-<a id="nestedatt--presets"></a>
-### Nested Schema for `presets`
-
-Read-Only:
-
-- `default_config` (String) Ready-to-edit config template as JSON. Decode with jsondecode() or copy into a mistershell_log_destination config.
-- `key` (String) Preset key (e.g. custom_syslog, custom_webhook, splunk_hec, elastic, datadog).
-- `label` (String) Human-readable preset label.
-- `type` (String) Destination type (syslog or webhook).
-- `vendor` (String) Vendor name.
+- `presets` (Dynamic) Native Terraform sequence of log-destination preset objects. Each object contains key, label, vendor, type, and a native default_config object.
 
 ## Overview
 
@@ -83,7 +72,7 @@ to author a destination quickly (see the Example Usage above).
 | attribute | description |
 |---|---|
 | `id` | Synthetic constant (`log_destination_presets`); this is a list data source with no primary key. |
-| `presets` | List of available presets. Each element is an object with the fields below. |
+| `presets` | Sequence of available presets. Each element is an object with the fields below. |
 
 Each element of `presets` has:
 
@@ -93,7 +82,7 @@ Each element of `presets` has:
 | `label` | Human-readable preset label. |
 | `vendor` | Vendor name. |
 | `type` | Destination type the preset targets (`syslog` or `webhook`). |
-| `default_config` | A ready-to-edit `config` template as a JSON string. Decode with `jsondecode()`, or copy/merge it into a destination's `config`. Secret fields (e.g. webhook `auth.header_value`) come empty and must be filled in. |
+| `default_config` | A ready-to-edit native Terraform object. Copy or merge it directly into a destination's `config`. Secret fields (e.g. webhook `auth.header_value`) come empty and must be filled in. |
 
 ## Available presets
 

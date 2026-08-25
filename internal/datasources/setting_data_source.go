@@ -3,7 +3,6 @@ package datasources
 import (
 	"context"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -18,15 +17,15 @@ type SettingDataSource struct {
 }
 
 type SettingDataSourceModel struct {
-	Key         types.String         `tfsdk:"key"`
-	Value       jsontypes.Normalized `tfsdk:"value"`
-	Description types.String         `tfsdk:"description"`
-	IsSecret    types.Bool           `tfsdk:"is_secret"`
-	Default     jsontypes.Normalized `tfsdk:"default"`
-	Schema      jsontypes.Normalized `tfsdk:"schema"`
-	IsEncrypted types.Bool           `tfsdk:"is_encrypted"`
-	CreatedAt   types.String         `tfsdk:"created_at"`
-	UpdatedAt   types.String         `tfsdk:"updated_at"`
+	Key         types.String  `tfsdk:"key"`
+	Value       types.Dynamic `tfsdk:"value"`
+	Description types.String  `tfsdk:"description"`
+	IsSecret    types.Bool    `tfsdk:"is_secret"`
+	Default     types.Dynamic `tfsdk:"default"`
+	Schema      types.Dynamic `tfsdk:"schema"`
+	IsEncrypted types.Bool    `tfsdk:"is_encrypted"`
+	CreatedAt   types.String  `tfsdk:"created_at"`
+	UpdatedAt   types.String  `tfsdk:"updated_at"`
 }
 
 func NewSettingDataSource() datasource.DataSource {
@@ -45,11 +44,10 @@ func (d *SettingDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Description: "Setting key to read. Must be a key in the backend settings registry.",
 				Required:    true,
 			},
-			"value": schema.StringAttribute{
-				Description: "Current value as JSON. Masked as '****' for secret keys.",
+			"value": schema.DynamicAttribute{
+				Description: "Current value using its native Terraform type. Masked as '****' for secret keys.",
 				Computed:    true,
 				Sensitive:   true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"description": schema.StringAttribute{
 				Description: "Human description of the setting.",
@@ -59,15 +57,13 @@ func (d *SettingDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Description: "Whether the value is a secret.",
 				Computed:    true,
 			},
-			"default": schema.StringAttribute{
-				Description: "Registry default value as JSON. Masked for non-empty secret keys.",
+			"default": schema.DynamicAttribute{
+				Description: "Registry default value using its native Terraform type. Masked for non-empty secret keys.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
-			"schema": schema.StringAttribute{
+			"schema": schema.DynamicAttribute{
 				Description: "JSON Schema used by MisterShell to validate this setting.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"is_encrypted": schema.BoolAttribute{
 				Description: "Whether the stored value is encrypted at rest.",
@@ -116,11 +112,23 @@ func (d *SettingDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	config.Key = types.StringValue(setting.Key)
-	config.Value = rawJSONToNormalized(setting.Value)
+	config.Value, err = rawJSONToDynamic(setting.Value)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding setting value", err.Error())
+		return
+	}
 	config.Description = types.StringValue(setting.Description)
 	config.IsSecret = types.BoolValue(setting.IsSecret)
-	config.Default = rawJSONToNormalized(setting.Default)
-	config.Schema = rawJSONToNormalized(setting.Schema)
+	config.Default, err = rawJSONToDynamic(setting.Default)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding setting default", err.Error())
+		return
+	}
+	config.Schema, err = rawJSONToDynamic(setting.Schema)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding setting schema", err.Error())
+		return
+	}
 	config.IsEncrypted = types.BoolValue(setting.IsEncrypted)
 	config.CreatedAt = types.StringValue(setting.CreatedAt)
 	config.UpdatedAt = types.StringValue(setting.UpdatedAt)

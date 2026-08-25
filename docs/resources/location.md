@@ -47,7 +47,7 @@ resource "mistershell_location" "zurich" {
 ### Optional
 
 - `description` (String) Location description.
-- `extra_data` (String) Additional metadata as JSON. Use jsonencode() in HCL.
+- `extra_data` (Dynamic) Additional metadata as a native Terraform value.
 - `kind` (String) Location type: 'geo' for geographic or 'org' for organizational.
 - `latitude` (Number) Geographic latitude.
 - `longitude` (Number) Geographic longitude.

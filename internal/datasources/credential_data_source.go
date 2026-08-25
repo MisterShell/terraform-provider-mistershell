@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,15 +18,15 @@ type CredentialDataSource struct {
 }
 
 type CredentialDataSourceModel struct {
-	ID                  types.Int64          `tfsdk:"id"`
-	Name                types.String         `tfsdk:"name"`
-	CredentialType      types.String         `tfsdk:"credential_type"`
-	Description         types.String         `tfsdk:"description"`
-	RequiresUserMapping types.Bool           `tfsdk:"requires_user_mapping"`
-	CredentialData      jsontypes.Normalized `tfsdk:"credential_data"`
-	ExtraData           jsontypes.Normalized `tfsdk:"extra_data"`
-	CreatedAt           types.String         `tfsdk:"created_at"`
-	UpdatedAt           types.String         `tfsdk:"updated_at"`
+	ID                  types.Int64   `tfsdk:"id"`
+	Name                types.String  `tfsdk:"name"`
+	CredentialType      types.String  `tfsdk:"credential_type"`
+	Description         types.String  `tfsdk:"description"`
+	RequiresUserMapping types.Bool    `tfsdk:"requires_user_mapping"`
+	CredentialData      types.Dynamic `tfsdk:"credential_data"`
+	ExtraData           types.Dynamic `tfsdk:"extra_data"`
+	CreatedAt           types.String  `tfsdk:"created_at"`
+	UpdatedAt           types.String  `tfsdk:"updated_at"`
 }
 
 func NewCredentialDataSource() datasource.DataSource {
@@ -65,16 +64,14 @@ func (d *CredentialDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 				Description: "Whether users must fill their own credential copy.",
 				Computed:    true,
 			},
-			"credential_data": schema.StringAttribute{
-				Description: "Credential data as JSON. Secret fields are masked as '****' by the API.",
+			"credential_data": schema.DynamicAttribute{
+				Description: "Credential data as a native Terraform object. Secret fields are masked as '****' by the API.",
 				Computed:    true,
 				Sensitive:   true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
-			"extra_data": schema.StringAttribute{
-				Description: "Non-sensitive metadata as JSON.",
+			"extra_data": schema.DynamicAttribute{
+				Description: "Non-sensitive metadata as a native Terraform value.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -177,8 +174,18 @@ func (d *CredentialDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	config.CredentialType = types.StringValue(cred.CredentialType)
 	config.Description = stringPtrToValue(cred.Description)
 	config.RequiresUserMapping = types.BoolValue(cred.RequiresUserMapping)
-	config.CredentialData = rawJSONToNormalized(cred.CredentialData)
-	config.ExtraData = rawJSONToNormalized(cred.ExtraData)
+	credentialData, err := rawJSONToDynamic(cred.CredentialData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding credential_data", err.Error())
+		return
+	}
+	config.CredentialData = credentialData
+	extraData, err := rawJSONToDynamic(cred.ExtraData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding credential extra_data", err.Error())
+		return
+	}
+	config.ExtraData = extraData
 	config.CreatedAt = types.StringValue(cred.CreatedAt)
 	config.UpdatedAt = types.StringValue(cred.UpdatedAt)
 

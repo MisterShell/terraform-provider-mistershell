@@ -51,7 +51,7 @@ output "agent_tool_ids" {
 
 ### Read-Only
 
-- `config` (String) Agent config as JSON.
+- `config` (Dynamic) Agent config as a native Terraform object.
 - `created_at` (String) Creation timestamp.
 - `description` (String) Agent description.
 - `is_builtin` (Boolean) Whether the agent is a builtin agent managed by MisterShell.

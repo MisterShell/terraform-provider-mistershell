@@ -80,7 +80,7 @@ func TestAccWorker_dataSource(t *testing.T) {
 					// by name
 					resource.TestCheckResourceAttrPair("data.mistershell_worker.by_name", "id", "mistershell_worker.test", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_worker.by_name", "name", name),
-					resource.TestCheckResourceAttrSet("data.mistershell_worker.by_name", "config"),
+					resource.TestCheckResourceAttrSet("data.mistershell_worker.by_name", "config.%"),
 				),
 			},
 		},
@@ -105,9 +105,9 @@ resource "mistershell_worker" "test" {
   location_id = mistershell_location.test.id
   is_enabled  = %s
 
-  config = jsonencode({
+  config = {
     log_level = "info"
-  })
+  }
 }
 `, acctestPrefix+"worker-loc", name, description, isEnabled)
 }
@@ -124,9 +124,9 @@ resource "mistershell_worker" "test" {
   name        = %q
   location_id = mistershell_location.test.id
 
-  config = jsonencode({
+  config = {
     log_level = "info"
-  })
+  }
 }
 
 data "mistershell_worker" "by_id" {

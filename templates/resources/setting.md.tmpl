@@ -34,14 +34,13 @@ resource:
 
 ## Setting the `value`
 
-`value` is **JSON** set with `jsonencode(...)`, because setting values are
-heterogeneous across keys (boolean, integer, or string). Match the key's native
-type from the table below:
+`value` uses the setting's native Terraform type. Settings are heterogeneous
+across keys (boolean, number, or string), so match the type from the table below:
 
 ```hcl
-value = jsonencode(true)                 # boolean key
-value = jsonencode(90)                   # integer key
-value = jsonencode("alerts@example.com") # string key
+value = true                 # boolean key
+value = 90                   # integer key
+value = "alerts@example.com" # string key
 ```
 
 The backend validates `value` against the key's JSON Schema; an invalid value is

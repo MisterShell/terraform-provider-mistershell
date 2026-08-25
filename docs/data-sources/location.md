@@ -44,7 +44,7 @@ data "mistershell_location" "child" {
 
 - `created_at` (String) Creation timestamp.
 - `description` (String) Location description.
-- `extra_data` (String) Additional metadata as JSON.
+- `extra_data` (Dynamic) Additional metadata as a native Terraform value.
 - `latitude` (Number) Geographic latitude.
 - `longitude` (Number) Geographic longitude.
 - `path` (String) Resolved hierarchical location path.

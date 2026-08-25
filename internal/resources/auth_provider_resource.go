@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -31,19 +30,19 @@ type AuthProviderResource struct {
 }
 
 type AuthProviderResourceModel struct {
-	ID                 types.Int64          `tfsdk:"id"`
-	Name               types.String         `tfsdk:"name"`
-	Mnemonic           types.String         `tfsdk:"mnemonic"`
-	ProviderType       types.String         `tfsdk:"provider_type"`
-	IsEnabled          types.Bool           `tfsdk:"is_enabled"`
-	DisplayOrder       types.Int64          `tfsdk:"display_order"`
-	Config             jsontypes.Normalized `tfsdk:"config"`
-	GroupMappingsCount types.Int64          `tfsdk:"group_mappings_count"`
-	SPEntityID         types.String         `tfsdk:"sp_entity_id"`
-	SPACSURL           types.String         `tfsdk:"sp_acs_url"`
-	OIDCRedirectURI    types.String         `tfsdk:"oidc_redirect_uri"`
-	CreatedAt          types.String         `tfsdk:"created_at"`
-	UpdatedAt          types.String         `tfsdk:"updated_at"`
+	ID                 types.Int64   `tfsdk:"id"`
+	Name               types.String  `tfsdk:"name"`
+	Mnemonic           types.String  `tfsdk:"mnemonic"`
+	ProviderType       types.String  `tfsdk:"provider_type"`
+	IsEnabled          types.Bool    `tfsdk:"is_enabled"`
+	DisplayOrder       types.Int64   `tfsdk:"display_order"`
+	Config             types.Dynamic `tfsdk:"config"`
+	GroupMappingsCount types.Int64   `tfsdk:"group_mappings_count"`
+	SPEntityID         types.String  `tfsdk:"sp_entity_id"`
+	SPACSURL           types.String  `tfsdk:"sp_acs_url"`
+	OIDCRedirectURI    types.String  `tfsdk:"oidc_redirect_uri"`
+	CreatedAt          types.String  `tfsdk:"created_at"`
+	UpdatedAt          types.String  `tfsdk:"updated_at"`
 }
 
 func NewAuthProviderResource() resource.Resource {
@@ -56,7 +55,7 @@ func (r *AuthProviderResource) Metadata(_ context.Context, req resource.Metadata
 
 func (r *AuthProviderResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is an opaque per-provider_type JSON blob carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.",
+		Description: "Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is a native per-provider_type Terraform object carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Auth provider ID.",
@@ -109,11 +108,10 @@ func (r *AuthProviderResource) Schema(_ context.Context, _ resource.SchemaReques
 					int64UseStateForUnknown(),
 				},
 			},
-			"config": schema.StringAttribute{
-				Description: "Per-provider_type config as JSON. Use jsonencode() in HCL. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout. For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.",
+			"config": schema.DynamicAttribute{
+				Description: "Per-provider_type config as a native Terraform object. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout. For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.",
 				Required:    true,
 				Sensitive:   true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"group_mappings_count": schema.Int64Attribute{
 				Description: "Number of external group->role mappings attached to this provider.",
@@ -164,12 +162,17 @@ func (r *AuthProviderResource) Create(ctx context.Context, req resource.CreateRe
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	config, err := dynamicToRawJSON(plan.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding auth provider config", err.Error())
+		return
+	}
 
 	input := client.AuthProviderCreateInput{
 		Name:         plan.Name.ValueString(),
 		Mnemonic:     plan.Mnemonic.ValueString(),
 		ProviderType: plan.ProviderType.ValueString(),
-		Config:       normalizedToRawJSON(plan.Config),
+		Config:       config,
 		// display_order is honored on create since the backend gained the field
 		// (previously the server always assigned max+1 and the provider had to
 		// PATCH it afterwards); omitted -> appended at max+1, as before.
@@ -273,7 +276,12 @@ func (r *AuthProviderResource) Update(ctx context.Context, req resource.UpdateRe
 		input.DisplayOrder = &v
 	}
 	if !plan.Config.Equal(state.Config) {
-		input.Config = normalizedToRawJSON(plan.Config)
+		config, err := dynamicToRawJSON(plan.Config)
+		if err != nil {
+			resp.Diagnostics.AddError("Error encoding auth provider config", err.Error())
+			return
+		}
+		input.Config = config
 	}
 
 	if _, err := r.client.UpdateAuthProvider(ctx, state.ID.ValueInt64(), input); err != nil {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -31,15 +30,15 @@ type LogDestinationResource struct {
 }
 
 type LogDestinationResourceModel struct {
-	ID          types.Int64          `tfsdk:"id"`
-	Name        types.String         `tfsdk:"name"`
-	Enabled     types.Bool           `tfsdk:"enabled"`
-	Type        types.String         `tfsdk:"type"`
-	Streams     types.Set            `tfsdk:"streams"`
-	MinSeverity types.String         `tfsdk:"min_severity"`
-	Config      jsontypes.Normalized `tfsdk:"config"`
-	CreatedAt   types.String         `tfsdk:"created_at"`
-	UpdatedAt   types.String         `tfsdk:"updated_at"`
+	ID          types.Int64   `tfsdk:"id"`
+	Name        types.String  `tfsdk:"name"`
+	Enabled     types.Bool    `tfsdk:"enabled"`
+	Type        types.String  `tfsdk:"type"`
+	Streams     types.Set     `tfsdk:"streams"`
+	MinSeverity types.String  `tfsdk:"min_severity"`
+	Config      types.Dynamic `tfsdk:"config"`
+	CreatedAt   types.String  `tfsdk:"created_at"`
+	UpdatedAt   types.String  `tfsdk:"updated_at"`
 }
 
 func NewLogDestinationResource() resource.Resource {
@@ -52,7 +51,7 @@ func (r *LogDestinationResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *LogDestinationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is an opaque per-type JSON blob (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).",
+		Description: "Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Log destination ID.",
@@ -102,11 +101,10 @@ func (r *LogDestinationResource) Schema(_ context.Context, _ resource.SchemaRequ
 					stringvalidator.OneOf(client.SupportedLogSeverities...),
 				},
 			},
-			"config": schema.StringAttribute{
-				Description: "Per-type config as JSON. Use jsonencode() in HCL. For type=syslog: host, port, protocol, format, facility, tls_verify. For type=webhook: url, method, headers, auth, body_format, timeout_seconds, tls_verify. Webhook auth secrets (bearer token, basic password, header value) are masked as '****' by the API and stored from config, not read back. See the config field tables on this page.",
+			"config": schema.DynamicAttribute{
+				Description: "Per-type config as a native Terraform object. For type=syslog: host, port, protocol, format, facility, tls_verify. For type=webhook: url, method, headers, auth, body_format, timeout_seconds, tls_verify. Webhook auth secrets (bearer token, basic password, header value) are masked as '****' by the API and stored from config, not read back. See the config field tables on this page.",
 				Required:    true,
 				Sensitive:   true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -141,13 +139,18 @@ func (r *LogDestinationResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	config, err := dynamicToRawJSON(plan.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding log destination config", err.Error())
+		return
+	}
 
 	input := client.LogDestinationCreateInput{
 		Name:        plan.Name.ValueString(),
 		Type:        plan.Type.ValueString(),
 		Streams:     stringSetToSlice(plan.Streams),
 		MinSeverity: plan.MinSeverity.ValueString(),
-		Config:      normalizedToRawJSON(plan.Config),
+		Config:      config,
 	}
 	if !plan.Enabled.IsNull() && !plan.Enabled.IsUnknown() {
 		v := plan.Enabled.ValueBool()
@@ -210,6 +213,11 @@ func (r *LogDestinationResource) Update(ctx context.Context, req resource.Update
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	config, err := dynamicToRawJSON(plan.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding log destination config", err.Error())
+		return
+	}
 
 	// Full-replace PUT — send the whole planned object verbatim.
 	input := client.LogDestinationUpdateInput{
@@ -217,7 +225,7 @@ func (r *LogDestinationResource) Update(ctx context.Context, req resource.Update
 		Type:        plan.Type.ValueString(),
 		Streams:     stringSetToSlice(plan.Streams),
 		MinSeverity: plan.MinSeverity.ValueString(),
-		Config:      normalizedToRawJSON(plan.Config),
+		Config:      config,
 	}
 	if !plan.Enabled.IsNull() && !plan.Enabled.IsUnknown() {
 		v := plan.Enabled.ValueBool()

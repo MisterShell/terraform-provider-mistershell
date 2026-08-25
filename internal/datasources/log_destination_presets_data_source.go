@@ -2,9 +2,8 @@ package datasources
 
 import (
 	"context"
+	"encoding/json"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,19 +18,8 @@ type LogDestinationPresetsDataSource struct {
 }
 
 type LogDestinationPresetsDataSourceModel struct {
-	ID      types.String `tfsdk:"id"`
-	Presets types.List   `tfsdk:"presets"`
-}
-
-// logDestinationPresetObjectType is the object element type for the presets list.
-var logDestinationPresetObjectType = types.ObjectType{
-	AttrTypes: map[string]attr.Type{
-		"key":            types.StringType,
-		"label":          types.StringType,
-		"vendor":         types.StringType,
-		"type":           types.StringType,
-		"default_config": jsontypes.NormalizedType{},
-	},
+	ID      types.String  `tfsdk:"id"`
+	Presets types.Dynamic `tfsdk:"presets"`
 }
 
 func NewLogDestinationPresetsDataSource() datasource.DataSource {
@@ -50,34 +38,9 @@ func (d *LogDestinationPresetsDataSource) Schema(_ context.Context, _ datasource
 				Description: "Synthetic identifier for this data source.",
 				Computed:    true,
 			},
-			"presets": schema.ListNestedAttribute{
-				Description: "List of available log-destination presets.",
+			"presets": schema.DynamicAttribute{
+				Description: "Native Terraform sequence of log-destination preset objects. Each object contains key, label, vendor, type, and a native default_config object.",
 				Computed:    true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"key": schema.StringAttribute{
-							Description: "Preset key (e.g. custom_syslog, custom_webhook, splunk_hec, elastic, datadog).",
-							Computed:    true,
-						},
-						"label": schema.StringAttribute{
-							Description: "Human-readable preset label.",
-							Computed:    true,
-						},
-						"vendor": schema.StringAttribute{
-							Description: "Vendor name.",
-							Computed:    true,
-						},
-						"type": schema.StringAttribute{
-							Description: "Destination type (syslog or webhook).",
-							Computed:    true,
-						},
-						"default_config": schema.StringAttribute{
-							Description: "Ready-to-edit config template as JSON. Decode with jsondecode() or copy into a mistershell_log_destination config.",
-							Computed:    true,
-							CustomType:  jsontypes.NormalizedType{},
-						},
-					},
-				},
 			},
 		},
 	}
@@ -108,30 +71,25 @@ func (d *LogDestinationPresetsDataSource) Read(ctx context.Context, req datasour
 		return
 	}
 
-	elems := make([]attr.Value, 0, len(presets))
-	for _, p := range presets {
-		obj, diags := types.ObjectValue(logDestinationPresetObjectType.AttrTypes, map[string]attr.Value{
-			"key":            types.StringValue(p.Key),
-			"label":          types.StringValue(p.Label),
-			"vendor":         types.StringValue(p.Vendor),
-			"type":           types.StringValue(p.Type),
-			"default_config": rawJSONToNormalized(p.DefaultConfig),
-		})
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		elems = append(elems, obj)
-	}
-
-	list, diags := types.ListValue(logDestinationPresetObjectType, elems)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
+	nativePresets, err := logDestinationPresetsToDynamic(presets)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding log destination presets", err.Error())
 		return
 	}
 
 	config.ID = types.StringValue("log_destination_presets")
-	config.Presets = list
+	config.Presets = nativePresets
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+func logDestinationPresetsToDynamic(presets []client.LogDestinationPreset) (types.Dynamic, error) {
+	if presets == nil {
+		presets = []client.LogDestinationPreset{}
+	}
+	rawPresets, err := json.Marshal(presets)
+	if err != nil {
+		return types.DynamicNull(), err
+	}
+	return rawJSONToDynamic(rawPresets)
 }

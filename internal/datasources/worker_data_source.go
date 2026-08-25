@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,28 +18,28 @@ type WorkerDataSource struct {
 }
 
 type WorkerDataSourceModel struct {
-	ID               types.Int64          `tfsdk:"id"`
-	Name             types.String         `tfsdk:"name"`
-	Description      types.String         `tfsdk:"description"`
-	LocationID       types.Int64          `tfsdk:"location_id"`
-	Status           types.String         `tfsdk:"status"`
-	IsDefault        types.Bool           `tfsdk:"is_default"`
-	IsEnabled        types.Bool           `tfsdk:"is_enabled"`
-	ActiveTaskCount  types.Int64          `tfsdk:"active_task_count"`
-	TotalTaskCount   types.Int64          `tfsdk:"total_task_count"`
-	LastHeartbeatAt  types.String         `tfsdk:"last_heartbeat_at"`
-	Version          types.String         `tfsdk:"version"`
-	RDKContractMajor types.Int64          `tfsdk:"rdk_contract_major"`
-	RDKCatalogID     types.String         `tfsdk:"rdk_catalog_identity"`
-	RDKCompatible    types.Bool           `tfsdk:"rdk_compatible"`
-	ConnectedAt      types.String         `tfsdk:"connected_at"`
-	PresenceIP       types.String         `tfsdk:"presence_ip"`
-	PresenceIPSource types.String         `tfsdk:"presence_ip_source"`
-	Config           jsontypes.Normalized `tfsdk:"config"`
-	ConfigVersion    types.String         `tfsdk:"config_version"`
-	ConfigSchema     jsontypes.Normalized `tfsdk:"config_schema"`
-	CreatedAt        types.String         `tfsdk:"created_at"`
-	UpdatedAt        types.String         `tfsdk:"updated_at"`
+	ID               types.Int64   `tfsdk:"id"`
+	Name             types.String  `tfsdk:"name"`
+	Description      types.String  `tfsdk:"description"`
+	LocationID       types.Int64   `tfsdk:"location_id"`
+	Status           types.String  `tfsdk:"status"`
+	IsDefault        types.Bool    `tfsdk:"is_default"`
+	IsEnabled        types.Bool    `tfsdk:"is_enabled"`
+	ActiveTaskCount  types.Int64   `tfsdk:"active_task_count"`
+	TotalTaskCount   types.Int64   `tfsdk:"total_task_count"`
+	LastHeartbeatAt  types.String  `tfsdk:"last_heartbeat_at"`
+	Version          types.String  `tfsdk:"version"`
+	RDKContractMajor types.Int64   `tfsdk:"rdk_contract_major"`
+	RDKCatalogID     types.String  `tfsdk:"rdk_catalog_identity"`
+	RDKCompatible    types.Bool    `tfsdk:"rdk_compatible"`
+	ConnectedAt      types.String  `tfsdk:"connected_at"`
+	PresenceIP       types.String  `tfsdk:"presence_ip"`
+	PresenceIPSource types.String  `tfsdk:"presence_ip_source"`
+	Config           types.Dynamic `tfsdk:"config"`
+	ConfigVersion    types.String  `tfsdk:"config_version"`
+	ConfigSchema     types.Dynamic `tfsdk:"config_schema"`
+	CreatedAt        types.String  `tfsdk:"created_at"`
+	UpdatedAt        types.String  `tfsdk:"updated_at"`
 }
 
 func NewWorkerDataSource() datasource.DataSource {
@@ -125,19 +124,17 @@ func (d *WorkerDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 				Description: "Source of the presence IP determination.",
 				Computed:    true,
 			},
-			"config": schema.StringAttribute{
-				Description: "Opaque worker task-handler config as JSON.",
+			"config": schema.DynamicAttribute{
+				Description: "Worker task-handler config as a native Terraform value.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"config_version": schema.StringAttribute{
 				Description: "Version identifier of the currently applied worker config.",
 				Computed:    true,
 			},
-			"config_schema": schema.StringAttribute{
-				Description: "JSON Schema used to validate the worker config, as JSON.",
+			"config_schema": schema.DynamicAttribute{
+				Description: "JSON Schema used to validate the worker config, represented as a native Terraform value.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -238,9 +235,19 @@ func (d *WorkerDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	config.ConnectedAt = optStringPtrToValue(worker.ConnectedAt)
 	config.PresenceIP = optStringPtrToValue(worker.PresenceIP)
 	config.PresenceIPSource = optStringPtrToValue(worker.PresenceIPSource)
-	config.Config = rawJSONToNormalized(worker.Config)
+	nativeConfig, err := rawJSONToDynamic(worker.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding worker config", err.Error())
+		return
+	}
+	config.Config = nativeConfig
 	config.ConfigVersion = optStringPtrToValue(worker.ConfigVersion)
-	config.ConfigSchema = rawJSONToNormalized(worker.ConfigSchema)
+	configSchema, err := rawJSONToDynamic(worker.ConfigSchema)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding worker config_schema", err.Error())
+		return
+	}
+	config.ConfigSchema = configSchema
 	config.CreatedAt = types.StringValue(worker.CreatedAt)
 	config.UpdatedAt = types.StringValue(worker.UpdatedAt)
 

@@ -99,7 +99,7 @@ func TestAccLogDestination_webhookSecret(t *testing.T) {
 					resource.TestCheckResourceAttr("mistershell_log_destination.test", "streams.#", "1"),
 					resource.TestCheckTypeSetElemAttr("mistershell_log_destination.test", "streams.*", "security"),
 					// config is preserved verbatim from plan (secret not read back).
-					resource.TestCheckResourceAttrSet("mistershell_log_destination.test", "config"),
+					resource.TestCheckResourceAttrSet("mistershell_log_destination.test", "config.%"),
 					resource.TestCheckResourceAttrSet("mistershell_log_destination.test", "id"),
 				),
 			},
@@ -277,7 +277,7 @@ resource "mistershell_log_destination" "test" {
   streams      = %s
   min_severity = %q
 
-  config = jsonencode({
+  config = {
     type       = "syslog"
     host       = "syslog.example.com"
     port       = 514
@@ -285,7 +285,7 @@ resource "mistershell_log_destination" "test" {
     format     = "RFC5424"
     facility   = "local1"
     tls_verify = true
-  })
+  }
 }
 `, name, enabled, streams, minSeverity)
 }
@@ -297,7 +297,7 @@ resource "mistershell_log_destination" "test" {
   type    = "webhook"
   streams = ["security"]
 
-  config = jsonencode({
+  config = {
     type            = "webhook"
     url             = "https://hooks.example.com/ingest"
     method          = %q
@@ -308,7 +308,7 @@ resource "mistershell_log_destination" "test" {
       type  = "bearer"
       token = "tfacc-secret-bearer-token"
     }
-  })
+  }
 }
 `, name, method)
 }
@@ -321,13 +321,13 @@ resource "mistershell_log_destination" "test" {
   streams      = ["api"]
   min_severity = "low"
 
-  config = jsonencode({
+  config = {
     type     = "syslog"
     host     = "syslog.example.com"
     port     = 514
     protocol = "UDP"
     format   = "RFC5424"
-  })
+  }
 }
 
 data "mistershell_log_destination" "by_id" {
@@ -344,7 +344,7 @@ func testAccSettingConfig(value int) string {
 	return fmt.Sprintf(`
 resource "mistershell_setting" "test" {
   key   = %q
-  value = jsonencode(%d)
+  value = %d
 }
 
 data "mistershell_setting" "test" {

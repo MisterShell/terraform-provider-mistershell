@@ -53,17 +53,17 @@ output "switch_tags" {
 
 ### Read-Only
 
-- `connector_data` (String) Connection parameters as JSON; the shape is defined by the installed RDK type catalog.
+- `connector_data` (Dynamic) Connection parameters as a native Terraform object; the shape is defined by the installed RDK type catalog.
 - `connector_id` (String) Connector type.
 - `created_at` (String) Creation timestamp.
 - `credential_id` (Number) Credential ID.
 - `engine_id` (String) Connection engine inferred from the installed RDK resource-type catalog.
 - `external_id` (String) External identifier.
-- `extra_data` (String) Discovered metadata as JSON.
+- `extra_data` (Dynamic) Discovered metadata as a native Terraform value.
 - `is_enabled` (Boolean) Whether the resource is enabled.
 - `last_collection_at` (String) Timestamp of last data collection.
 - `last_connectivity_check` (String) Timestamp of last connectivity check.
-- `last_connectivity_result` (String) Structured result of the most recent connectivity check (read-only).
+- `last_connectivity_result` (Dynamic) Structured result of the most recent connectivity check (read-only).
 - `next_collection_at` (String) Scheduled time for next data collection.
 - `tags` (Attributes List) Tags assigned to this resource, as objects with id, name, color, and description. (see [below for nested schema](#nestedatt--tags))
 - `updated_at` (String) Last update timestamp.

@@ -84,6 +84,35 @@ func TestAccLocationResource_coordinates(t *testing.T) {
 	})
 }
 
+func TestAccLocationResource_typedExtraData(t *testing.T) {
+	testAccPreCheck(t)
+	name := acctestPrefix + "loc-typed-extra"
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccLocationTypedExtraDataConfig(name, "production"),
+				Check: resource.TestCheckResourceAttr(
+					"mistershell_location.test", "extra_data.environment", "production",
+				),
+			},
+			{
+				Config:             testAccLocationTypedExtraDataConfig(name, "production"),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+			{
+				Config: testAccLocationTypedExtraDataConfig(name, "staging"),
+				Check: resource.TestCheckResourceAttr(
+					"mistershell_location.test", "extra_data.environment", "staging",
+				),
+			},
+		},
+	})
+}
+
 func testAccLocationConfig(name, kind, description string) string {
 	return fmt.Sprintf(`
 resource "mistershell_location" "test" {
@@ -121,4 +150,17 @@ resource "mistershell_location" "test" {
   longitude = 8.5417
 }
 `, acctestPrefix+"coords")
+}
+
+func testAccLocationTypedExtraDataConfig(name, environment string) string {
+	return fmt.Sprintf(`
+resource "mistershell_location" "test" {
+  name      = %q
+  kind      = "geo"
+  parent_id = 1
+  extra_data = tomap({
+    environment = %q
+  })
+}
+`, name, environment)
 }

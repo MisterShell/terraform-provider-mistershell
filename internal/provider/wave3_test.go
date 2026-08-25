@@ -289,7 +289,7 @@ func TestAccSessionPolicyRuleDataSource_byID(t *testing.T) {
 
 // authProviderFixture builds valid HCL for one provider_type.
 type authProviderFixture struct {
-	// config returns the `config = jsonencode({...})` body. The altered form
+	// config returns the `config = {...}` body. The altered form
 	// changes one NON-SECRET field so update steps exercise a real PATCH.
 	config func(altered bool) string
 	// extraChecks are assertions meaningful only for this provider_type; addr
@@ -336,14 +336,14 @@ func testAccAuthProviderFixtures(t *testing.T) map[string]authProviderFixture {
 					// is the meaningful edit.
 					serverURL, tlsVerify = "ldaps://ldap2.example.com:636", "true"
 				}
-				return fmt.Sprintf(`jsonencode({
+				return fmt.Sprintf(`{
     server_url    = %q
     bind_dn       = "cn=svc,dc=example,dc=com"
     bind_password = "tfacc-bind-password"
     base_dn       = "ou=people,dc=example,dc=com"
     use_tls       = true
     tls_verify    = %s
-  })`, serverURL, tlsVerify)
+  }`, serverURL, tlsVerify)
 			},
 			extraChecks: authProviderNoSPURLChecks,
 		},
@@ -353,12 +353,12 @@ func testAccAuthProviderFixtures(t *testing.T) map[string]authProviderFixture {
 				if altered {
 					issuerURL = "https://idp2.example.com"
 				}
-				return fmt.Sprintf(`jsonencode({
+				return fmt.Sprintf(`{
     issuer_url    = %q
     client_id     = "tfacc-client-id"
     client_secret = "tfacc-client-secret"
     tls_verify    = true
-  })`, issuerURL)
+  }`, issuerURL)
 			},
 			extraChecks: authProviderNoSPURLChecks,
 		},
@@ -368,11 +368,11 @@ func testAccAuthProviderFixtures(t *testing.T) map[string]authProviderFixture {
 				if altered {
 					ssoURL = "https://idp2.example.com/sso"
 				}
-				return fmt.Sprintf(`jsonencode({
+				return fmt.Sprintf(`{
     idp_entity_id = "https://idp.example.com/metadata"
     idp_sso_url   = %q
     idp_x509_cert = %q
-  })`, ssoURL, cert)
+  }`, ssoURL, cert)
 			},
 			extraChecks: authProviderSPURLChecks,
 		},
@@ -411,7 +411,7 @@ func TestAccAuthProvider_basic(t *testing.T) {
 				// display_order is honored on create.
 				resource.TestCheckResourceAttr(addr, "display_order", "7"),
 				resource.TestCheckResourceAttr(addr, "group_mappings_count", "0"),
-				resource.TestCheckResourceAttrSet(addr, "config"),
+				resource.TestCheckResourceAttrSet(addr, "config.%"),
 				resource.TestCheckResourceAttrSet(addr, "id"),
 				resource.TestCheckResourceAttrSet(addr, "created_at"),
 			}
@@ -479,12 +479,12 @@ resource "mistershell_auth_provider" "bad" {
   mnemonic      = %q
   provider_type = "SAML"
 
-  config = jsonencode({
+  config = {
     idp_entity_id = "https://idp.example.com/metadata"
     idp_sso_url   = "https://idp.example.com/sso"
     idp_x509_cert = %q
     sp_entity_id  = "https://sp.example.com"
-  })
+  }
 }
 `, name, name, cert),
 				// Terraform hard-wraps diagnostic text, so match across the
@@ -518,7 +518,7 @@ func TestAccAuthProviderDataSource_byIDAndName(t *testing.T) {
 				resource.TestCheckResourceAttr(byID, "name", name),
 				resource.TestCheckResourceAttr(byID, "provider_type", providerType),
 				resource.TestCheckResourceAttr(byID, "group_mappings_count", "0"),
-				resource.TestCheckResourceAttrSet(byID, "config"),
+				resource.TestCheckResourceAttrSet(byID, "config.%"),
 				// by name
 				resource.TestCheckResourceAttrPair(byName, "id", "mistershell_auth_provider.test", "id"),
 				resource.TestCheckResourceAttr(byName, "provider_type", providerType),
@@ -738,7 +738,7 @@ func testAccSelfSignedCertPEM(t *testing.T) string {
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 }
 
-// The configBody argument on the builders below is a `jsonencode({...})`
+// The configBody argument on the builders below is a `{...}`
 // expression supplied by an authProviderFixture.
 
 func testAccAuthProviderConfig(name, providerType string, enabled bool, displayOrder int, configBody string) string {

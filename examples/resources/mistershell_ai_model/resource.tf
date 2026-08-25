@@ -6,9 +6,9 @@ resource "mistershell_ai_model" "claude" {
   model_id       = "claude-3-5-sonnet-latest"
   is_default     = true
 
-  config = jsonencode({
+  config = {
     api_key = var.anthropic_api_key # secret; masked as "***" by the API, stored from config
-  })
+  }
 }
 
 # Ollama model running locally — OpenAI-compatible API, no API key required.
@@ -18,9 +18,9 @@ resource "mistershell_ai_model" "ollama_llama" {
   model_provider = "ollama"
   model_id       = "llama3.1"
 
-  config = jsonencode({
+  config = {
     base_url = "http://localhost:11434/v1"
-  })
+  }
 }
 
 # OpenAI model pointed at a custom gateway via base_url.
@@ -29,10 +29,10 @@ resource "mistershell_ai_model" "gpt" {
   model_provider = "openai"
   model_id       = "gpt-4o"
 
-  config = jsonencode({
+  config = {
     api_key  = var.openai_api_key # secret
     base_url = "https://gateway.example.com/v1"
-  })
+  }
 }
 
 variable "anthropic_api_key" {

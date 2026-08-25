@@ -17,13 +17,13 @@ data "mistershell_setting" "retention" {
   key = "security_log_retention_days"
 }
 
-# The value is JSON; decode it to use the native type.
+# Values already use their native Terraform types.
 output "retention_days" {
-  value = jsondecode(data.mistershell_setting.retention.value)
+  value = data.mistershell_setting.retention.value
 }
 
 output "retention_default" {
-  value = jsondecode(data.mistershell_setting.retention.default)
+  value = data.mistershell_setting.retention.default
 }
 
 output "retention_is_secret" {
@@ -41,13 +41,13 @@ output "retention_is_secret" {
 ### Read-Only
 
 - `created_at` (String) Creation timestamp.
-- `default` (String) Registry default value as JSON. Masked for non-empty secret keys.
+- `default` (Dynamic) Registry default value using its native Terraform type. Masked for non-empty secret keys.
 - `description` (String) Human description of the setting.
 - `is_encrypted` (Boolean) Whether the stored value is encrypted at rest.
 - `is_secret` (Boolean) Whether the value is a secret.
-- `schema` (String) JSON Schema used by MisterShell to validate this setting.
+- `schema` (Dynamic) JSON Schema used by MisterShell to validate this setting.
 - `updated_at` (String) Last update timestamp.
-- `value` (String, Sensitive) Current value as JSON. Masked as '****' for secret keys.
+- `value` (Dynamic, Sensitive) Current value using its native Terraform type. Masked as '****' for secret keys.
 
 ## Lookup argument
 
@@ -60,10 +60,10 @@ output "retention_is_secret" {
 | attribute | description |
 |---|---|
 | `key` | The setting key. |
-| `value` | Current value as JSON (sensitive). Decode with `jsondecode()`. **Masked as `****` for secret keys.** |
+| `value` | Current value using its native Terraform type (sensitive). **Masked as `****` for secret keys.** |
 | `description` | Human-readable description from the registry. |
 | `is_secret` | Whether the value is a secret (masked in responses). |
-| `default` | Registry default value as JSON. Masked as `****` for non-empty secret keys. |
+| `default` | Registry default value using its native Terraform type. Masked as `****` for non-empty secret keys. |
 | `created_at` | Creation timestamp. |
 | `updated_at` | Last update timestamp. |
 

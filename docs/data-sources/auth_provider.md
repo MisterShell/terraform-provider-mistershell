@@ -43,7 +43,7 @@ output "mappings_count" {
 
 ### Read-Only
 
-- `config` (String, Sensitive) Per-provider_type config as JSON. Secret fields are masked as '****' by the API.
+- `config` (Dynamic, Sensitive) Per-provider_type config as a native Terraform object. Secret fields are masked as '****' by the API.
 - `created_at` (String) Creation timestamp.
 - `display_order` (Number) Login-page display order.
 - `group_mappings_count` (Number) Number of external group->role mappings attached to this provider.

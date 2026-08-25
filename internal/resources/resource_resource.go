@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -32,26 +31,26 @@ type NetworkResourceResource struct {
 }
 
 type NetworkResourceResourceModel struct {
-	ID                     types.Int64          `tfsdk:"id"`
-	Name                   types.String         `tfsdk:"name"`
-	EngineID               types.String         `tfsdk:"engine_id"`
-	ResourceType           types.String         `tfsdk:"resource_type"`
-	ExternalID             types.String         `tfsdk:"external_id"`
-	LocationID             types.Int64          `tfsdk:"location_id"`
-	ConnectorData          jsontypes.Normalized `tfsdk:"connector_data"`
-	CredentialID           types.Int64          `tfsdk:"credential_id"`
-	ExtraData              jsontypes.Normalized `tfsdk:"extra_data"`
-	IsEnabled              types.Bool           `tfsdk:"is_enabled"`
-	TagIDs                 types.Set            `tfsdk:"tag_ids"`
-	Tags                   types.List           `tfsdk:"tags"`
-	ConnectorID            types.String         `tfsdk:"connector_id"`
-	Status                 types.String         `tfsdk:"status"`
-	CreatedAt              types.String         `tfsdk:"created_at"`
-	UpdatedAt              types.String         `tfsdk:"updated_at"`
-	LastConnectivityCheck  types.String         `tfsdk:"last_connectivity_check"`
-	LastConnectivityResult jsontypes.Normalized `tfsdk:"last_connectivity_result"`
-	LastCollectionAt       types.String         `tfsdk:"last_collection_at"`
-	NextCollectionAt       types.String         `tfsdk:"next_collection_at"`
+	ID                     types.Int64   `tfsdk:"id"`
+	Name                   types.String  `tfsdk:"name"`
+	EngineID               types.String  `tfsdk:"engine_id"`
+	ResourceType           types.String  `tfsdk:"resource_type"`
+	ExternalID             types.String  `tfsdk:"external_id"`
+	LocationID             types.Int64   `tfsdk:"location_id"`
+	ConnectorData          types.Dynamic `tfsdk:"connector_data"`
+	CredentialID           types.Int64   `tfsdk:"credential_id"`
+	ExtraData              types.Dynamic `tfsdk:"extra_data"`
+	IsEnabled              types.Bool    `tfsdk:"is_enabled"`
+	TagIDs                 types.Set     `tfsdk:"tag_ids"`
+	Tags                   types.List    `tfsdk:"tags"`
+	ConnectorID            types.String  `tfsdk:"connector_id"`
+	Status                 types.String  `tfsdk:"status"`
+	CreatedAt              types.String  `tfsdk:"created_at"`
+	UpdatedAt              types.String  `tfsdk:"updated_at"`
+	LastConnectivityCheck  types.String  `tfsdk:"last_connectivity_check"`
+	LastConnectivityResult types.Dynamic `tfsdk:"last_connectivity_result"`
+	LastCollectionAt       types.String  `tfsdk:"last_collection_at"`
+	NextCollectionAt       types.String  `tfsdk:"next_collection_at"`
 }
 
 func NewNetworkResourceResource() resource.Resource {
@@ -107,19 +106,17 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Description: "Location ID where this resource resides.",
 				Required:    true,
 			},
-			"connector_data": schema.StringAttribute{
-				Description: "Connection parameters as JSON. Use jsonencode() in HCL. The accepted shape comes from the selected engine/type in MisterShell's installed RDK catalog.",
+			"connector_data": schema.DynamicAttribute{
+				Description: "Connection parameters as a native Terraform object. The accepted shape comes from the selected engine/type in MisterShell's installed RDK catalog.",
 				Required:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"credential_id": schema.Int64Attribute{
 				Description: "Credential ID for connecting to this resource.",
 				Required:    true,
 			},
-			"extra_data": schema.StringAttribute{
-				Description: "Discovered metadata as JSON. Auto-populated by MisterShell from connectivity checks.",
+			"extra_data": schema.DynamicAttribute{
+				Description: "Discovered metadata as a native Terraform value. Auto-populated by MisterShell from connectivity checks.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"is_enabled": schema.BoolAttribute{
 				Description: "Whether the resource is enabled for operations.",
@@ -170,10 +167,9 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Description: "Timestamp of last connectivity check.",
 				Computed:    true,
 			},
-			"last_connectivity_result": schema.StringAttribute{
+			"last_connectivity_result": schema.DynamicAttribute{
 				Description: "Structured result of the most recent connectivity check (read-only).",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"last_collection_at": schema.StringAttribute{
 				Description: "Timestamp of last data collection.",
@@ -220,11 +216,16 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		resp.Diagnostics.AddError("Invalid resource onboarding configuration", err.Error())
 		return
 	}
+	connectorData, err := dynamicToRawJSON(plan.ConnectorData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding resource connector_data", err.Error())
+		return
+	}
 	discovery, err := r.client.DiscoverNetworkResource(createCtx, client.DiscoveryTestInput{
 		EngineID:       engineID,
 		ExpectedTypeID: expectedTypeID,
 		CredentialID:   plan.CredentialID.ValueInt64(),
-		ConnectorData:  normalizedToRawJSON(plan.ConnectorData),
+		ConnectorData:  connectorData,
 		LocationID:     plan.LocationID.ValueInt64(),
 	})
 	if err != nil {
@@ -237,7 +238,7 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		ResourceType:   discovery.ResourceType,
 		DiscoveryToken: discovery.DiscoveryToken,
 		LocationID:     plan.LocationID.ValueInt64(),
-		ConnectorData:  normalizedToRawJSON(plan.ConnectorData),
+		ConnectorData:  connectorData,
 	}
 	input.CredentialID = int64ValueToPtr(plan.CredentialID)
 
@@ -249,7 +250,10 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 
 	desiredEnabled := plan.IsEnabled
 	configuredConnectorData := plan.ConnectorData
-	mapNetworkResourceResponseToModel(res, &plan)
+	if err := mapNetworkResourceResponseToModel(res, &plan); err != nil {
+		resp.Diagnostics.AddError("Error decoding network resource", err.Error())
+		return
+	}
 	plan.EngineID = types.StringValue(discovery.EngineID)
 	plan.ConnectorData = configuredConnectorData
 	plan.Tags = types.ListNull(tagObjectType)
@@ -265,7 +269,10 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 			resp.Diagnostics.AddError("Error setting network resource enabled state", err.Error())
 			return
 		}
-		mapNetworkResourceResponseToModel(res, &plan)
+		if err := mapNetworkResourceResponseToModel(res, &plan); err != nil {
+			resp.Diagnostics.AddError("Error decoding network resource", err.Error())
+			return
+		}
 		plan.EngineID = types.StringValue(discovery.EngineID)
 		plan.ConnectorData = configuredConnectorData
 	}
@@ -297,7 +304,10 @@ func (r *NetworkResourceResource) Read(ctx context.Context, req resource.ReadReq
 	// Preserve connector_data from state — the API enriches it with server-side defaults
 	// which would cause perpetual diffs.
 	savedConnectorData := state.ConnectorData
-	mapNetworkResourceResponseToModel(res, &state)
+	if err := mapNetworkResourceResponseToModel(res, &state); err != nil {
+		resp.Diagnostics.AddError("Error decoding network resource", err.Error())
+		return
+	}
 	state.ConnectorData = savedConnectorData
 	resourceType, err := r.client.FindResourceType(ctx, res.ResourceType)
 	if err != nil {
@@ -325,7 +335,11 @@ func (r *NetworkResourceResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	input := buildNetworkResourceUpdate(&plan, &state)
+	input, err := buildNetworkResourceUpdate(&plan, &state)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding resource update", err.Error())
+		return
+	}
 
 	res, err := r.client.UpdateNetworkResource(ctx, state.ID.ValueInt64(), input)
 	if err != nil {
@@ -334,7 +348,10 @@ func (r *NetworkResourceResource) Update(ctx context.Context, req resource.Updat
 	}
 
 	configuredConnectorData := plan.ConnectorData
-	mapNetworkResourceResponseToModel(res, &plan)
+	if err := mapNetworkResourceResponseToModel(res, &plan); err != nil {
+		resp.Diagnostics.AddError("Error decoding network resource", err.Error())
+		return
+	}
 	plan.EngineID = state.EngineID
 	plan.ConnectorData = configuredConnectorData
 	if err := r.reconcileTags(ctx, state.ID.ValueInt64(), &plan); err != nil {
@@ -409,7 +426,7 @@ func (r *NetworkResourceResource) readTags(ctx context.Context, resourceID int64
 	return nil
 }
 
-func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *NetworkResourceResourceModel) {
+func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *NetworkResourceResourceModel) error {
 	m.ID = types.Int64Value(res.ID)
 	m.Name = types.StringValue(res.Name)
 	m.ResourceType = types.StringValue(res.ResourceType)
@@ -418,16 +435,24 @@ func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *N
 	// ConnectorData intentionally NOT set here — preserved from plan/state by the caller
 	// because the API enriches it with server-side defaults (e.g. strict_host_key).
 	m.CredentialID = int64PtrToValue(res.CredentialID)
-	m.ExtraData = rawJSONToNormalized(res.ExtraData)
+	var err error
+	m.ExtraData, err = rawJSONToDynamic(res.ExtraData)
+	if err != nil {
+		return fmt.Errorf("extra_data: %w", err)
+	}
 	m.IsEnabled = types.BoolValue(res.IsEnabled)
 	m.ConnectorID = types.StringValue(res.ConnectorID)
 	m.Status = types.StringValue(res.Status)
 	m.CreatedAt = types.StringValue(res.CreatedAt)
 	m.UpdatedAt = types.StringValue(res.UpdatedAt)
 	m.LastConnectivityCheck = optStringPtrToValue(res.LastConnectivityCheck)
-	m.LastConnectivityResult = rawJSONToNormalized(res.LastConnectivityResult)
+	m.LastConnectivityResult, err = rawJSONToDynamic(res.LastConnectivityResult)
+	if err != nil {
+		return fmt.Errorf("last_connectivity_result: %w", err)
+	}
 	m.LastCollectionAt = optStringPtrToValue(res.LastCollectionAt)
 	m.NextCollectionAt = optStringPtrToValue(res.NextCollectionAt)
+	return nil
 }
 
 func (r *NetworkResourceResource) resolveOnboardingMode(ctx context.Context, plan *NetworkResourceResourceModel) (string, *string, error) {
@@ -451,7 +476,7 @@ func (r *NetworkResourceResource) resolveOnboardingMode(ctx context.Context, pla
 	return resourceType.EngineID, &typeID, nil
 }
 
-func buildNetworkResourceUpdate(plan, state *NetworkResourceResourceModel) client.NetworkResourceUpdateInput {
+func buildNetworkResourceUpdate(plan, state *NetworkResourceResourceModel) (client.NetworkResourceUpdateInput, error) {
 	input := client.NetworkResourceUpdateInput{}
 	if !plan.Name.Equal(state.Name) {
 		value := plan.Name.ValueString()
@@ -462,7 +487,11 @@ func buildNetworkResourceUpdate(plan, state *NetworkResourceResourceModel) clien
 		input.LocationID = &value
 	}
 	if !plan.ConnectorData.Equal(state.ConnectorData) {
-		input.ConnectorData = normalizedToRawJSON(plan.ConnectorData)
+		connectorData, err := dynamicToRawJSON(plan.ConnectorData)
+		if err != nil {
+			return client.NetworkResourceUpdateInput{}, fmt.Errorf("connector_data: %w", err)
+		}
+		input.ConnectorData = connectorData
 	}
 	if !plan.CredentialID.Equal(state.CredentialID) {
 		input.CredentialID = int64ValueToPtr(plan.CredentialID)
@@ -471,5 +500,5 @@ func buildNetworkResourceUpdate(plan, state *NetworkResourceResourceModel) clien
 		value := plan.IsEnabled.ValueBool()
 		input.IsEnabled = &value
 	}
-	return input
+	return input, nil
 }

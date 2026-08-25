@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -29,18 +28,18 @@ type LocationResource struct {
 }
 
 type LocationResourceModel struct {
-	ID            types.Int64          `tfsdk:"id"`
-	Name          types.String         `tfsdk:"name"`
-	Kind          types.String         `tfsdk:"kind"`
-	Description   types.String         `tfsdk:"description"`
-	ParentID      types.Int64          `tfsdk:"parent_id"`
-	Latitude      types.Float64        `tfsdk:"latitude"`
-	Longitude     types.Float64        `tfsdk:"longitude"`
-	ExtraData     jsontypes.Normalized `tfsdk:"extra_data"`
-	ResourceCount types.Int64          `tfsdk:"resource_count"`
-	Path          types.String         `tfsdk:"path"`
-	CreatedAt     types.String         `tfsdk:"created_at"`
-	UpdatedAt     types.String         `tfsdk:"updated_at"`
+	ID            types.Int64   `tfsdk:"id"`
+	Name          types.String  `tfsdk:"name"`
+	Kind          types.String  `tfsdk:"kind"`
+	Description   types.String  `tfsdk:"description"`
+	ParentID      types.Int64   `tfsdk:"parent_id"`
+	Latitude      types.Float64 `tfsdk:"latitude"`
+	Longitude     types.Float64 `tfsdk:"longitude"`
+	ExtraData     types.Dynamic `tfsdk:"extra_data"`
+	ResourceCount types.Int64   `tfsdk:"resource_count"`
+	Path          types.String  `tfsdk:"path"`
+	CreatedAt     types.String  `tfsdk:"created_at"`
+	UpdatedAt     types.String  `tfsdk:"updated_at"`
 }
 
 func NewLocationResource() resource.Resource {
@@ -91,10 +90,9 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Description: "Geographic longitude.",
 				Optional:    true,
 			},
-			"extra_data": schema.StringAttribute{
-				Description: "Additional metadata as JSON. Use jsonencode() in HCL.",
+			"extra_data": schema.DynamicAttribute{
+				Description: "Additional metadata as a native Terraform value.",
 				Optional:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"resource_count": schema.Int64Attribute{Description: "Number of resources directly assigned to this location.", Computed: true},
 			"path":           schema.StringAttribute{Description: "Resolved hierarchical location path.", Computed: true},
@@ -152,7 +150,12 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 		v := plan.Longitude.ValueFloat64()
 		input.Longitude = &v
 	}
-	input.ExtraData = normalizedToRawJSON(plan.ExtraData)
+	extraData, err := dynamicToRawJSON(plan.ExtraData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding location extra_data", err.Error())
+		return
+	}
+	input.ExtraData = extraData
 
 	loc, err := r.client.CreateLocation(ctx, input)
 	if err != nil {
@@ -160,7 +163,12 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	mapLocationResponseToModel(loc, &plan)
+	configuredExtraData := plan.ExtraData
+	if err := mapLocationResponseToModel(loc, &plan); err != nil {
+		resp.Diagnostics.AddError("Error decoding location", err.Error())
+		return
+	}
+	plan.ExtraData = configuredExtraData
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -170,7 +178,11 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("Error reading location after create", err.Error())
 		return
 	}
-	mapLocationResponseToModel(full, &plan)
+	if err := mapLocationResponseToModel(full, &plan); err != nil {
+		resp.Diagnostics.AddError("Error decoding location", err.Error())
+		return
+	}
+	plan.ExtraData = configuredExtraData
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -191,7 +203,19 @@ func (r *LocationResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	mapLocationResponseToModel(loc, &state)
+	savedExtraData := state.ExtraData
+	extraDataUnchanged, err := dynamicJSONEqual(savedExtraData, loc.ExtraData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error comparing location extra_data", err.Error())
+		return
+	}
+	if err := mapLocationResponseToModel(loc, &state); err != nil {
+		resp.Diagnostics.AddError("Error decoding location", err.Error())
+		return
+	}
+	if extraDataUnchanged {
+		state.ExtraData = savedExtraData
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -221,7 +245,12 @@ func (r *LocationResource) Update(ctx context.Context, req resource.UpdateReques
 	input.ParentID = int64ValueToPtr(plan.ParentID)
 	input.Latitude = float64ValueToPtr(plan.Latitude)
 	input.Longitude = float64ValueToPtr(plan.Longitude)
-	input.ExtraData = normalizedToRawJSON(plan.ExtraData)
+	extraData, err := dynamicToRawJSON(plan.ExtraData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding location extra_data", err.Error())
+		return
+	}
+	input.ExtraData = extraData
 
 	loc, err := r.client.UpdateLocation(ctx, state.ID.ValueInt64(), input)
 	if err != nil {
@@ -234,7 +263,12 @@ func (r *LocationResource) Update(ctx context.Context, req resource.UpdateReques
 		resp.Diagnostics.AddError("Error reading location after update", err.Error())
 		return
 	}
-	mapLocationResponseToModel(full, &plan)
+	configuredExtraData := plan.ExtraData
+	if err := mapLocationResponseToModel(full, &plan); err != nil {
+		resp.Diagnostics.AddError("Error decoding location", err.Error())
+		return
+	}
+	plan.ExtraData = configuredExtraData
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -259,7 +293,7 @@ func (r *LocationResource) ImportState(ctx context.Context, req resource.ImportS
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.Int64Value(id))...)
 }
 
-func mapLocationResponseToModel(loc *client.LocationResponse, m *LocationResourceModel) {
+func mapLocationResponseToModel(loc *client.LocationResponse, m *LocationResourceModel) error {
 	m.ID = types.Int64Value(loc.ID)
 	m.Name = types.StringValue(loc.Name)
 	m.Kind = types.StringValue(loc.Kind)
@@ -267,9 +301,14 @@ func mapLocationResponseToModel(loc *client.LocationResponse, m *LocationResourc
 	m.ParentID = int64PtrToValue(loc.ParentID)
 	m.Latitude = float64PtrToValue(loc.Latitude)
 	m.Longitude = float64PtrToValue(loc.Longitude)
-	m.ExtraData = rawJSONToNormalized(loc.ExtraData)
+	var err error
+	m.ExtraData, err = rawJSONToDynamic(loc.ExtraData)
+	if err != nil {
+		return fmt.Errorf("extra_data: %w", err)
+	}
 	m.ResourceCount = int64PtrToValue(loc.ResourceCount)
 	m.Path = stringPtrToValue(loc.Path)
 	m.CreatedAt = types.StringValue(loc.CreatedAt)
 	m.UpdatedAt = types.StringValue(loc.UpdatedAt)
+	return nil
 }

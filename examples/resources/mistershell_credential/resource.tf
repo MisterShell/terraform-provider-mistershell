@@ -4,12 +4,12 @@ resource "mistershell_credential" "ssh_admin" {
   credential_type = "username_password"
   description     = "Data center admin SSH credentials"
 
-  credential_data = jsonencode({
+  credential_data = {
     username        = "admin"
     password        = var.ssh_password
     enable_password = var.enable_password # optional
     domain          = ""                  # optional
-  })
+  }
 }
 
 # SSH key credential (for SSH-family resources and windows)
@@ -17,11 +17,11 @@ resource "mistershell_credential" "ssh_key" {
   name            = "dc-admin-ssh-key"
   credential_type = "ssh_key"
 
-  credential_data = jsonencode({
+  credential_data = {
     username    = "admin"
     private_key = var.ssh_private_key # PEM, multiline
     passphrase  = ""                  # optional
-  })
+  }
 }
 
 # AWS credential (for aws_account resources)
@@ -29,10 +29,10 @@ resource "mistershell_credential" "aws_prod" {
   name            = "aws-production"
   credential_type = "aws_credentials"
 
-  credential_data = jsonencode({
+  credential_data = {
     access_key = var.aws_access_key
     secret_key = var.aws_secret_key
-  })
+  }
 }
 
 # Azure service principal (for azure_subscription resources)
@@ -40,10 +40,10 @@ resource "mistershell_credential" "azure_prod" {
   name            = "azure-production"
   credential_type = "azure_service_principal"
 
-  credential_data = jsonencode({
+  credential_data = {
     client_id     = var.azure_client_id
     client_secret = var.azure_client_secret
-  })
+  }
 }
 
 # Kubeconfig credential (for kubernetes_cluster resources)
@@ -51,9 +51,9 @@ resource "mistershell_credential" "k8s" {
   name            = "prod-cluster-kubeconfig"
   credential_type = "kubeconfig"
 
-  credential_data = jsonencode({
+  credential_data = {
     kubeconfig = var.kubeconfig # full kubeconfig YAML
-  })
+  }
 }
 
 # RDP credential (for windows / generic_rdp resources)
@@ -61,11 +61,11 @@ resource "mistershell_credential" "rdp_admin" {
   name            = "win-rdp-admin"
   credential_type = "username_password"
 
-  credential_data = jsonencode({
+  credential_data = {
     username = "Administrator"
     domain   = "CORP" # optional
     password = var.rdp_password
-  })
+  }
 }
 
 # Database credential (for database resources)
@@ -73,10 +73,10 @@ resource "mistershell_credential" "app_db" {
   name            = "app-db-user"
   credential_type = "username_password"
 
-  credential_data = jsonencode({
+  credential_data = {
     username = "app"
     password = var.db_password
-  })
+  }
 }
 
 variable "ssh_password" {

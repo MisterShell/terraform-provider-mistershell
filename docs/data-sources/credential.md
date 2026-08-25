@@ -40,9 +40,9 @@ data "mistershell_credential" "k8s" {
 ### Read-Only
 
 - `created_at` (String) Creation timestamp.
-- `credential_data` (String, Sensitive) Credential data as JSON. Secret fields are masked as '****' by the API.
+- `credential_data` (Dynamic, Sensitive) Credential data as a native Terraform object. Secret fields are masked as '****' by the API.
 - `description` (String) Credential description.
-- `extra_data` (String) Non-sensitive metadata as JSON.
+- `extra_data` (Dynamic) Non-sensitive metadata as a native Terraform value.
 - `requires_user_mapping` (Boolean) Whether users must fill their own credential copy.
 - `updated_at` (String) Last update timestamp.
 

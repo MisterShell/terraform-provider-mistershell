@@ -31,7 +31,7 @@ to author a destination quickly (see the Example Usage above).
 | attribute | description |
 |---|---|
 | `id` | Synthetic constant (`log_destination_presets`); this is a list data source with no primary key. |
-| `presets` | List of available presets. Each element is an object with the fields below. |
+| `presets` | Sequence of available presets. Each element is an object with the fields below. |
 
 Each element of `presets` has:
 
@@ -41,7 +41,7 @@ Each element of `presets` has:
 | `label` | Human-readable preset label. |
 | `vendor` | Vendor name. |
 | `type` | Destination type the preset targets (`syslog` or `webhook`). |
-| `default_config` | A ready-to-edit `config` template as a JSON string. Decode with `jsondecode()`, or copy/merge it into a destination's `config`. Secret fields (e.g. webhook `auth.header_value`) come empty and must be filled in. |
+| `default_config` | A ready-to-edit native Terraform object. Copy or merge it directly into a destination's `config`. Secret fields (e.g. webhook `auth.header_value`) come empty and must be filled in. |
 
 ## Available presets
 

@@ -147,11 +147,11 @@ resource "mistershell_credential" "test" {
   credential_type = "username_password"
   description     = "` + description + `"
 
-  credential_data = jsonencode({
+  credential_data = {
     username = "Administrator"
     domain   = "CORP"
     password = "testpass123"
-  })
+  }
 }
 `
 }
@@ -163,10 +163,10 @@ resource "mistershell_credential" "test" {
   credential_type = "username_password"
   description     = "` + description + `"
 
-  credential_data = jsonencode({
+  credential_data = {
     username = "app"
     password = "testpass123"
-  })
+  }
 }
 `
 }
@@ -178,10 +178,10 @@ resource "mistershell_credential" "test" {
   credential_type = "username_password"
   description     = "` + description + `"
 
-  credential_data = jsonencode({
+  credential_data = {
     username = "testuser"
     password = "testpass123"
-  })
+  }
 }
 `
 }
@@ -193,10 +193,10 @@ resource "mistershell_credential" "test" {
   credential_type = "ssh_key"
   description     = "` + description + `"
 
-  credential_data = jsonencode({
+  credential_data = {
     username    = "testuser"
     private_key = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----"
-  })
+  }
 }
 `
 }

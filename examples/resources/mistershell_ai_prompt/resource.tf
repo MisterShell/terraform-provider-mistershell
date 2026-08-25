@@ -15,7 +15,7 @@ resource "mistershell_ai_prompt" "resource_summary" {
   # Optional JSON Schema documenting the variables this prompt expects.
   # Stored from configuration; informational only (the backend does not
   # reject undeclared variables based on this schema).
-  variable_schema = jsonencode({
+  variable_schema = {
     type = "object"
     properties = {
       resource_id   = { type = "integer", description = "Target resource ID." }
@@ -23,5 +23,5 @@ resource "mistershell_ai_prompt" "resource_summary" {
       resource_type = { type = "string", description = "Resource type descriptor key." }
     }
     required = ["resource_id"]
-  })
+  }
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,18 +18,18 @@ type AIAgentDataSource struct {
 }
 
 type AIAgentDataSourceModel struct {
-	ID             types.Int64          `tfsdk:"id"`
-	Name           types.String         `tfsdk:"name"`
-	Type           types.String         `tfsdk:"type"`
-	Description    types.String         `tfsdk:"description"`
-	ModelID        types.Int64          `tfsdk:"model_id"`
-	SystemPromptID types.Int64          `tfsdk:"system_prompt_id"`
-	Config         jsontypes.Normalized `tfsdk:"config"`
-	IsBuiltin      types.Bool           `tfsdk:"is_builtin"`
-	IsFunctional   types.Bool           `tfsdk:"is_functional"`
-	ToolIDs        types.Set            `tfsdk:"tool_ids"`
-	CreatedAt      types.String         `tfsdk:"created_at"`
-	UpdatedAt      types.String         `tfsdk:"updated_at"`
+	ID             types.Int64   `tfsdk:"id"`
+	Name           types.String  `tfsdk:"name"`
+	Type           types.String  `tfsdk:"type"`
+	Description    types.String  `tfsdk:"description"`
+	ModelID        types.Int64   `tfsdk:"model_id"`
+	SystemPromptID types.Int64   `tfsdk:"system_prompt_id"`
+	Config         types.Dynamic `tfsdk:"config"`
+	IsBuiltin      types.Bool    `tfsdk:"is_builtin"`
+	IsFunctional   types.Bool    `tfsdk:"is_functional"`
+	ToolIDs        types.Set     `tfsdk:"tool_ids"`
+	CreatedAt      types.String  `tfsdk:"created_at"`
+	UpdatedAt      types.String  `tfsdk:"updated_at"`
 }
 
 func NewAIAgentDataSource() datasource.DataSource {
@@ -71,10 +70,9 @@ func (d *AIAgentDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Description: "FK to the AI prompt providing the agent's system prompt.",
 				Computed:    true,
 			},
-			"config": schema.StringAttribute{
-				Description: "Agent config as JSON.",
+			"config": schema.DynamicAttribute{
+				Description: "Agent config as a native Terraform object.",
 				Computed:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"is_builtin": schema.BoolAttribute{
 				Description: "Whether the agent is a builtin agent managed by MisterShell.",
@@ -175,7 +173,12 @@ func (d *AIAgentDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	config.Description = stringPtrToValue(agent.Description)
 	config.ModelID = int64PtrToValue(agent.ModelID)
 	config.SystemPromptID = int64PtrToValue(agent.SystemPromptID)
-	config.Config = rawJSONToNormalized(agent.Config)
+	nativeConfig, err := rawJSONToDynamic(agent.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding AI agent config", err.Error())
+		return
+	}
+	config.Config = nativeConfig
 	config.IsBuiltin = types.BoolValue(agent.IsBuiltin)
 	config.IsFunctional = types.BoolValue(agent.IsFunctional)
 	config.ToolIDs = int64SliceToSet(agent.ToolIDs)

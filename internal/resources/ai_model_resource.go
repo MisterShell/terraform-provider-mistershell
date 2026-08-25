@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -29,14 +28,14 @@ type AIModelResource struct {
 }
 
 type AIModelResourceModel struct {
-	ID        types.Int64          `tfsdk:"id"`
-	Name      types.String         `tfsdk:"name"`
-	Provider  types.String         `tfsdk:"model_provider"`
-	ModelID   types.String         `tfsdk:"model_id"`
-	Config    jsontypes.Normalized `tfsdk:"config"`
-	IsDefault types.Bool           `tfsdk:"is_default"`
-	CreatedAt types.String         `tfsdk:"created_at"`
-	UpdatedAt types.String         `tfsdk:"updated_at"`
+	ID        types.Int64   `tfsdk:"id"`
+	Name      types.String  `tfsdk:"name"`
+	Provider  types.String  `tfsdk:"model_provider"`
+	ModelID   types.String  `tfsdk:"model_id"`
+	Config    types.Dynamic `tfsdk:"config"`
+	IsDefault types.Bool    `tfsdk:"is_default"`
+	CreatedAt types.String  `tfsdk:"created_at"`
+	UpdatedAt types.String  `tfsdk:"updated_at"`
 }
 
 func NewAIModelResource() resource.Resource {
@@ -76,11 +75,10 @@ func (r *AIModelResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "Provider-specific model identifier (e.g. \"claude-3-opus\", \"gpt-4o\").",
 				Required:    true,
 			},
-			"config": schema.StringAttribute{
-				Description: "Per-provider config as JSON. Use jsonencode() in HCL. Common keys: api_key, base_url, context_window, api_version, region, deployment. Secrets such as api_key are write-only: they are masked as '***' by the API on read and stored from config, not read back. See the config field tables on this page.",
+			"config": schema.DynamicAttribute{
+				Description: "Per-provider config as a native Terraform object. Common keys: api_key, base_url, context_window, api_version, region, deployment. Secrets such as api_key are write-only: they are masked as '***' by the API on read and stored from config, not read back. See the config field tables on this page.",
 				Optional:    true,
 				Sensitive:   true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"is_default": schema.BoolAttribute{
 				Description: "Whether this is the default AI model. Defaults to false. Only one model may be the default: setting this to true clears the default flag on all other models. Manage is_default from a single resource to avoid drift.",
@@ -121,12 +119,17 @@ func (r *AIModelResource) Create(ctx context.Context, req resource.CreateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	config, err := dynamicToRawJSON(plan.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding AI model config", err.Error())
+		return
+	}
 
 	input := client.AIModelCreateInput{
 		Name:      plan.Name.ValueString(),
 		Provider:  plan.Provider.ValueString(),
 		ModelID:   plan.ModelID.ValueString(),
-		Config:    normalizedToRawJSON(plan.Config),
+		Config:    config,
 		IsDefault: boolValueToPtr(plan.IsDefault),
 	}
 
@@ -184,12 +187,17 @@ func (r *AIModelResource) Update(ctx context.Context, req resource.UpdateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	config, err := dynamicToRawJSON(plan.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding AI model config", err.Error())
+		return
+	}
 
 	input := client.AIModelUpdateInput{
 		Name:      stringValueToPtr(plan.Name),
 		Provider:  stringValueToPtr(plan.Provider),
 		ModelID:   stringValueToPtr(plan.ModelID),
-		Config:    normalizedToRawJSON(plan.Config),
+		Config:    config,
 		IsDefault: boolValueToPtr(plan.IsDefault),
 	}
 

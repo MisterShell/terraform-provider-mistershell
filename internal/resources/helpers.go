@@ -5,28 +5,28 @@ import (
 	"encoding/json"
 	"sort"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-mistershell/internal/client"
+	"terraform-provider-mistershell/internal/tfjson"
 )
 
-// normalizedToRawJSON converts a jsontypes.Normalized to json.RawMessage for API requests.
-func normalizedToRawJSON(n jsontypes.Normalized) json.RawMessage {
-	if n.IsNull() || n.IsUnknown() {
-		return nil
-	}
-	return json.RawMessage(n.ValueString())
+// dynamicToRawJSON converts a native Terraform value to an API JSON payload.
+func dynamicToRawJSON(value types.Dynamic) (json.RawMessage, error) {
+	return tfjson.ToRawJSON(value)
 }
 
-// rawJSONToNormalized converts json.RawMessage from API to jsontypes.Normalized.
-func rawJSONToNormalized(raw json.RawMessage) jsontypes.Normalized {
-	if raw == nil || string(raw) == "null" || string(raw) == "" {
-		return jsontypes.NewNormalizedNull()
-	}
-	return jsontypes.NewNormalizedValue(string(raw))
+// rawJSONToDynamic converts an API JSON payload to a native Terraform value.
+func rawJSONToDynamic(raw json.RawMessage) (types.Dynamic, error) {
+	return tfjson.FromRawJSON(raw)
+}
+
+// dynamicJSONEqual compares a configured Terraform value with an API JSON
+// payload without requiring their Terraform collection types to match.
+func dynamicJSONEqual(value types.Dynamic, raw json.RawMessage) (bool, error) {
+	return tfjson.SemanticallyEqual(value, raw)
 }
 
 // stringPtrToValue converts *string to types.String.

@@ -2,11 +2,9 @@ package resources
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -28,15 +26,15 @@ type CredentialResource struct {
 }
 
 type CredentialResourceModel struct {
-	ID                  types.Int64          `tfsdk:"id"`
-	Name                types.String         `tfsdk:"name"`
-	CredentialType      types.String         `tfsdk:"credential_type"`
-	CredentialData      jsontypes.Normalized `tfsdk:"credential_data"`
-	Description         types.String         `tfsdk:"description"`
-	RequiresUserMapping types.Bool           `tfsdk:"requires_user_mapping"`
-	ExtraData           jsontypes.Normalized `tfsdk:"extra_data"`
-	CreatedAt           types.String         `tfsdk:"created_at"`
-	UpdatedAt           types.String         `tfsdk:"updated_at"`
+	ID                  types.Int64   `tfsdk:"id"`
+	Name                types.String  `tfsdk:"name"`
+	CredentialType      types.String  `tfsdk:"credential_type"`
+	CredentialData      types.Dynamic `tfsdk:"credential_data"`
+	Description         types.String  `tfsdk:"description"`
+	RequiresUserMapping types.Bool    `tfsdk:"requires_user_mapping"`
+	ExtraData           types.Dynamic `tfsdk:"extra_data"`
+	CreatedAt           types.String  `tfsdk:"created_at"`
+	UpdatedAt           types.String  `tfsdk:"updated_at"`
 }
 
 func NewCredentialResource() resource.Resource {
@@ -69,11 +67,10 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"credential_data": schema.StringAttribute{
-				Description: "Credential secret data as JSON. Use jsonencode() in HCL. Fields vary by credential_type; see the valid credential_type values table on this page for the fields per type. Note: the API masks secret values in responses, so this value is stored from config, not read back from the server.",
+			"credential_data": schema.DynamicAttribute{
+				Description: "Credential secret data as a native Terraform object. Fields vary by credential_type; see the valid credential_type values table on this page for the fields per type. Note: the API masks secret values in responses, so this value is stored from config, not read back from the server.",
 				Required:    true,
 				Sensitive:   true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"description": schema.StringAttribute{
 				Description: "Credential description.",
@@ -85,10 +82,9 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
-			"extra_data": schema.StringAttribute{
-				Description: "Non-sensitive metadata as JSON. Use jsonencode() in HCL.",
+			"extra_data": schema.DynamicAttribute{
+				Description: "Non-sensitive metadata as a native Terraform value.",
 				Optional:    true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Creation timestamp.",
@@ -124,10 +120,22 @@ func (r *CredentialResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
+	credentialData, err := dynamicToRawJSON(plan.CredentialData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding credential_data", err.Error())
+		return
+	}
+	extraData, err := dynamicToRawJSON(plan.ExtraData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding credential extra_data", err.Error())
+		return
+	}
+
 	input := client.CredentialCreateInput{
 		Name:           plan.Name.ValueString(),
 		CredentialType: plan.CredentialType.ValueString(),
-		CredentialData: json.RawMessage(plan.CredentialData.ValueString()),
+		CredentialData: credentialData,
+		ExtraData:      extraData,
 	}
 	if !plan.Description.IsNull() {
 		v := plan.Description.ValueString()
@@ -137,8 +145,6 @@ func (r *CredentialResource) Create(ctx context.Context, req resource.CreateRequ
 		v := plan.RequiresUserMapping.ValueBool()
 		input.RequiresUserMapping = &v
 	}
-	input.ExtraData = normalizedToRawJSON(plan.ExtraData)
-
 	cred, err := r.client.CreateCredential(ctx, input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating credential", err.Error())
@@ -146,7 +152,12 @@ func (r *CredentialResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	// Map response to model but preserve credential_data from plan (API returns masked values).
-	mapCredentialResponseToModel(cred, &plan)
+	configuredExtraData := plan.ExtraData
+	if err := mapCredentialResponseToModel(cred, &plan); err != nil {
+		resp.Diagnostics.AddError("Error decoding credential", err.Error())
+		return
+	}
+	plan.ExtraData = configuredExtraData
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -170,8 +181,20 @@ func (r *CredentialResource) Read(ctx context.Context, req resource.ReadRequest,
 	// Update all fields EXCEPT credential_data — the API returns masked values (****),
 	// so we keep the user-provided value already in state.
 	savedCredentialData := state.CredentialData
-	mapCredentialResponseToModel(cred, &state)
+	savedExtraData := state.ExtraData
+	extraDataUnchanged, err := dynamicJSONEqual(savedExtraData, cred.ExtraData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error comparing credential extra_data", err.Error())
+		return
+	}
+	if err := mapCredentialResponseToModel(cred, &state); err != nil {
+		resp.Diagnostics.AddError("Error decoding credential", err.Error())
+		return
+	}
 	state.CredentialData = savedCredentialData
+	if extraDataUnchanged {
+		state.ExtraData = savedExtraData
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -198,11 +221,20 @@ func (r *CredentialResource) Update(ctx context.Context, req resource.UpdateRequ
 		v := plan.RequiresUserMapping.ValueBool()
 		input.RequiresUserMapping = &v
 	}
-	input.ExtraData = normalizedToRawJSON(plan.ExtraData)
+	extraData, err := dynamicToRawJSON(plan.ExtraData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error encoding credential extra_data", err.Error())
+		return
+	}
+	input.ExtraData = extraData
 
 	// Always send credential_data on update — the user's config value, not the masked API value.
 	if !plan.CredentialData.IsNull() && !plan.CredentialData.IsUnknown() {
-		input.CredentialData = json.RawMessage(plan.CredentialData.ValueString())
+		input.CredentialData, err = dynamicToRawJSON(plan.CredentialData)
+		if err != nil {
+			resp.Diagnostics.AddError("Error encoding credential_data", err.Error())
+			return
+		}
 	}
 
 	cred, err := r.client.UpdateCredential(ctx, state.ID.ValueInt64(), input)
@@ -212,7 +244,12 @@ func (r *CredentialResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	// Preserve credential_data from plan (API response has masked values).
-	mapCredentialResponseToModel(cred, &plan)
+	configuredExtraData := plan.ExtraData
+	if err := mapCredentialResponseToModel(cred, &plan); err != nil {
+		resp.Diagnostics.AddError("Error decoding credential", err.Error())
+		return
+	}
+	plan.ExtraData = configuredExtraData
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -239,14 +276,19 @@ func (r *CredentialResource) ImportState(ctx context.Context, req resource.Impor
 
 // mapCredentialResponseToModel maps API response to Terraform model.
 // Note: credential_data is set from the plan value by the caller, since the API returns masked values.
-func mapCredentialResponseToModel(cred *client.CredentialResponse, m *CredentialResourceModel) {
+func mapCredentialResponseToModel(cred *client.CredentialResponse, m *CredentialResourceModel) error {
 	m.ID = types.Int64Value(cred.ID)
 	m.Name = types.StringValue(cred.Name)
 	m.CredentialType = types.StringValue(cred.CredentialType)
 	// credential_data is intentionally preserved from the plan/state — API returns ****
 	m.Description = stringPtrToValue(cred.Description)
 	m.RequiresUserMapping = types.BoolValue(cred.RequiresUserMapping)
-	m.ExtraData = rawJSONToNormalized(cred.ExtraData)
+	var err error
+	m.ExtraData, err = rawJSONToDynamic(cred.ExtraData)
+	if err != nil {
+		return fmt.Errorf("extra_data: %w", err)
+	}
 	m.CreatedAt = types.StringValue(cred.CreatedAt)
 	m.UpdatedAt = types.StringValue(cred.UpdatedAt)
+	return nil
 }

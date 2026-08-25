@@ -7,10 +7,10 @@ resource "mistershell_resource" "automatic" {
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host = "10.0.1.1"
     port = 22
-  })
+  }
 }
 
 # Exact onboarding: when resource_type is supplied, MisterShell infers the
@@ -21,10 +21,10 @@ resource "mistershell_resource" "known_ios" {
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host = "10.0.1.2"
     port = 22
-  })
+  }
 }
 
 # Generic SSH is the exact-type special case: a successful SSH connection is
@@ -35,10 +35,10 @@ resource "mistershell_resource" "generic_ssh" {
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host = "10.0.1.3"
     port = 22
-  })
+  }
 }
 
 resource "mistershell_tag" "production" {
@@ -53,9 +53,9 @@ resource "mistershell_resource" "tagged" {
   engine_id     = "ssh"
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
-  connector_data = jsonencode({
+  connector_data = {
     host = "10.0.1.4"
     port = 22
-  })
+  }
   tag_ids = [mistershell_tag.production.id]
 }

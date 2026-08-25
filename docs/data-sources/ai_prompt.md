@@ -49,7 +49,7 @@ output "prompt_content" {
 - `description` (String) Human-readable description of the prompt.
 - `type` (String) Prompt type. Either "user" (custom) or "system" (builtin/read-only).
 - `updated_at` (String) Last update timestamp.
-- `variable_schema` (String) JSON Schema documenting the template variables used in content.
+- `variable_schema` (Dynamic) JSON Schema documenting the template variables used in content.
 
 ## Lookup arguments
 

@@ -32,10 +32,10 @@ resource "mistershell_credential" "test" {
   name            = %q
   credential_type = "username_password"
 
-  credential_data = jsonencode({
+  credential_data = {
     username = %q
     password = %q
-  })
+  }
 }
 `, acctestPrefix+"tags-loc", acctestPrefix+"tags-cred", os.Getenv("MISTERSHELL_ACC_SSH_USERNAME"), os.Getenv("MISTERSHELL_ACC_SSH_PASSWORD"))
 }
@@ -71,10 +71,10 @@ resource "mistershell_resource" "test" {
 
   tag_ids = ` + tagIDsExpr + `
 
-  connector_data = jsonencode({
+  connector_data = {
     host = ` + strconv.Quote(os.Getenv("MISTERSHELL_ACC_SSH_HOST")) + `
     port = ` + testAccSSHPort() + `
-  })
+  }
 }
 `
 }
@@ -89,10 +89,10 @@ resource "mistershell_resource" "test" {
   location_id   = mistershell_location.test.id
   credential_id = mistershell_credential.test.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host = ` + strconv.Quote(os.Getenv("MISTERSHELL_ACC_SSH_HOST")) + `
     port = ` + testAccSSHPort() + `
-  })
+  }
 }
 `
 }
@@ -223,10 +223,10 @@ resource "mistershell_resource" "test" {
 
   tag_ids = [mistershell_tag.a.id]
 
-  connector_data = jsonencode({
+  connector_data = {
     host = ` + strconv.Quote(os.Getenv("MISTERSHELL_ACC_SSH_HOST")) + `
     port = ` + testAccSSHPort() + `
-  })
+  }
 }
 
 data "mistershell_resource" "by_id" {

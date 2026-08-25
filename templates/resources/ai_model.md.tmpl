@@ -24,7 +24,7 @@ description: |-
 | `name` | Required. 1-255 characters. Must be unique across all AI models. |
 | `model_provider` | Required. One of the provider values below. Named `model_provider` (not `provider`) because `provider` is a reserved Terraform meta-argument. |
 | `model_id` | Required. 1-255 characters. The provider-specific model identifier (e.g. `claude-3-5-sonnet-latest`, `gpt-4o`, `llama3.1`). Free-form string passed through to the provider SDK. |
-| `config` | Optional, sensitive. Per-provider JSON blob set with `jsonencode(...)`; see the `config` section below. Secrets are masked `***` in API reads and stored from your configuration. |
+| `config` | Optional, sensitive. Native Terraform object whose shape depends on `model_provider`; see the `config` section below. Secrets are masked `***` in API reads and stored from your configuration. |
 | `is_default` | Optional, computed. Boolean. Defaults to `false`. Only one model may be default; see the note below. |
 | `id` | Read-only. Integer ID. |
 | `created_at` | Read-only. Creation timestamp. |
@@ -60,9 +60,9 @@ To avoid perpetual drift, manage the default flag from a **single** resource. If
 two `mistershell_ai_model` resources both set `is_default = true`, whichever is
 applied last wins and the other will show drift on the next plan.
 
-## The `config` JSON blob
+## The `config` object
 
-`config` is an opaque JSON object written with `jsonencode(...)`. The backend
+`config` is a native Terraform object. The backend
 stores it as free-form JSON and **passes it through to the provider SDK** — it
 does not validate the key set, so any key the underlying provider accepts can be
 supplied. In practice only a small, well-known set of keys is consumed by
@@ -119,20 +119,20 @@ Examples:
 
 ```hcl
 # Anthropic — api_key only
-config = jsonencode({
+config = {
   api_key = var.anthropic_api_key # secret; masked "***", stored from config
-})
+}
 
 # Ollama — base_url only, no key
-config = jsonencode({
+config = {
   base_url = "http://localhost:11434/v1"
-})
+}
 
 # OpenAI behind a custom gateway
-config = jsonencode({
+config = {
   api_key  = var.openai_api_key # secret
   base_url = "https://gateway.example.com/v1"
-})
+}
 ```
 
 ## Deletion

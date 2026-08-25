@@ -2,18 +2,18 @@
 page_title: "mistershell_auth_provider Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is an opaque per-provider_type JSON blob carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.
+  Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is a native per-provider_type Terraform object carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.
 ---
 
 # mistershell_auth_provider (Resource)
 
-Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is an opaque per-provider_type JSON blob carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.
+Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is a native per-provider_type Terraform object carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.
 
 ## Example Usage
 
 ```terraform
-# An OIDC auth provider. config is an opaque per-provider_type JSON blob set
-# with jsonencode(); client_secret is a secret (masked '****' by the API and
+# An OIDC auth provider. config is a native per-provider_type Terraform object;
+# client_secret is a secret (masked '****' by the API and
 # stored from your configuration, not read back). mnemonic is immutable and is
 # used in stable login and callback URLs.
 #
@@ -25,12 +25,12 @@ resource "mistershell_auth_provider" "corp_oidc" {
   is_enabled    = true
   display_order = 0
 
-  config = jsonencode({
+  config = {
     issuer_url    = "https://login.example.com"
     client_id     = "mistershell"
     client_secret = var.oidc_client_secret # secret
     scopes        = ["openid", "profile", "email"]
-  })
+  }
 }
 
 variable "oidc_client_secret" {
@@ -44,7 +44,7 @@ variable "oidc_client_secret" {
 
 ### Required
 
-- `config` (String, Sensitive) Per-provider_type config as JSON. Use jsonencode() in HCL. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout. For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.
+- `config` (Dynamic, Sensitive) Per-provider_type config as a native Terraform object. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout. For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.
 - `mnemonic` (String) Stable URL token used in login, callback, ACS, and metadata URLs. Immutable after creation.
 - `name` (String) Unique provider name (1-100 characters).
 - `provider_type` (String) Provider type. One of: LDAP, OIDC, SAML. Cannot be changed after creation (the config shape is type-coupled).
@@ -73,7 +73,7 @@ variable "oidc_client_secret" {
 | `provider_type` | Required. One of the `provider_type` values below. **Immutable** — changing it forces replacement (the `config` shape is type-coupled). |
 | `is_enabled` | Optional boolean. Defaults to `true`. |
 | `display_order` | Optional + computed integer `>= 0`; sent on create and update. |
-| `config` | Required, **sensitive**. Per-`provider_type` JSON blob set with `jsonencode(...)`; see the per-type tables below. |
+| `config` | Required, **sensitive**. Native Terraform object whose shape depends on `provider_type`; see the per-type tables below. |
 | `group_mappings_count` | Read-only. Number of attached group→role mappings. |
 
 ### `provider_type` values
@@ -97,10 +97,9 @@ variable "oidc_client_secret" {
   a value, the provider applies it with a follow-up PATCH after create; thereafter
   it is set on update. The provider **never** calls the backend's reorder endpoint.
 
-## The `config` JSON blob
+## The `config` object
 
-`config` is an opaque, per-`provider_type` JSON object written with
-`jsonencode(...)`. Its shape is determined by `provider_type` (one table per type
+`config` is a native Terraform object. Its shape is determined by `provider_type` (one table per type
 below). Each type carries at least one **secret** field.
 
 **Secret & drift handling.** Every secret field (LDAP `bind_password`, OIDC
@@ -152,13 +151,13 @@ defaults to `true`.)
 Example:
 
 ```hcl
-config = jsonencode({
+config = {
   server_url    = "ldaps://ldap.example.com:636"
   bind_dn       = "cn=svc,dc=example,dc=com"
   bind_password = var.ldap_bind_password # secret; masked by the API, stored from config
   base_dn       = "ou=people,dc=example,dc=com"
   use_tls       = true
-})
+}
 ```
 
 ### `provider_type = "OIDC"` config
@@ -177,12 +176,12 @@ config = jsonencode({
 Example:
 
 ```hcl
-config = jsonencode({
+config = {
   issuer_url    = "https://login.example.com"
   client_id     = "mistershell"
   client_secret = var.oidc_client_secret # secret; masked by the API, stored from config
   scopes        = ["openid", "profile", "email"]
-})
+}
 ```
 
 ### `provider_type = "SAML"` config
@@ -220,12 +219,12 @@ above, so drop them from `config` when upgrading.
 Example:
 
 ```hcl
-config = jsonencode({
+config = {
   idp_entity_id  = "https://idp.example.com/metadata"
   idp_sso_url    = "https://idp.example.com/sso"
   idp_x509_cert  = file("idp.crt")
   sp_private_key = var.saml_sp_private_key # secret; masked by the API, stored from config
-})
+}
 ```
 
 ## Import

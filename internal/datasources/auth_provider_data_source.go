@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,19 +18,19 @@ type AuthProviderDataSource struct {
 }
 
 type AuthProviderDataSourceModel struct {
-	ID                 types.Int64          `tfsdk:"id"`
-	Name               types.String         `tfsdk:"name"`
-	Mnemonic           types.String         `tfsdk:"mnemonic"`
-	ProviderType       types.String         `tfsdk:"provider_type"`
-	IsEnabled          types.Bool           `tfsdk:"is_enabled"`
-	DisplayOrder       types.Int64          `tfsdk:"display_order"`
-	Config             jsontypes.Normalized `tfsdk:"config"`
-	GroupMappingsCount types.Int64          `tfsdk:"group_mappings_count"`
-	SPEntityID         types.String         `tfsdk:"sp_entity_id"`
-	SPACSURL           types.String         `tfsdk:"sp_acs_url"`
-	OIDCRedirectURI    types.String         `tfsdk:"oidc_redirect_uri"`
-	CreatedAt          types.String         `tfsdk:"created_at"`
-	UpdatedAt          types.String         `tfsdk:"updated_at"`
+	ID                 types.Int64   `tfsdk:"id"`
+	Name               types.String  `tfsdk:"name"`
+	Mnemonic           types.String  `tfsdk:"mnemonic"`
+	ProviderType       types.String  `tfsdk:"provider_type"`
+	IsEnabled          types.Bool    `tfsdk:"is_enabled"`
+	DisplayOrder       types.Int64   `tfsdk:"display_order"`
+	Config             types.Dynamic `tfsdk:"config"`
+	GroupMappingsCount types.Int64   `tfsdk:"group_mappings_count"`
+	SPEntityID         types.String  `tfsdk:"sp_entity_id"`
+	SPACSURL           types.String  `tfsdk:"sp_acs_url"`
+	OIDCRedirectURI    types.String  `tfsdk:"oidc_redirect_uri"`
+	CreatedAt          types.String  `tfsdk:"created_at"`
+	UpdatedAt          types.String  `tfsdk:"updated_at"`
 }
 
 func NewAuthProviderDataSource() datasource.DataSource {
@@ -72,11 +71,10 @@ func (d *AuthProviderDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 				Description: "Login-page display order.",
 				Computed:    true,
 			},
-			"config": schema.StringAttribute{
-				Description: "Per-provider_type config as JSON. Secret fields are masked as '****' by the API.",
+			"config": schema.DynamicAttribute{
+				Description: "Per-provider_type config as a native Terraform object. Secret fields are masked as '****' by the API.",
 				Computed:    true,
 				Sensitive:   true,
-				CustomType:  jsontypes.NormalizedType{},
 			},
 			"group_mappings_count": schema.Int64Attribute{
 				Description: "Number of external group->role mappings attached to this provider.",
@@ -174,7 +172,12 @@ func (d *AuthProviderDataSource) Read(ctx context.Context, req datasource.ReadRe
 	config.ProviderType = types.StringValue(detail.ProviderType)
 	config.IsEnabled = types.BoolValue(detail.IsEnabled)
 	config.DisplayOrder = types.Int64Value(detail.DisplayOrder)
-	config.Config = rawJSONToNormalized(detail.Config)
+	nativeConfig, err := rawJSONToDynamic(detail.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding auth provider config", err.Error())
+		return
+	}
+	config.Config = nativeConfig
 	config.GroupMappingsCount = types.Int64Value(detail.GroupMappingsCount)
 	config.SPEntityID = stringPtrToValue(detail.SPEntityID)
 	config.SPACSURL = stringPtrToValue(detail.SPACSURL)

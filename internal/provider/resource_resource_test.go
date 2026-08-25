@@ -211,10 +211,10 @@ resource "mistershell_location" "test" {
 resource "mistershell_credential" "test" {
   name            = %q
   credential_type = "username_password"
-  credential_data = jsonencode({
+  credential_data = {
     username = %q
     password = %q
-  })
+  }
 }
 
 resource "mistershell_resource" "test" {
@@ -222,10 +222,10 @@ resource "mistershell_resource" "test" {
 %s
   location_id   = mistershell_location.test.id
   credential_id = mistershell_credential.test.id
-  connector_data = jsonencode({
+  connector_data = {
     host = %q
     port = %d
-  })
+  }
 }
 `, name+"-location", rootLocationID, name+"-credential", username, password, name, typeLine, host, port)
 }
@@ -262,13 +262,13 @@ resource "mistershell_location" "b" {
 resource "mistershell_credential" "a" {
   name            = %q
   credential_type = "username_password"
-  credential_data = jsonencode({ username = %q, password = %q })
+  credential_data = { username = %q, password = %q }
 }
 
 resource "mistershell_credential" "b" {
   name            = %q
   credential_type = "username_password"
-  credential_data = jsonencode({ username = %q, password = %q })
+  credential_data = { username = %q, password = %q }
 }
 
 resource "mistershell_tag" "a" { name = %q }
@@ -281,10 +281,10 @@ resource "mistershell_resource" "test" {
   credential_id = %s
   is_enabled    = %s
   tag_ids       = [%s]
-  connector_data = jsonencode({
+  connector_data = {
     host = %q
     port = %s
-  })
+  }
 }
 `, acctestPrefix+"mutable-loc-a", acctestPrefix+"mutable-loc-b",
 		acctestPrefix+"mutable-cred-a", os.Getenv("MISTERSHELL_ACC_SSH_USERNAME"), os.Getenv("MISTERSHELL_ACC_SSH_PASSWORD"),
@@ -310,10 +310,10 @@ resource "mistershell_location" "test" {
 resource "mistershell_credential" "test" {
   name            = %q
   credential_type = "username_password"
-  credential_data = jsonencode({
+  credential_data = {
     username = %q
     password = %q
-  })
+  }
 }
 
 resource "mistershell_resource" "test" {
@@ -321,10 +321,10 @@ resource "mistershell_resource" "test" {
 %s
   location_id   = mistershell_location.test.id
   credential_id = mistershell_credential.test.id
-  connector_data = jsonencode({
+  connector_data = {
     host = %q
     port = %d
-  })
+  }
 }
 `, name+"-location", name+"-credential", os.Getenv("MISTERSHELL_ACC_SSH_USERNAME"), os.Getenv("MISTERSHELL_ACC_SSH_PASSWORD"), name, typeLine, os.Getenv("MISTERSHELL_ACC_SSH_HOST"), port)
 }

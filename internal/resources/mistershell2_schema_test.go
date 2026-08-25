@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	resourceschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -36,12 +35,63 @@ func TestMisterShell2ManagedResourceSchemas(t *testing.T) {
 	})
 }
 
+func TestJSONPayloadResourceAttributesUseNativeTerraformValues(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		resource  resource.Resource
+		attribute string
+		required  bool
+		optional  bool
+		computed  bool
+		sensitive bool
+	}{
+		{name: "location extra_data", resource: &LocationResource{}, attribute: "extra_data", optional: true},
+		{name: "credential credential_data", resource: &CredentialResource{}, attribute: "credential_data", required: true, sensitive: true},
+		{name: "credential extra_data", resource: &CredentialResource{}, attribute: "extra_data", optional: true},
+		{name: "resource connector_data", resource: &NetworkResourceResource{}, attribute: "connector_data", required: true},
+		{name: "resource extra_data", resource: &NetworkResourceResource{}, attribute: "extra_data", computed: true},
+		{name: "resource last_connectivity_result", resource: &NetworkResourceResource{}, attribute: "last_connectivity_result", computed: true},
+		{name: "setting value", resource: &SettingResource{}, attribute: "value", required: true, sensitive: true},
+		{name: "setting default", resource: &SettingResource{}, attribute: "default", computed: true},
+		{name: "setting schema", resource: &SettingResource{}, attribute: "schema", computed: true},
+		{name: "worker config", resource: &WorkerResource{}, attribute: "config", optional: true},
+		{name: "worker config_schema", resource: &WorkerResource{}, attribute: "config_schema", optional: true},
+		{name: "AI model config", resource: &AIModelResource{}, attribute: "config", optional: true, sensitive: true},
+		{name: "AI prompt variable_schema", resource: &AIPromptResource{}, attribute: "variable_schema", optional: true},
+		{name: "AI agent config", resource: &AIAgentResource{}, attribute: "config", optional: true},
+		{name: "auth provider config", resource: &AuthProviderResource{}, attribute: "config", required: true, sensitive: true},
+		{name: "log destination config", resource: &LogDestinationResource{}, attribute: "config", required: true, sensitive: true},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var resp resource.SchemaResponse
+			test.resource.Schema(context.Background(), resource.SchemaRequest{}, &resp)
+			attribute, ok := resp.Schema.Attributes[test.attribute].(resourceschema.DynamicAttribute)
+			if !ok {
+				t.Fatalf("%s schema type = %T, want schema.DynamicAttribute", test.attribute, resp.Schema.Attributes[test.attribute])
+			}
+			if attribute.Required != test.required || attribute.Optional != test.optional || attribute.Computed != test.computed || attribute.Sensitive != test.sensitive {
+				t.Fatalf("%s schema flags = required:%t optional:%t computed:%t sensitive:%t", test.attribute, attribute.Required, attribute.Optional, attribute.Computed, attribute.Sensitive)
+			}
+		})
+	}
+}
+
 func TestBuildWorkerCreateInputPreservesDisabledValue(t *testing.T) {
-	got := buildWorkerCreateInput(&WorkerResourceModel{
+	got, err := buildWorkerCreateInput(&WorkerResourceModel{
 		Name: types.StringValue("worker"), LocationID: types.Int64Value(2),
-		Description: types.StringNull(), Config: jsontypes.NewNormalizedNull(),
-		ConfigSchema: jsontypes.NewNormalizedNull(), IsEnabled: types.BoolValue(false),
+		Description: types.StringNull(), Config: types.DynamicNull(),
+		ConfigSchema: types.DynamicNull(), IsEnabled: types.BoolValue(false),
 	})
+	if err != nil {
+		t.Fatalf("buildWorkerCreateInput() error: %v", err)
+	}
 	if got.IsEnabled {
 		t.Fatal("is_enabled=false was not preserved")
 	}
@@ -71,7 +121,9 @@ func TestWorkerCreatedStateHasNoUnknownRuntimeValues(t *testing.T) {
 
 func TestLocationMutationResponseDoesNotInventDetailFields(t *testing.T) {
 	var state LocationResourceModel
-	mapLocationResponseToModel(&client.LocationResponse{ID: 1, Name: "site"}, &state)
+	if err := mapLocationResponseToModel(&client.LocationResponse{ID: 1, Name: "site"}, &state); err != nil {
+		t.Fatalf("mapLocationResponseToModel() error: %v", err)
+	}
 	if !state.ResourceCount.IsNull() || !state.Path.IsNull() {
 		t.Fatalf("detail-only values after mutation: resource_count=%v path=%v", state.ResourceCount, state.Path)
 	}

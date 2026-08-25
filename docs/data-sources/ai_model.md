@@ -45,7 +45,7 @@ output "model_is_default" {
 
 ### Read-Only
 
-- `config` (String, Sensitive) Per-provider config as JSON. Provider secrets (e.g. api_key) are masked as '***' by the API.
+- `config` (Dynamic, Sensitive) Per-provider config as a native Terraform object. Provider secrets (e.g. api_key) are masked as '***' by the API.
 - `created_at` (String) Creation timestamp.
 - `is_default` (Boolean) Whether this is the default AI model.
 - `model_id` (String) Provider-specific model identifier.
