@@ -61,7 +61,7 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Required:    true,
 			},
 			"credential_type": schema.StringAttribute{
-				Description: "Installed RDK credential type. MisterShell validates it against its runtime credential catalog. Cannot be changed after creation; backend-managed singleton types cannot be managed by this resource.",
+				Description: "Installed credential type. MisterShell validates it against its runtime credential catalog. Cannot be changed after creation; backend-managed singleton types cannot be managed by this resource.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),

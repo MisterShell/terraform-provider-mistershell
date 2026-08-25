@@ -2,12 +2,12 @@
 page_title: "mistershell_resource Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell network resource through live RDK onboarding. Creation requires a successful connection and may take several minutes. Set engine_id for automatic discovery (SSH falls back to Generic SSH) or resource_type for exact-type discovery. external_id is discovered and may be null.
+  Manages a MisterShell network resource through live onboarding. Creation requires a successful connection and may take several minutes. Set engine_id for automatic discovery (SSH falls back to Generic SSH) or resource_type for exact-type discovery. external_id is discovered and may be null.
 ---
 
 # mistershell_resource (Resource)
 
-Manages a MisterShell network resource through live RDK onboarding. Creation requires a successful connection and may take several minutes. Set engine_id for automatic discovery (SSH falls back to Generic SSH) or resource_type for exact-type discovery. external_id is discovered and may be null.
+Manages a MisterShell network resource through live onboarding. Creation requires a successful connection and may take several minutes. Set engine_id for automatic discovery (SSH falls back to Generic SSH) or resource_type for exact-type discovery. external_id is discovered and may be null.
 
 ## Example Usage
 
@@ -80,16 +80,16 @@ resource "mistershell_resource" "tagged" {
 
 ### Required
 
-- `connector_data` (Dynamic) Connection parameters as a native Terraform object. The accepted shape comes from the selected engine/type in MisterShell's installed RDK catalog.
+- `connector_data` (Dynamic) Connection parameters as a native Terraform object. The accepted shape comes from the selected engine or resource type in MisterShell's installed type catalog.
 - `credential_id` (Number) Credential ID for connecting to this resource.
 - `location_id` (Number) Location ID where this resource resides.
 - `name` (String) Resource display name.
 
 ### Optional
 
-- `engine_id` (String) RDK connection engine used for automatic onboarding. Supply engine_id without resource_type to let MisterShell discover the native type.
+- `engine_id` (String) Connection engine used for automatic onboarding. Supply engine_id without resource_type to let MisterShell discover the resource type.
 - `is_enabled` (Boolean) Whether the resource is enabled for operations.
-- `resource_type` (String) Optional exact installed RDK native type. When supplied, MisterShell must discover that type or onboarding fails.
+- `resource_type` (String) Optional exact installed resource type. When supplied, MisterShell must discover that type or onboarding fails.
 - `tag_ids` (Set of Number) Set of tag IDs to assign to this resource (reference them as mistershell_tag.<name>.id). When set, the provider manages the resource's tags **exclusively** (it adds and removes tags to match this set exactly; `[]` clears all tags). When **omitted/null**, the provider does not manage tags at all — leave it unset if you assign this resource's tags from the tag side via mistershell_tag.resource_ids. Own each tag↔resource edge from one side only.
 
 ### Read-Only
@@ -124,11 +124,11 @@ minutes. The provider waits up to five minutes for the worker task and its
 single-use discovery proof.
 
 - Set `engine_id` without `resource_type` for automatic onboarding. MisterShell
-  tries the installed native detectors in RDK order. SSH falls back to
+  tries the installed type detectors in their configured order. SSH falls back to
   `generic_ssh` after a successful connection when no native type matches;
   engines without a fallback fail when nothing matches.
 - Set `resource_type` for exact onboarding. The provider resolves its engine
-  from MisterShell's installed RDK catalog, and onboarding fails unless that
+  from MisterShell's installed type catalog, and onboarding fails unless that
   exact detector matches. `generic_ssh` is special: a successful SSH connection
   is sufficient and no native discovery is needed.
 - If both are set, they must describe the same installed type/engine pair.
@@ -139,8 +139,8 @@ The provider never accepts a caller-supplied external identifier.
 
 ## Runtime catalogs and connector data
 
-Resource and credential types come from the RDK bundles installed on the target
-MisterShell instance; extensions may add types. The provider therefore does not
+Resource and credential types come from the target MisterShell instance;
+installed extensions may add types. The provider therefore does not
 embed a closed list. Use MisterShell's `GET /api/v1/resources/types` and
 `GET /api/v1/credentials/types` endpoints to inspect the current type IDs,
 engine IDs, connector JSON Schemas, and compatible credential types.

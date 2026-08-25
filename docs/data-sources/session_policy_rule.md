@@ -59,6 +59,6 @@ output "rule_action" {
 - `tag_ids` (Set of Number) Tag IDs this rule applies to (empty means Any).
 - `updated_at` (String) Last update timestamp.
 
-`resource_types` values come from the target instance's live RDK catalog at
+`resource_types` values come from the target instance's live type catalog at
 `GET /api/v1/resources/types`; installed extensions may add values. Empty match
 sets mean “any.” `hit_count` and `last_hit_at` are runtime telemetry.

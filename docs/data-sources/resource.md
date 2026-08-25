@@ -2,12 +2,12 @@
 page_title: "mistershell_resource Data Source - MisterShell"
 subcategory: ""
 description: |-
-  Reads a MisterShell network resource. Look up by id or search by name/resource_type/location_id/status. The engine is resolved from the target instance's installed RDK catalog.
+  Reads a MisterShell network resource. Look up by id or search by name/resource_type/location_id/status. The engine is resolved from the target instance's installed type catalog.
 ---
 
 # mistershell_resource (Data Source)
 
-Reads a MisterShell network resource. Look up by id or search by name/resource_type/location_id/status. The engine is resolved from the target instance's installed RDK catalog.
+Reads a MisterShell network resource. Look up by id or search by name/resource_type/location_id/status. The engine is resolved from the target instance's installed type catalog.
 
 ## Example Usage
 
@@ -48,16 +48,16 @@ output "switch_tags" {
 - `id` (Number) Resource ID. Use for direct lookup.
 - `location_id` (Number) Location ID filter.
 - `name` (String) Resource name. Used as a search filter when id is not specified.
-- `resource_type` (String) Installed RDK resource type filter. Query MisterShell's runtime resource catalog for current values.
+- `resource_type` (String) Installed resource type filter. Query MisterShell's runtime resource catalog for current values.
 - `status` (String) Connectivity status filter (unknown, verified, unreachable, auth_failed, error, identity_mismatch, snapshot_truncated).
 
 ### Read-Only
 
-- `connector_data` (Dynamic) Connection parameters as a native Terraform object; the shape is defined by the installed RDK type catalog.
+- `connector_data` (Dynamic) Connection parameters as a native Terraform object; the shape is defined by the installed type catalog.
 - `connector_id` (String) Connector type.
 - `created_at` (String) Creation timestamp.
 - `credential_id` (Number) Credential ID.
-- `engine_id` (String) Connection engine inferred from the installed RDK resource-type catalog.
+- `engine_id` (String) Connection engine inferred from the installed resource-type catalog.
 - `external_id` (String) External identifier.
 - `extra_data` (Dynamic) Discovered metadata as a native Terraform value.
 - `is_enabled` (Boolean) Whether the resource is enabled.
@@ -80,8 +80,8 @@ Read-Only:
 
 ## Runtime resource types
 
-`resource_type` values are supplied by the RDK bundles installed on the target
-MisterShell instance; extensions may add types. Query
+`resource_type` values are supplied by the target MisterShell instance;
+installed extensions may add types. Query
 `GET /api/v1/resources/types` for the current type and engine catalog. The
 computed `engine_id` is resolved from that catalog. `external_id` can be null,
 including for a valid Generic SSH target.

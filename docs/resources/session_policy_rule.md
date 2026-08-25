@@ -66,7 +66,7 @@ resource "mistershell_session_policy_rule" "allow_rest" {
 ## Matching and order
 
 Empty match sets mean “any.” `session_types` accepts `shell` and `graphical`.
-`resource_types` uses the live RDK catalog returned by
+`resource_types` uses the live type catalog returned by
 `GET /api/v1/resources/types`, so installed extensions are supported.
 
 Rules are evaluated by ascending `position`. Omit `position` to append using the

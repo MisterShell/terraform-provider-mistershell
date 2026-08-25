@@ -5,45 +5,28 @@ Notable changes to the MisterShell Terraform provider, for people writing HCL ag
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - Unreleased
+## [2.0.0] - 2026-08-25
 
-**Requires MisterShell >= 2.0.0.** This release intentionally drops the
-pre-2.0 provider contract; no backward-compatibility shim is provided.
+**Requires MisterShell >= 2.0.0.**
 
 ### Added
 
-- Live network-resource onboarding. Configure `engine_id` for automatic RDK
-  discovery or `resource_type` for exact discovery. SSH automatically falls
-  back to `generic_ssh` after a successful connection when no native detector
-  matches; explicitly selecting `generic_ssh` only verifies the SSH connection.
-- Discovery-task and proof polling with cancellation, terminal-state handling,
-  a five-minute create limit, and proof-backed resource creation.
-- Runtime resource and credential catalogs sourced from the MisterShell/RDK API,
-  including installed extension types.
-- MisterShell 2.0 fields including role `location_scope_mode`, auth-provider
-  `mnemonic` and `oidc_redirect_uri`, worker RDK compatibility metadata, setting
-  schema/encryption metadata, AI-tool agent-type restrictions, user permissions,
-  permission-role assignments, and location path/resource counts.
-- Metadata-driven pagination for every paginated collection endpoint.
-
-### Changed
-
-- `mistershell_resource.external_id` is computed and nullable. Users no longer
-  provide it; MisterShell extracts it during discovery when the native type has
-  an external identity.
-- Resource and credential type validation is performed against runtime catalogs
-  instead of generated closed lists.
-- The API client is split into small domain files with a shared HTTP core,
-  bounded transport, retry handling, and consistent response envelopes.
-- Acceptance tests require `TF_ACC=1`; live onboarding tests additionally use a
-  reachable SSH target supplied through `MISTERSHELL_ACC_SSH_*` variables.
-
-### Fixed
-
-- MisterShell 2.0 request verbs and bodies for role/user assignments, ACLs,
-  session-policy rules, auth providers, users, workers, and network resources.
-- Singular data-source name lookups now re-fetch full detail responses where
-  list endpoints return slim objects.
+- Network-resource onboarding through a live connection. Set `engine_id` for
+  automatic type discovery, or set `resource_type` to require one exact type.
+  Automatic SSH onboarding falls back to `generic_ssh` after a successful
+  connection when no more specific type matches. Explicit `generic_ssh`
+  onboarding only requires a successful SSH connection.
+- Native Terraform values for structured attributes such as `connector_data`,
+  `credential_data`, resource configuration, schemas, and setting values.
+- Runtime resource and credential type catalogs, including types supplied by
+  installed extensions.
+- Complete inventory, access-policy, external-authentication, worker, setting,
+  and AI resource and data-source coverage for MisterShell 2.0.
+- Resource discovery results including computed `resource_type`, nullable
+  `external_id`, connection status, collection timestamps, and discovered
+  metadata.
+- Exact-one-match data-source lookup by ID or documented search filters, with
+  complete pagination of collection endpoints.
 
 ## [0.1.7] - 2026-07-15
 

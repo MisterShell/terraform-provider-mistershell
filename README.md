@@ -58,10 +58,10 @@ resource "mistershell_credential" "ssh_admin" {
   name            = "dc-admin-ssh"
   credential_type = "username_password"
 
-  credential_data = jsonencode({
+  credential_data = {
     username = "admin"
     password = var.ssh_password
-  })
+  }
 }
 
 # Onboard a network resource. MisterShell makes a live SSH connection,
@@ -72,10 +72,10 @@ resource "mistershell_resource" "core_switch" {
   location_id   = mistershell_location.zurich.id
   credential_id = mistershell_credential.ssh_admin.id
 
-  connector_data = jsonencode({
+  connector_data = {
     host = "10.0.1.1"
     port = 22
-  })
+  }
 }
 ```
 
@@ -97,10 +97,10 @@ All data sources support lookup by `id` or by search filters. Filters must match
 | `mistershell_resource` | `id`, `name`, `resource_type`, `location_id`, `status` |
 | `mistershell_credential` | `id`, `name`, `credential_type` |
 
-## Runtime RDK catalogs
+## Runtime type catalogs
 
-Resource and credential types come from the RDK bundles installed on the target
-MisterShell instance, and extensions may add types. The provider reads
+Resource and credential types come from the target MisterShell instance, and
+installed extensions may add types. The provider reads
 `/api/v1/resources/types` and `/api/v1/credentials/types` at runtime instead of
 embedding closed lists.
 
@@ -151,9 +151,9 @@ per-run `tfacc-` namespace and delete dependent objects before their parents.
 
 ### Generated enums
 
-Stable non-RDK enums are generated from the MisterShell backend's checked-in
-OpenAPI specification. RDK resource and credential catalogs are intentionally
-runtime data and are not generated into the provider.
+Stable API enums are generated from the MisterShell backend's checked-in OpenAPI
+specification. Resource and credential types remain runtime data so the provider
+automatically supports the types installed on each MisterShell instance.
 
 ```bash
 # Regenerate stable enums from a local checkout of the MisterShell backend

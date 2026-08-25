@@ -49,7 +49,7 @@ func (d *NetworkResourceDataSource) Metadata(_ context.Context, req datasource.M
 
 func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Reads a MisterShell network resource. Look up by id or search by name/resource_type/location_id/status. The engine is resolved from the target instance's installed RDK catalog.",
+		Description: "Reads a MisterShell network resource. Look up by id or search by name/resource_type/location_id/status. The engine is resolved from the target instance's installed type catalog.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Resource ID. Use for direct lookup.",
@@ -62,12 +62,12 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Computed:    true,
 			},
 			"resource_type": schema.StringAttribute{
-				Description: "Installed RDK resource type filter. Query MisterShell's runtime resource catalog for current values.",
+				Description: "Installed resource type filter. Query MisterShell's runtime resource catalog for current values.",
 				Optional:    true,
 				Computed:    true,
 			},
 			"engine_id": schema.StringAttribute{
-				Description: "Connection engine inferred from the installed RDK resource-type catalog.",
+				Description: "Connection engine inferred from the installed resource-type catalog.",
 				Computed:    true,
 			},
 			"connector_id": schema.StringAttribute{
@@ -79,7 +79,7 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Computed:    true,
 			},
 			"connector_data": schema.DynamicAttribute{
-				Description: "Connection parameters as a native Terraform object; the shape is defined by the installed RDK type catalog.",
+				Description: "Connection parameters as a native Terraform object; the shape is defined by the installed type catalog.",
 				Computed:    true,
 			},
 			"credential_id": schema.Int64Attribute{

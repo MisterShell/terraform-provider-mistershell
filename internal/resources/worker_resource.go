@@ -139,15 +139,15 @@ func (r *WorkerResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Computed:    true,
 			},
 			"rdk_contract_major": schema.Int64Attribute{
-				Description: "Major RDK contract version implemented by the worker.",
+				Description: "Major compatibility-contract version implemented by the worker.",
 				Computed:    true,
 			},
 			"rdk_catalog_identity": schema.StringAttribute{
-				Description: "RDK catalog identity reported by the worker.",
+				Description: "Type-catalog identity reported by the worker.",
 				Computed:    true,
 			},
 			"rdk_compatible": schema.BoolAttribute{
-				Description: "Whether the worker RDK is compatible with this MisterShell instance.",
+				Description: "Whether the worker is compatible with this MisterShell instance.",
 				Computed:    true,
 			},
 			"connected_at": schema.StringAttribute{

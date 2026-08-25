@@ -63,7 +63,7 @@ func (r *NetworkResourceResource) Metadata(_ context.Context, req resource.Metad
 
 func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell network resource through live RDK onboarding. Creation requires a successful connection and may take several minutes. Set engine_id for automatic discovery (SSH falls back to Generic SSH) or resource_type for exact-type discovery. external_id is discovered and may be null.",
+		Description: "Manages a MisterShell network resource through live onboarding. Creation requires a successful connection and may take several minutes. Set engine_id for automatic discovery (SSH falls back to Generic SSH) or resource_type for exact-type discovery. external_id is discovered and may be null.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Resource ID.",
@@ -77,7 +77,7 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Required:    true,
 			},
 			"engine_id": schema.StringAttribute{
-				Description: "RDK connection engine used for automatic onboarding. Supply engine_id without resource_type to let MisterShell discover the native type.",
+				Description: "Connection engine used for automatic onboarding. Supply engine_id without resource_type to let MisterShell discover the resource type.",
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
@@ -88,7 +88,7 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				},
 			},
 			"resource_type": schema.StringAttribute{
-				Description: "Optional exact installed RDK native type. When supplied, MisterShell must discover that type or onboarding fails.",
+				Description: "Optional exact installed resource type. When supplied, MisterShell must discover that type or onboarding fails.",
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
@@ -107,7 +107,7 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Required:    true,
 			},
 			"connector_data": schema.DynamicAttribute{
-				Description: "Connection parameters as a native Terraform object. The accepted shape comes from the selected engine/type in MisterShell's installed RDK catalog.",
+				Description: "Connection parameters as a native Terraform object. The accepted shape comes from the selected engine or resource type in MisterShell's installed type catalog.",
 				Required:    true,
 			},
 			"credential_id": schema.Int64Attribute{

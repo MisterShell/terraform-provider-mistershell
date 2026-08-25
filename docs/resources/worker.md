@@ -77,9 +77,9 @@ output "worker_token" {
 - `last_heartbeat_at` (String) Timestamp of the worker's last heartbeat.
 - `presence_ip` (String) IP address from which the worker is connected.
 - `presence_ip_source` (String) Source of the presence IP determination.
-- `rdk_catalog_identity` (String) RDK catalog identity reported by the worker.
-- `rdk_compatible` (Boolean) Whether the worker RDK is compatible with this MisterShell instance.
-- `rdk_contract_major` (Number) Major RDK contract version implemented by the worker.
+- `rdk_catalog_identity` (String) Type-catalog identity reported by the worker.
+- `rdk_compatible` (Boolean) Whether the worker is compatible with this MisterShell instance.
+- `rdk_contract_major` (Number) Major compatibility-contract version implemented by the worker.
 - `status` (String) Worker status.
 - `token` (String, Sensitive) Worker authentication token. Returned only once at creation and never readable again; not populated on import.
 - `total_task_count` (Number) Total number of tasks ever assigned to the worker.

@@ -52,7 +52,7 @@ func (d *CredentialDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 				Computed:    true,
 			},
 			"credential_type": schema.StringAttribute{
-				Description: "Installed RDK credential type filter. Query MisterShell's runtime credential catalog for current values.",
+				Description: "Installed credential type filter. Query MisterShell's runtime credential catalog for current values.",
 				Optional:    true,
 				Computed:    true,
 			},

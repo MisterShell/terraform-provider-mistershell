@@ -104,8 +104,8 @@ resource "mistershell_ai_skill" "linux_disk_pressure" {
 on demand. It is surfaced to agents through the `list_skills` and `load_skill`
 tools. The body may contain **Jinja2 template variables** (`{{ variable }}`)
 that the backend substitutes at prep time (for example a resource name or the
-current date). Because it is markdown, write it with a heredoc (`<<-EOT ... EOT`)
-rather than `jsonencode(...)`.
+current date). Because it is markdown, write it as a Terraform heredoc
+(`<<-EOT ... EOT`).
 
 ### `agent_types` values
 

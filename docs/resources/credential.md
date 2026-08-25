@@ -150,7 +150,7 @@ variable "kubeconfig" {
 ### Required
 
 - `credential_data` (Dynamic, Sensitive) Credential secret data as a native Terraform object. Fields vary by credential_type; see the valid credential_type values table on this page for the fields per type. Note: the API masks secret values in responses, so this value is stored from config, not read back from the server.
-- `credential_type` (String) Installed RDK credential type. MisterShell validates it against its runtime credential catalog. Cannot be changed after creation; backend-managed singleton types cannot be managed by this resource.
+- `credential_type` (String) Installed credential type. MisterShell validates it against its runtime credential catalog. Cannot be changed after creation; backend-managed singleton types cannot be managed by this resource.
 - `name` (String) Unique credential name.
 
 ### Optional
@@ -167,8 +167,8 @@ variable "kubeconfig" {
 
 ## Runtime credential catalog
 
-Credential types and their JSON Schemas come from the RDK bundles installed on
-the target MisterShell instance. Extensions may add types, so the provider does
+Credential types and their JSON Schemas come from the target MisterShell
+instance. Installed extensions may add types, so the provider does
 not embed a closed list. Query `GET /api/v1/credentials/types` for current type
 IDs, schemas, and secret-field metadata, and `GET /api/v1/resources/types` for
 resource compatibility. API responses mask secrets; `credential_data` is kept

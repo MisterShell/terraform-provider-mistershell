@@ -1,6 +1,6 @@
 default: build
 
-MISTERSHELL_ENV_FILE ?= .env
+MISTERSHELL_ENV_FILE ?= ./.env
 ACC_TEST_FLAGS = -count=1 -parallel=1 -v -timeout=30m
 ACC_SHELL_ENV = export TF_ACC=1; : "$${MISTERSHELL_ACC_SSH_HOST:=127.0.0.1}"; : "$${MISTERSHELL_ACC_SSH_PORT:=12223}"; : "$${MISTERSHELL_ACC_SSH_USERNAME:=tfacc}"; : "$${MISTERSHELL_ACC_SSH_PASSWORD:=tfacc-password}"; : "$${MISTERSHELL_ACC_SSH_UPDATE_HOST:=localhost}"; export MISTERSHELL_ACC_SSH_HOST MISTERSHELL_ACC_SSH_PORT MISTERSHELL_ACC_SSH_USERNAME MISTERSHELL_ACC_SSH_PASSWORD MISTERSHELL_ACC_SSH_UPDATE_HOST
 
@@ -95,7 +95,7 @@ generate:
 # fields, the examples/ directory, and templates/ via tfplugindocs.
 # Requires tfplugindocs, terraform, and go on PATH.
 docs:
-	tfplugindocs generate
+	tfplugindocs generate --provider-name mistershell --rendered-provider-name MisterShell
 
 clean:
 	rm -f terraform-provider-mistershell

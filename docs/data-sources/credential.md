@@ -33,7 +33,7 @@ data "mistershell_credential" "k8s" {
 
 ### Optional
 
-- `credential_type` (String) Installed RDK credential type filter. Query MisterShell's runtime credential catalog for current values.
+- `credential_type` (String) Installed credential type filter. Query MisterShell's runtime credential catalog for current values.
 - `id` (Number) Credential ID. Use for direct lookup.
 - `name` (String) Credential name (unique). Used as a search filter when id is not specified.
 
@@ -48,6 +48,6 @@ data "mistershell_credential" "k8s" {
 
 ## Runtime credential types
 
-`credential_type` values are supplied by the RDK bundles installed on the
-target MisterShell instance. Query `GET /api/v1/credentials/types` for the
+`credential_type` values are supplied by the target MisterShell instance.
+Query `GET /api/v1/credentials/types` for the
 current catalog and JSON Schemas; installed extensions may add types.
