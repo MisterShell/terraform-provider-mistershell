@@ -139,7 +139,7 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Computed:    true,
 			},
 			"is_enabled": schema.BoolAttribute{
-				Description: "Whether the resource is enabled for operations.",
+				Description: "Whether automatic snapshot collection is enabled for this resource. Defaults to true. Disabling it does not prevent manual sessions or operations.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
@@ -254,6 +254,7 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 	}
 
 	input := client.NetworkResourceCreateInput{
+		IsEnabled:      boolValueToPtr(plan.IsEnabled),
 		Name:           plan.Name.ValueString(),
 		ResourceType:   discovery.ResourceType,
 		DiscoveryToken: discovery.DiscoveryToken,
@@ -268,7 +269,6 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	desiredEnabled := plan.IsEnabled
 	configuredConnectorData := plan.ConnectorData
 	if err := mapNetworkResourceResponseToModel(res, &plan); err != nil {
 		resp.Diagnostics.AddError("Error decoding network resource", err.Error())
@@ -280,21 +280,6 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	if !desiredEnabled.IsNull() && !desiredEnabled.IsUnknown() && desiredEnabled.ValueBool() != res.IsEnabled {
-		enabled := desiredEnabled.ValueBool()
-		res, err = r.client.UpdateNetworkResource(createCtx, res.ID, client.NetworkResourceUpdateInput{IsEnabled: &enabled})
-		if err != nil {
-			resp.Diagnostics.AddError("Error setting network resource enabled state", err.Error())
-			return
-		}
-		if err := mapNetworkResourceResponseToModel(res, &plan); err != nil {
-			resp.Diagnostics.AddError("Error decoding network resource", err.Error())
-			return
-		}
-		plan.EngineID = types.StringValue(discovery.EngineID)
-		plan.ConnectorData = configuredConnectorData
 	}
 
 	if err := r.reconcileTags(createCtx, res.ID, &plan); err != nil {

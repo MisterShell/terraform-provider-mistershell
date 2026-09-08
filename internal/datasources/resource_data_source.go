@@ -117,7 +117,7 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Computed:    true,
 			},
 			"is_enabled": schema.BoolAttribute{
-				Description: "Whether the resource is enabled.",
+				Description: "Whether automatic snapshot collection is enabled for this resource. Disabling it does not prevent manual sessions or operations.",
 				Computed:    true,
 			},
 			"tags": schema.ListNestedAttribute{

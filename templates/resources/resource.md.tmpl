@@ -49,6 +49,39 @@ The API key needs permission to read both catalogs, start discovery worker
 tasks, read their status and discovery proof, create/update/delete resources,
 and read/reconcile tags when `tag_ids` is managed.
 
+## Automatic snapshot collection and parking
+
+`is_enabled` controls automatic snapshot collection for this resource and defaults
+to `true`. Set it to `false` to pause automatic collection. Manual sessions and
+operations remain available, subject to their normal permissions. Creation still
+requires successful live onboarding even when `is_enabled = false`.
+
+To park an existing resource, keep its Terraform resource address, change
+`location_id` to the parking location, and set `is_enabled = false`. Both fields
+update in place, preserving the resource ID. To restore it, move it to the desired
+location and set `is_enabled = true`.
+
+Moving a resource to another location alone does not pause collection. Removing
+it from Terraform configuration still deletes it from MisterShell on apply;
+parking requires keeping the resource in configuration.
+
+## SSH host-key trust
+
+Discovery connects first and returns a proof; creation consumes that proof and
+stores the observed SSH host-key fingerprint on the server. No manual fingerprint
+input is needed for onboarding. Terraform keeps only configured `connector_data`
+in state, so server-added fingerprints and defaults do not cause perpetual diffs.
+
+When an update includes `connector_data` without `host_key_fingerprint`, MisterShell
+preserves the saved fingerprint. Updating another connection setting therefore
+does not clear the pin or accept an observed replacement key. This requires a
+backend version supporting preservation of omitted SSH pins.
+
+`strict_host_key` defaults to `true`: runtime connections require a valid stored
+fingerprint matching the presented key. With `strict_host_key = false`, a different
+observed SSH key does not block connections. The stored pin remains available if
+strict checking is enabled again; changing trust still requires an explicit update.
+
 ## Tagging
 
 `tag_ids` is the complete tag set managed from the resource side. Omit it to

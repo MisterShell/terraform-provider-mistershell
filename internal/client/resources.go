@@ -48,6 +48,7 @@ func (c *Client) FindResourceType(ctx context.Context, typeID string) (*Resource
 }
 
 type NetworkResourceCreateInput struct {
+	IsEnabled      *bool           `json:"is_enabled,omitempty"`
 	Name           string          `json:"name"`
 	ResourceType   string          `json:"resource_type"`
 	DiscoveryToken string          `json:"discovery_token"`

@@ -59,3 +59,19 @@ resource "mistershell_resource" "tagged" {
   }
   tag_ids = [mistershell_tag.production.id]
 }
+
+# For an existing resource, keep its Terraform address and change these two
+# attributes to park it: location_id and is_enabled. Its ID is preserved.
+# A newly created resource still requires successful live onboarding.
+resource "mistershell_resource" "parked" {
+  name          = "parked-router"
+  engine_id     = "ssh"
+  location_id   = mistershell_location.parking.id
+  credential_id = mistershell_credential.ssh_admin.id
+  is_enabled    = false # Pause automatic snapshots; manual operations remain available.
+
+  connector_data = {
+    host = "10.0.1.5"
+    port = 22
+  }
+}

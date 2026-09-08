@@ -64,7 +64,7 @@ output "switch_tags" {
 - `engine_id` (String) Connection engine inferred from the installed resource-type catalog.
 - `external_id` (String) External identifier.
 - `extra_data` (Dynamic) Discovered metadata as a native Terraform value.
-- `is_enabled` (Boolean) Whether the resource is enabled.
+- `is_enabled` (Boolean) Whether automatic snapshot collection is enabled for this resource. Disabling it does not prevent manual sessions or operations.
 - `last_collection_at` (String) Timestamp of last data collection.
 - `last_connectivity_check` (String) Timestamp of last connectivity check.
 - `last_connectivity_result` (Dynamic) Structured result of the most recent connectivity check (read-only).
