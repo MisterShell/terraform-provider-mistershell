@@ -5,6 +5,26 @@ Notable changes to the MisterShell Terraform provider, for people writing HCL ag
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.7] - 2026-09-11
+
+**Requires MisterShell >= 2.0.7.**
+
+### Added
+
+- `mistershell_resource.is_enabled` controls automatic snapshot collection and
+  defaults to `true`. Set it to `false` to create a resource with collection
+  paused, or combine it with an in-place `location_id` update to park a resource.
+  Manual operations remain available; creation still requires live onboarding.
+
+### Changed
+
+- Clarified SSH trust management for MisterShell 2.0.7. Leave worker-observed
+  `host_key_fingerprint` and `tls_fingerprint` out of `connector_data` during
+  onboarding. Connector edits preserve an omitted saved SSH pin. Changing a pin
+  or accepting a changed resource identity requires MisterShell's explicit
+  check-and-accept workflow in the UI/API; this provider does not perform those
+  acceptance operations.
+
 ## [2.0.1] - 2026-08-26
 
 **Requires MisterShell >= 2.0.1.**

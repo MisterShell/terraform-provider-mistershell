@@ -8,8 +8,8 @@ build:
 	go build -o terraform-provider-mistershell
 
 install: build
-	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/mistershell/mistershell/2.0.1/linux_amd64
-	cp terraform-provider-mistershell ~/.terraform.d/plugins/registry.terraform.io/mistershell/mistershell/2.0.1/linux_amd64/
+	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/mistershell/mistershell/2.0.7/linux_amd64
+	cp terraform-provider-mistershell ~/.terraform.d/plugins/registry.terraform.io/mistershell/mistershell/2.0.7/linux_amd64/
 
 # Run the full acceptance test suite against a live MisterShell instance.
 # Sources MISTERSHELL_URL and MISTERSHELL_API_KEY (and optional MISTERSHELL_INSECURE)

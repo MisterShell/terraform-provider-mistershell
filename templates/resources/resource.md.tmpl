@@ -19,6 +19,8 @@ description: |-
 
 ## Onboarding modes
 
+Provider 2.0.7 requires **MisterShell >= 2.0.7**.
+
 Creating a resource always performs a live connection test and can take several
 minutes. The provider waits up to five minutes for the worker task and its
 single-use discovery proof.
@@ -69,18 +71,35 @@ parking requires keeping the resource in configuration.
 
 Discovery connects first and returns a proof; creation consumes that proof and
 stores the observed SSH host-key fingerprint on the server. No manual fingerprint
-input is needed for onboarding. Terraform keeps only configured `connector_data`
+input is needed for onboarding. Do not include `host_key_fingerprint` or
+`tls_fingerprint` in onboarding `connector_data`: these are worker-observed
+fields and the API rejects them with HTTP 422. Terraform keeps only configured `connector_data`
 in state, so server-added fingerprints and defaults do not cause perpetual diffs.
 
 When an update includes `connector_data` without `host_key_fingerprint`, MisterShell
 preserves the saved fingerprint. Updating another connection setting therefore
-does not clear the pin or accept an observed replacement key. This requires a
-backend version supporting preservation of omitted SSH pins.
+does not clear the pin or accept an observed replacement key.
 
 `strict_host_key` defaults to `true`: runtime connections require a valid stored
 fingerprint matching the presented key. With `strict_host_key = false`, a different
 observed SSH key does not block connections. The stored pin remains available if
-strict checking is enabled again; changing trust still requires an explicit update.
+strict checking is enabled again.
+
+MisterShell 2.0.7 rejects a supplied replacement fingerprint with HTTP 409 unless
+it is explicitly accepted from a completed resource check. This provider does not
+expose `check_task_id`, `accepted_trust_fields`, or `accepted_identity`. To rotate
+a saved pin, run a resource check in MisterShell, review the observed key, and
+explicitly accept and save it through the UI (or the API's equivalent workflow).
+Keep observed fingerprints out of Terraform `connector_data` so subsequent edits
+preserve that saved pin. A changed external identity uses the same explicit
+check-and-accept workflow; it cannot be assigned through Terraform's computed
+`external_id` attribute.
+
+Changing connection settings, credentials, or location without retaining a
+resource check resets the resource's status to `unknown` until a subsequent
+manual or scheduled check. Historical `last_connectivity_result` evidence can
+remain present with `configuration_current = false`; it does not verify the
+new settings.
 
 ## Tagging
 

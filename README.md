@@ -5,7 +5,7 @@ The MisterShell Terraform provider enables infrastructure-as-code management of 
 ## Requirements
 
 - [Terraform](https://www.terraform.io/downloads) >= 1.5
-- A running MisterShell 2.0 or newer instance
+- A running MisterShell 2.0.7 or newer instance for provider 2.0.7
 - A MisterShell API key (`apikey_` prefixed)
 
 ## Installation
