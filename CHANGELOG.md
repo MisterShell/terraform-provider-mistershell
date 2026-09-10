@@ -9,13 +9,6 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 **Requires MisterShell >= 2.0.7.**
 
-### Added
-
-- `mistershell_resource.is_enabled` controls automatic snapshot collection and
-  defaults to `true`. Set it to `false` to create a resource with collection
-  paused, or combine it with an in-place `location_id` update to park a resource.
-  Manual operations remain available; creation still requires live onboarding.
-
 ### Changed
 
 - Update `mistershell_role.permissions` HCL when upgrading from backend 2.0.1.
@@ -52,6 +45,12 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Fixed
 
+- `mistershell_resource` with `is_enabled = false` now disables automatic snapshot
+  collection in the initial create request. Previously, a follow-up update
+  disabled it after creation, leaving a window in which collection could be
+  scheduled. The existing attribute defaults to `true`; combine it with an
+  in-place `location_id` update to park a resource. Manual operations remain
+  available, and creation still requires live onboarding.
 - Corrected the settings reference to list all 99 registered backend 2.0.7 keys,
   constraints, defaults, and secret flags. Removed nonexistent keys that fail
   with HTTP 404, and corrected the email-notification and API-rate-limit defaults.
