@@ -18,12 +18,43 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Changed
 
+- Update `mistershell_role.permissions` HCL when upgrading from backend 2.0.1.
+  The backend migrates stored role grants, but cannot edit Terraform configuration;
+  retired names cause persistent drift and HTTP 400 `Invalid permission` on apply:
+
+  | Previous permission | Use instead |
+  |---|---|
+  | `app.workers.read`, `app.proxies.read` | `app.fabric.read` |
+  | `app.workers.write`, `app.proxies.write` | `app.fabric.write` |
+  | `app.workers.delete`, `app.proxies.delete` | `app.fabric.delete` |
+  | `app.resources.test`, `app.resources.session`, `app.snapshots.create` | `app.resources.execute` |
+  | `app.ai.chat`, `app.ai.quick_assist` | `app.ai.execute` |
+  | `app.facts.manage` | `app.facts.write` |
+  | `app.changelog.write` | Remove it; use `app.changelog.delete` if deletion is required |
+
+- `mistershell_setting` key `session_inactivity_timeout_minutes` now accepts
+  1–240 minutes. The backend clamps larger stored values to 240; change HCL values
+  above 240 to avoid repeated drift and HTTP 422 on apply.
+- Log-destination creation and updates require a Pro license providing
+  `log_forwarding.configure` and `app.audit.write`. Deletion requires
+  `app.audit.delete`. Auth-provider mapping deletion requires
+  `app.auth_providers.delete`. Ensure the Terraform API key retains the relevant
+  delete grants; write access alone is insufficient for those destroy operations.
+- Creating superuser roles (`*.*.*`) or mapping groups to them requires a
+  superuser caller. The role name `admin` is reserved; built-in roles cannot be
+  edited or deleted and should only be read through data sources.
 - Clarified SSH trust management for MisterShell 2.0.7. Leave worker-observed
   `host_key_fingerprint` and `tls_fingerprint` out of `connector_data` during
   onboarding. Connector edits preserve an omitted saved SSH pin. Changing a pin
   or accepting a changed resource identity requires MisterShell's explicit
   check-and-accept workflow in the UI/API; this provider does not perform those
   acceptance operations.
+
+### Fixed
+
+- Corrected the settings reference to list all 99 registered backend 2.0.7 keys,
+  constraints, defaults, and secret flags. Removed nonexistent keys that fail
+  with HTTP 404, and corrected the email-notification and API-rate-limit defaults.
 
 ## [2.0.1] - 2026-08-26
 

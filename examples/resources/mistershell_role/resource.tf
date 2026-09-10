@@ -16,6 +16,7 @@ resource "mistershell_role" "auditor" {
   ]
 }
 
+# Creating this role requires an API key whose caller is already a superuser.
 # A global superuser role. The '*.*.*' permission cannot be combined with any
 # other permission, and cannot be used together with scope_location_ids.
 resource "mistershell_role" "superuser" {

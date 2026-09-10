@@ -19,6 +19,11 @@ description: |-
 
 ## Top-level field values
 
+Creation and updates require `app.audit.write` and a Pro license providing the
+`log_forwarding.configure` capability. Reads require `app.audit.read`; destruction
+requires `app.audit.delete`. Missing permissions or the configuration capability
+produce HTTP 403.
+
 | attribute | constraints |
 |---|---|
 | `name` | Required. 1-128 characters. |
@@ -45,6 +50,7 @@ At least one is required. The set is order-independent.
 | `policy` | Session policy log events |
 | `api` | API access log events |
 | `app` | Application / worker log events |
+| `ai` | AI log events |
 | `ids` | IDS / intrusion-detection log events |
 | `collector` | Collector-service log events |
 

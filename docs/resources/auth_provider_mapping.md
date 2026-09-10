@@ -2,12 +2,12 @@
 page_title: "mistershell_auth_provider_mapping Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell external group->role mapping under an auth provider. (provider_id, external_group) is unique. Import format is "<provider_id>:<mapping_id>". Create and update require an active license; deleting the parent provider cascades to its mappings.
+  Manages a MisterShell external group->role mapping under an auth provider. (provider_id, external_group) is unique. Import format is "<provider_id>:<mapping_id>". Create and update require an active license and app.auth_providers.write; reads require app.auth_providers.read and deletion requires app.auth_providers.delete. Mapping to a superuser role requires a superuser caller. Deleting the parent provider cascades to its mappings.
 ---
 
 # mistershell_auth_provider_mapping (Resource)
 
-Manages a MisterShell external group->role mapping under an auth provider. (provider_id, external_group) is unique. Import format is "<provider_id>:<mapping_id>". Create and update require an active license; deleting the parent provider cascades to its mappings.
+Manages a MisterShell external group->role mapping under an auth provider. (provider_id, external_group) is unique. Import format is "<provider_id>:<mapping_id>". Create and update require an active license and app.auth_providers.write; reads require app.auth_providers.read and deletion requires app.auth_providers.delete. Mapping to a superuser role requires a superuser caller. Deleting the parent provider cascades to its mappings.
 
 ## Example Usage
 

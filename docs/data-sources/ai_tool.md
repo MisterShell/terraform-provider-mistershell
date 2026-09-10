@@ -84,7 +84,7 @@ Specify exactly one of:
 | `description` | Human-readable description of what the tool does. |
 | `handler` | Backend handler identifier the tool dispatches to (e.g. `mcp.list_resources`). Informational. |
 | `input_schema` | The tool's **JSON Schema** as a native Terraform object describing its input parameters. |
-| `required_permission` | The permission a caller must hold to invoke the tool, or empty if none (e.g. `app.resources.read`, `app.session.read`, `app.resources.session`). |
+| `required_permission` | The permission a caller must hold to invoke the tool, or empty if none (e.g. `app.resources.read`, `app.session.read`, `app.resources.execute`). |
 | `created_at` | Creation timestamp (when the tool was seeded). |
 
 ## Builtin tool names

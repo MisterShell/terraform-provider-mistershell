@@ -33,6 +33,19 @@ provider "mistershell" {
 }
 ```
 
+The API key's role needs read, write, and the relevant delete permissions for
+the objects Terraform manages. Workers use `app.fabric.read`, `app.fabric.write`,
+and `app.fabric.delete`;
+log-destination deletion uses `app.audit.delete`, and auth-provider mapping
+deletion uses `app.auth_providers.delete`. Log-destination creation/updates also
+require a Pro license with `log_forwarding.configure`. See the [2.0.7 upgrade
+notes](CHANGELOG.md#207---2026-09-11) for renamed role permissions and setting limits.
+
+Keep the API key's location scope covering all managed objects and their target
+locations. An object outside that scope can return HTTP 404; Terraform treats it
+as missing and may plan to recreate it. A global location scope is appropriate
+when Terraform manages inventory across the entire instance.
+
 ## Example Usage
 
 ```hcl

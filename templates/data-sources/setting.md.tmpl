@@ -35,6 +35,111 @@ description: |-
 | `created_at` | Creation timestamp. |
 | `updated_at` | Last update timestamp. |
 
-For the complete list of valid `key` values — with each key's value type, range
-or enum constraints, default, and whether it is secret — see the
-[`mistershell_setting` resource](../resources/setting.md) page.
+## Valid `key` values
+
+The following table is derived from the MisterShell 2.0.7 registry. Unknown keys
+return 404. Defaults below are registry defaults, not the instance's current
+values. The session inactivity timeout accepts 1–240 minutes; backend upgrades
+clamp larger stored values to 240.
+
+| key | type and constraints | default | secret | meaning |
+|---|---|---|---|---|
+| `enable_email_notifications` | boolean | `false` | no | Global toggle for email notification feature |
+| `rate_limiting_enabled` | boolean | `true` | no | Enable or disable API rate limiting globally |
+| `api_rate_limit_per_minute` | integer; >= 10; <= 10000 | `600` | no | Rate limit for authenticated API endpoints per user |
+| `public_api_rate_limit_per_minute` | integer; >= 1; <= 1000 | `120` | no | Rate limit for public API endpoints per IP address |
+| `api_log_retention_days` | integer; >= 1; <= 3650 | `90` | no | API log retention period in days |
+| `app_log_retention_days` | integer; >= 1; <= 365 | `14` | no | Application log retention period in days |
+| `smtp_host` | string; min length 1; max length 255 | `"localhost"` | no | SMTP server hostname for sending emails |
+| `smtp_port` | integer; >= 1; <= 65535 | `587` | no | SMTP server port |
+| `smtp_username` | string; max length 255 | `""` | no | SMTP authentication username |
+| `smtp_password` | string; max length 255 | `""` | **yes** | SMTP authentication password (encrypted) |
+| `smtp_from_email` | string; min length 3; max length 255 | `"noreply@example.com"` | no | Email address used as sender for outgoing emails |
+| `smtp_use_tls` | boolean | `true` | no | Use TLS encryption for SMTP connection (STARTTLS) |
+| `smtp_tls_verify` | boolean | `false` | no | Verify SMTP server TLS certificate |
+| `enable_debug_mode` | boolean | `false` | no | Enable debug mode (more verbose logging, dev features) |
+| `jwt_secret_key` | string; min length 32 | `""` | **yes** | JWT secret key for token signing (encrypted) |
+| `jwt_algorithm` | string; one of `"HS256"`, `"HS384"`, `"HS512"` | `"HS256"` | no | JWT signing algorithm |
+| `jwt_access_token_expire_minutes` | integer; >= 5; <= 1440 | `30` | no | JWT access token expiration time in minutes |
+| `jwt_refresh_token_expire_days` | integer; >= 1; <= 30 | `7` | no | JWT refresh token expiration time in days |
+| `core_cache_ttl_seconds` | integer; >= 10; <= 3600 | `60` | no | TTL for all core per-request caches on Cache Redis (settings, permissions, worker/sensor/proxy tokens, API keys, facts/metrics/snaps config). This is the worst-case cross-node authorization/revocation lag: a revoked user or rotated token stays honoured on an already-warmed node until expiry. Keep it short. |
+| `password_min_length` | integer; >= 4; <= 128 | `8` | no | Minimum password length |
+| `password_min_uppercase` | integer; >= 0; <= 10 | `0` | no | Minimum number of uppercase letters required in password |
+| `password_min_lowercase` | integer; >= 0; <= 10 | `0` | no | Minimum number of lowercase letters required in password |
+| `password_min_digit` | integer; >= 0; <= 10 | `0` | no | Minimum number of digits required in password |
+| `password_min_special` | integer; >= 0; <= 10 | `0` | no | Minimum number of special characters required in password (!@#$%^&*()_+-=[]{}\|;:,.<>?) |
+| `max_failed_login_attempts` | integer; >= 1; <= 100 | `5` | no | Maximum failed login attempts before account lockout |
+| `lockout_duration_minutes` | integer; >= 1; <= 1440 | `15` | no | Account lockout duration in minutes (max 24 hours) |
+| `password_reset_token_expire_minutes` | integer; >= 5; <= 1440 | `30` | no | Password reset token expiration time in minutes (max 24 hours) |
+| `external_auth_auto_provision` | boolean | `true` | no | Automatically create user accounts on first external login (LDAP/OIDC/SAML) |
+| `external_auth_sync_attributes` | boolean | `true` | no | Sync user attributes (name, email) from external provider on each login |
+| `external_auth_override_roles` | boolean | `true` | no | External group mappings override local role assignments for external users |
+| `oidc_state_timeout_minutes` | integer; >= 1; <= 60 | `10` | no | OIDC/SAML state parameter timeout in minutes |
+| `app_base_url` | string; min length 1; max length 500 | `"http://localhost:9000"` | no | Public base URL users browse to (e.g., https://app.example.com). Used to build every outbound link: password reset, email verification, OIDC/SAML callbacks, shareable report links. Must be set to a real URL before an OIDC or SAML provider can be enabled. |
+| `enable_x_forwarded_for_header` | boolean | `true` | no | Trust X-Forwarded-For header for client IP (enable only when behind trusted reverse proxy) |
+| `nginx_tls_certificate_pem` | string; multiline | `""` | no | Nginx TLS certificate (PEM). If empty, bootstrap self-signed cert is used. |
+| `nginx_tls_private_key_pem` | string; multiline | `""` | **yes** | Nginx TLS private key (PEM, encrypted at rest). |
+| `enable_self_registration` | boolean | `false` | no | Allow users to self-register accounts |
+| `require_email_verification` | boolean | `false` | no | Require email verification before account activation (LOCAL auth only) |
+| `email_verification_token_expire_hours` | integer; >= 1; <= 168 | `24` | no | Email verification token expiry in hours (max 7 days) |
+| `backup_sftp_host` | string | `""` | no | SFTP server hostname for backup storage |
+| `backup_sftp_port` | integer; >= 1; <= 65535 | `22` | no | SFTP server port (default: 22) |
+| `backup_sftp_username` | string | `""` | no | SFTP username for backup uploads |
+| `backup_sftp_password` | string | `""` | **yes** | SFTP password for backup uploads (encrypted) |
+| `backup_sftp_remote_path` | string | `"/backups"` | no | Remote directory path for backup storage |
+| `task_log_retention_days` | integer; >= 1; <= 365 | `30` | no | Number of days to retain scheduled task logs |
+| `scheduler_check_interval_seconds` | integer; >= 10; <= 3600 | `60` | no | Interval in seconds between scheduled task checks |
+| `default_worker_token` | string | `""` | **yes** | Auto-provisioned token for the default embedded worker (encrypted) |
+| `gateway_heartbeat_timeout` | integer; >= 30; <= 300 | `60` | no | Seconds without heartbeat before worker is marked stale/offline |
+| `gateway_max_result_size` | integer; >= 1024; <= 20971520 | `1048576` | no | Maximum task result size in bytes before truncation (default 1MB, max 20MB) |
+| `gateway_ack_task_timeout_seconds` | integer; >= 1; <= 60 | `5` | no | Seconds to wait for worker acknowledgment when dispatching a task (default 5s) |
+| `worker_max_concurrent_tasks` | integer; >= 1; <= 100 | `10` | no | Default maximum concurrent tasks per worker |
+| `local_max_concurrent_tasks` | integer; >= 1; <= 32 | `4` | no | Maximum concurrent LocalTask executions per API process |
+| `worker_heartbeat_interval` | integer; >= 5; <= 300 | `30` | no | Interval in seconds at which workers send heartbeats to gateway |
+| `worker_reconnect_interval` | integer; >= 1; <= 60 | `5` | no | Interval in seconds at which workers retry connection after disconnect |
+| `worker_task_retention_days` | integer; >= 1; <= 365 | `30` | no | Number of days to retain completed worker task records |
+| `worker_task_max_execution_time_minutes` | integer; >= 1; <= 60 | `5` | no | Maximum time in minutes a task can run before being marked as failed (applies to stuck RUNNING tasks and unassigned PENDING/QUEUED tasks) |
+| `worker_log_level` | string; one of `"DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`, `"CRITICAL"` | `"INFO"` | no | Log level pushed to workers via heartbeat |
+| `fastapi_log_level` | string; one of `""`, `"DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`, `"CRITICAL"` | `""` | no | Override log level for FastAPI (empty = use LOG_LEVEL env var) |
+| `onboarding_discovery_proof_ttl_seconds` | integer; >= 600; <= 86400 | `14400` | no | Lifetime in seconds for single-use resource onboarding proofs (default 4 hours) |
+| `dns_resolution_timeout_seconds` | integer; >= 1; <= 30 | `5` | no | Timeout in seconds for DNS hostname resolution (default 5 seconds) |
+| `data_collection_concurrency` | integer; >= 1; <= 100 | `2` | no | Maximum concurrent resource data collection tasks |
+| `data_collection_retention_days` | integer; >= 1; <= 365 | `30` | no | Resource snapshot retention period in days |
+| `health_metric_retention_days` | integer; >= 1; <= 365 | `90` | no | Health metric retention period in days |
+| `fact_policy_retention_days` | integer; >= 1; <= 3650 | `90` | no | Fact policy compliance history retention in days |
+| `fact_version_retention_days` | integer; >= 1; <= 3650 | `90` | no | Fact version history retention in days |
+| `cache_max_memory_mb` | integer; >= 64; <= 16384 | `256` | no | Maximum cache memory budget in MB |
+| `session_inactivity_timeout_minutes` | integer; >= 1; <= 240 | `15` | no | Session inactivity timeout (minutes) |
+| `worker_max_concurrent_sessions` | integer; >= 1; <= 20 | `3` | no | Maximum concurrent interactive SSH sessions a single worker can handle |
+| `enable_session_resume` | boolean | `true` | no | Pick up shell sessions where you left them after closing a tab |
+| `session_log_retention_days` | integer; >= 1; <= 3650 | `90` | no | Session history retention period in days (all session types) |
+| `ai_usage_retention_days` | integer; >= 1; <= 3650 | `90` | no | AI usage log retention period in days |
+| `ai_audit_retention_days` | integer; >= 1; <= 3650 | `7` | no | AI audit log retention period in days |
+| `ai_daily_token_limit_per_user` | integer; >= 0; <= 100000000 | `0` | no | Per-user daily AI token budget (0 = unlimited) |
+| `automation_runs_retention_days` | integer; >= 1; <= 3650 | `90` | no | Automation run log retention period in days |
+| `local_tasks_retention_days` | integer; >= 1; <= 3650 | `90` | no | Days to keep completed/failed local (API-side) task records |
+| `changelog_retention_days` | integer; >= 1; <= 3650 | `90` | no | Config changelog retention period in days |
+| `policy_log_retention_days` | integer; >= 1; <= 3650 | `90` | no | Policy decision log retention period in days |
+| `files_max_upload_bytes` | integer; >= 1048576; <= 1099511627776 | `5368709120` | no | Maximum file upload size |
+| `security_log_retention_days` | integer; >= 1; <= 3650 | `90` | no | Security audit log retention period in days |
+| `quickstart_completed` | boolean | `false` | no | Quick Start wizard completion flag |
+| `quickstart_size` | string; one of `"small"`, `"medium"`, `"large"` | `"small"` | no | Deployment size selected in Quick Start wizard |
+| `notes_edit_lock_ttl_seconds` | integer; >= 30; <= 600 | `120` | no | Soft heartbeat TTL on the Notes edit lock (seconds) |
+| `notes_edit_lock_max_seconds` | integer; >= 60; <= 3600 | `600` | no | Hard cap on a single Notes edit session before auto-release (seconds) |
+| `sensor_ruleset_update_mode` | string; one of `"auto"`, `"manual"` | `"manual"` | no | Sensor ruleset update mode (auto = scheduled fetch, manual = admin upload). In auto mode the fetch cadence is controlled by the 'Sensor Ruleset Update' scheduled task interval (Settings > Scheduled Tasks). |
+| `sensor_suricata_version` | string; pattern `^\d+\.\d+\.\d+$` | `"8.0.5"` | no | Suricata engine version for ruleset builds (must match sensor fleet) |
+| `sensor_alert_retention_days` | integer; >= 1; <= 3650 | `30` | no | IDS alert retention period in days |
+| `sensor_alert_rate_limit_per_min` | integer; >= 1; <= 100000 | `600` | no | Per-sensor IDS alert ingest rate limit (alerts per minute) |
+| `collector_retention_days` | integer; >= 1; <= 90 | `7` | no | Device log retention period in days |
+| `collector_ingest_rate_per_second` | integer; >= 1; <= 1000000 | `2000` | no | Operational safety limit on log ingestion (records/second). This is a protection limit, not an entitlement — the collector license grants the feature and a collector-enabled Worker count, never a logs/second rate. |
+| `collector_ingest_burst` | integer; >= 10000; <= 10000000 | `60000` | no | Burst allowance for log ingestion in records. Floored at 10000 (the maximum size of a single ingest POST) so one full-size batch always fits. |
+| `collector_bucket_interval` | integer; >= 5; <= 300 | `30` | no | Collector shipping interval in seconds |
+| `licensing_email` | string; max length 320 | `""` | no | Licensing email for this installation. It must match the email on every purchased license: a license whose email differs is stored but resolves as a mismatch and grants nothing. Empty means no paid license can activate and the installation runs as Free. |
+| `enable_external_session_participants` | boolean | `false` | no | Allow external (non-account) participants to join shared sessions via one-time invitation links. |
+| `facts_enabled` | boolean | `false` | no | Global toggle for the facts feature |
+| `proxy_base_url` | string; max length 500 | `""` | no | Public base URL of the external-participant proxy, used to build invitation links ({proxy_base_url}/join/{token}). |
+| `session_invite_ttl_hours` | integer; >= 1; <= 720 | `24` | no | Session invite link expiry (hours) |
+| `fabric_sample_interval_seconds` | integer; >= 2; <= 60 | `5` | no | Interval at which each Core samples its local NATS monitor for fabric statistics |
+| `ssh_conn_timeout_seconds` | integer; >= 1; <= 300 | `30` | no | SSH connect timeout applied when a resource does not override it |
+| `ssh_auth_timeout_seconds` | integer; >= 1; <= 300 | `30` | no | SSH auth timeout applied when a resource does not override it |
+| `ssh_banner_timeout_seconds` | integer; >= 1; <= 300 | `15` | no | SSH banner timeout applied when a resource does not override it |

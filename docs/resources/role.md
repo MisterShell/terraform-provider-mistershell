@@ -30,6 +30,7 @@ resource "mistershell_role" "auditor" {
   ]
 }
 
+# Creating this role requires an API key whose caller is already a superuser.
 # A global superuser role. The '*.*.*' permission cannot be combined with any
 # other permission, and cannot be used together with scope_location_ids.
 resource "mistershell_role" "superuser" {
@@ -71,6 +72,34 @@ permission `*.*.*` is global and cannot be combined with other permissions.
 Permission names are validated by MisterShell's live registry. Use the
 `mistershell_permissions` data source to enumerate names, modules, and current
 role assignments.
+
+## Backend 2.0.7 permissions and upgrades
+
+When upgrading from backend 2.0.1, edit `permissions` in HCL to match migrated
+server-side grants. Retired names otherwise cause recurring drift and HTTP 400
+`Invalid permission` on apply.
+
+| Previous permission | Use instead |
+|---|---|
+| `app.workers.read`, `app.proxies.read` | `app.fabric.read` |
+| `app.workers.write`, `app.proxies.write` | `app.fabric.write` |
+| `app.workers.delete`, `app.proxies.delete` | `app.fabric.delete` |
+| `app.resources.test`, `app.resources.session`, `app.snapshots.create` | `app.resources.execute` |
+| `app.ai.chat`, `app.ai.quick_assist` | `app.ai.execute` |
+| `app.facts.manage` | `app.facts.write` |
+| `app.changelog.write` | Remove it; use `app.changelog.delete` if deletion is required |
+
+For example, change `permissions = ["app.workers.read", "app.resources.test"]`
+to `permissions = ["app.fabric.read", "app.resources.execute"]`.
+
+Granting `*.*.*` requires an API key whose caller is already a superuser. The
+name `admin` is reserved. Built-in roles are protected from edits and deletion;
+use the role data source to read them instead of importing them as resources.
+
+Include the applicable delete permissions in the role used by Terraform.
+For example, `app.audit.write` permits log-destination changes but destruction
+requires `app.audit.delete`; group-mapping destruction requires
+`app.auth_providers.delete`.
 
 ## Import
 
