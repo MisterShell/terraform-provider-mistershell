@@ -1,10 +1,12 @@
 package provider_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -169,6 +171,131 @@ func TestAccNetworkResource_mutableUpdate(t *testing.T) {
 			},
 		},
 	})
+}
+
+// sshgw_allow_api_key round-trips through the API (not just the plan): the
+// live read-back check proves MisterShell stored the flag.
+func TestAccNetworkResource_sshgwAllowApiKey(t *testing.T) {
+	testAccSSHResourcePreCheck(t)
+	name := acctestPrefix + "sshgw-api-key"
+	var createdID string
+
+	liveFlag := func(want bool) resource.TestCheckFunc {
+		return func(state *terraform.State) error {
+			rs, ok := state.RootModule().Resources["mistershell_resource.test"]
+			if !ok {
+				return fmt.Errorf("mistershell_resource.test is missing from state")
+			}
+			id, err := strconv.ParseInt(rs.Primary.ID, 10, 64)
+			if err != nil {
+				return err
+			}
+			actual, err := testAccClient().GetNetworkResource(context.Background(), id)
+			if err != nil {
+				return err
+			}
+			if actual.SshgwAllowAPIKey != want {
+				return fmt.Errorf("live sshgw_allow_api_key=%t, want %t", actual.SshgwAllowAPIKey, want)
+			}
+			return nil
+		}
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAllDestroyed,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccSSHResourceSshgwConfig(name, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					captureResourceID("mistershell_resource.test", &createdID),
+					resource.TestCheckResourceAttr("mistershell_resource.test", "sshgw_allow_api_key", "true"),
+					liveFlag(true),
+				),
+			},
+			{
+				Config: testAccSSHResourceSshgwConfig(name, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					checkResourceID("mistershell_resource.test", &createdID),
+					resource.TestCheckResourceAttr("mistershell_resource.test", "sshgw_allow_api_key", "false"),
+					liveFlag(false),
+				),
+			},
+			{
+				Config:             testAccSSHResourceSshgwConfig(name, false),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}
+
+// MisterShell rejects sshgw_allow_api_key = true on graphical-only types with
+// HTTP 400. Onboarding connects for real, so each subtest needs a live target
+// of that type and skips without one.
+func TestAccNetworkResource_sshgwAllowApiKeyRejectedOnGraphicalTypes(t *testing.T) {
+	testAccPreCheck(t)
+	for _, tc := range []struct {
+		resourceType, envPrefix, portField string
+		defaultPort                        int
+	}{
+		{"generic_rdp", "MISTERSHELL_ACC_RDP", "rdp_port", 3389},
+		{"generic_vnc", "MISTERSHELL_ACC_VNC", "vnc_port", 5900},
+	} {
+		t.Run(tc.resourceType, func(t *testing.T) {
+			host, username, password := os.Getenv(tc.envPrefix+"_HOST"), os.Getenv(tc.envPrefix+"_USERNAME"), os.Getenv(tc.envPrefix+"_PASSWORD")
+			if host == "" || username == "" || password == "" {
+				t.Skipf("live %s onboarding test requires %s_HOST, %s_USERNAME and %s_PASSWORD", tc.resourceType, tc.envPrefix, tc.envPrefix, tc.envPrefix)
+			}
+			port := tc.defaultPort
+			if value := os.Getenv(tc.envPrefix + "_PORT"); value != "" {
+				parsed, err := strconv.Atoi(value)
+				if err != nil {
+					t.Fatalf("%s_PORT must be an integer: %v", tc.envPrefix, err)
+				}
+				port = parsed
+			}
+			name := acctestPrefix + "sshgw-" + tc.resourceType
+			config := fmt.Sprintf(`
+resource "mistershell_location" "test" {
+  name      = %q
+  kind      = "geo"
+  parent_id = 1
+}
+
+resource "mistershell_credential" "test" {
+  name            = %q
+  credential_type = "username_password"
+  credential_data = { username = %q, password = %q }
+}
+
+resource "mistershell_resource" "test" {
+  name                = %q
+  resource_type       = %q
+  location_id         = mistershell_location.test.id
+  credential_id       = mistershell_credential.test.id
+  sshgw_allow_api_key = true
+  connector_data = {
+    host = %q
+    %s   = %d
+  }
+}
+`, name+"-location", name+"-credential", username, password, name, tc.resourceType, host, tc.portField, port)
+			resource.Test(t, resource.TestCase{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				CheckDestroy:             testAccCheckAllDestroyed,
+				Steps: []resource.TestStep{{
+					Config:      config,
+					ExpectError: regexp.MustCompile(`(?s)Error creating network resource.*status 400`),
+				}},
+			})
+		})
+	}
+}
+
+func testAccSSHResourceSshgwConfig(name string, allow bool) string {
+	base := testAccSSHResourceConfig(name, "")
+	return strings.Replace(base, "  connector_data = {", fmt.Sprintf("  sshgw_allow_api_key = %t\n  connector_data = {", allow), 1)
 }
 
 func captureResourceID(address string, target *string) resource.TestCheckFunc {

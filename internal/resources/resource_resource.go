@@ -45,6 +45,7 @@ type NetworkResourceResourceModel struct {
 	CredentialID           types.Int64   `tfsdk:"credential_id"`
 	ExtraData              types.Dynamic `tfsdk:"extra_data"`
 	IsEnabled              types.Bool    `tfsdk:"is_enabled"`
+	SshgwAllowAPIKey       types.Bool    `tfsdk:"sshgw_allow_api_key"`
 	TagIDs                 types.Set     `tfsdk:"tag_ids"`
 	Tags                   types.List    `tfsdk:"tags"`
 	ConnectorID            types.String  `tfsdk:"connector_id"`
@@ -143,6 +144,12 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
+			},
+			"sshgw_allow_api_key": schema.BoolAttribute{
+				Description: "Whether a user's personal API key, given as the SSH password, is accepted in place of the account password and the second authentication factor (MFA) when opening a native SSH session to this resource through the MisterShell SSH gateway, for automation clients that cannot complete an interactive login. The key alone signs the user in, as it already does for API calls; the account must still be valid and unlocked, and the resource credential, session policy, session recording, and audit logging still apply. Defaults to false. Only resource types with a shell session mode accept true; MisterShell rejects it on graphical-only types with HTTP 400. Requires MisterShell > 2.0.13: older backends reject true with HTTP 422 and read it back as false.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 			},
 			"tag_ids": schema.SetAttribute{
 				Description: "Set of tag IDs to assign to this resource (reference them as mistershell_tag.<name>.id). When set, the provider manages the resource's tags **exclusively** (it adds and removes tags to match this set exactly; `[]` clears all tags). When **omitted/null**, the provider does not manage tags at all — leave it unset if you assign this resource's tags from the tag side via mistershell_tag.resource_ids. Own each tag↔resource edge from one side only.",
@@ -262,6 +269,12 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		ConnectorData:  connectorData,
 	}
 	input.CredentialID = int64ValueToPtr(plan.CredentialID)
+	// false is the server default and the field is unknown to MisterShell
+	// <= 2.0.13 (extra fields are rejected with HTTP 422), so it is only sent
+	// when the user opts in; that keeps creates working on older backends.
+	if plan.SshgwAllowAPIKey.ValueBool() {
+		input.SshgwAllowAPIKey = boolValueToPtr(plan.SshgwAllowAPIKey)
+	}
 
 	res, err := r.client.CreateNetworkResource(createCtx, input)
 	if err != nil {
@@ -457,6 +470,7 @@ func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *N
 		return fmt.Errorf("extra_data: %w", err)
 	}
 	m.IsEnabled = types.BoolValue(res.IsEnabled)
+	m.SshgwAllowAPIKey = types.BoolValue(res.SshgwAllowAPIKey)
 	m.ConnectorID = types.StringValue(res.ConnectorID)
 	m.Status = types.StringValue(res.Status)
 	m.CreatedAt = types.StringValue(res.CreatedAt)
@@ -515,6 +529,10 @@ func buildNetworkResourceUpdate(plan, state *NetworkResourceResourceModel) (clie
 	if !plan.IsEnabled.Equal(state.IsEnabled) {
 		value := plan.IsEnabled.ValueBool()
 		input.IsEnabled = &value
+	}
+	if !plan.SshgwAllowAPIKey.Equal(state.SshgwAllowAPIKey) {
+		value := plan.SshgwAllowAPIKey.ValueBool()
+		input.SshgwAllowAPIKey = &value
 	}
 	return input, nil
 }

@@ -5,6 +5,28 @@ Notable changes to the MisterShell Terraform provider, for people writing HCL ag
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `mistershell_resource.sshgw_allow_api_key` (optional boolean, defaults to
+  `false`): when `true`, a user's personal MisterShell API key, given as the
+  SSH password, is accepted in place of the account password and the second
+  authentication factor (MFA) for native SSH sessions to that resource through
+  the MisterShell SSH gateway, so non-interactive automation can connect. The
+  key alone signs the user in, as it already does for API calls; the account
+  must still be valid and unlocked, and the resource credential, session
+  policy, session recording, and audit logging still apply. Only resource types with a shell session mode (SSH, database,
+  AWS, Azure, Kubernetes) accept `true`: setting it on `generic_rdp`,
+  `generic_vnc`, or `generic_web` fails at apply with HTTP 400. The
+  `mistershell_resource` data source reads it back.
+  **Requires MisterShell > 2.0.13** (the release that adds API-key logins
+  through the SSH gateway). Older backends reject any create or update that
+  sets it to `true` with HTTP 422 (their API forbids unknown fields) and read
+  it back as `false`; the provider only sends the attribute when it is `true`
+  or changed, so configurations that leave it at the default keep working on
+  those backends.
+
 ## [2.0.7] - 2026-09-11
 
 **Requires MisterShell >= 2.0.7.**

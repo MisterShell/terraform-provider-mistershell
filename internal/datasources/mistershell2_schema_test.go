@@ -21,6 +21,7 @@ func TestMisterShell2DataSourceSchemas(t *testing.T) {
 			"effective_longitude",
 			"coordinate_source_location_id",
 			"coordinate_source_location_name",
+			"sshgw_allow_api_key",
 		}},
 		{"role", NewRoleDataSource(), []string{"location_scope_mode"}},
 		{"auth provider", NewAuthProviderDataSource(), []string{"mnemonic", "oidc_redirect_uri"}},

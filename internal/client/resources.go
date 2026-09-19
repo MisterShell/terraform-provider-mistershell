@@ -55,14 +55,19 @@ type NetworkResourceCreateInput struct {
 	LocationID     int64           `json:"location_id"`
 	ConnectorData  json.RawMessage `json:"connector_data,omitempty"`
 	CredentialID   *int64          `json:"credential_id,omitempty"`
+	// SshgwAllowAPIKey is unknown to MisterShell <= 2.0.13, whose create
+	// schema forbids extra fields (HTTP 422). Leave it nil unless the caller
+	// needs a non-default value.
+	SshgwAllowAPIKey *bool `json:"sshgw_allow_api_key,omitempty"`
 }
 
 type NetworkResourceUpdateInput struct {
-	Name          *string         `json:"name,omitempty"`
-	LocationID    *int64          `json:"location_id,omitempty"`
-	ConnectorData json.RawMessage `json:"connector_data,omitempty"`
-	CredentialID  *int64          `json:"credential_id,omitempty"`
-	IsEnabled     *bool           `json:"is_enabled,omitempty"`
+	Name             *string         `json:"name,omitempty"`
+	LocationID       *int64          `json:"location_id,omitempty"`
+	ConnectorData    json.RawMessage `json:"connector_data,omitempty"`
+	CredentialID     *int64          `json:"credential_id,omitempty"`
+	IsEnabled        *bool           `json:"is_enabled,omitempty"`
+	SshgwAllowAPIKey *bool           `json:"sshgw_allow_api_key,omitempty"`
 }
 
 type EffectiveCoordinates struct {
@@ -83,6 +88,7 @@ type NetworkResourceResponse struct {
 	LocationID             *int64                `json:"location_id"`
 	Status                 string                `json:"status"`
 	IsEnabled              bool                  `json:"is_enabled"`
+	SshgwAllowAPIKey       bool                  `json:"sshgw_allow_api_key"` // absent on MisterShell <= 2.0.13: decodes as false
 	ExtraData              json.RawMessage       `json:"extra_data"`
 	CreatedAt              string                `json:"created_at"`
 	UpdatedAt              string                `json:"updated_at"`
