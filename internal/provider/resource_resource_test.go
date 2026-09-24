@@ -173,11 +173,11 @@ func TestAccNetworkResource_mutableUpdate(t *testing.T) {
 	})
 }
 
-// sshgw_allow_api_key round-trips through the API (not just the plan): the
+// sshgw_allow_personal_key round-trips through the API (not just the plan): the
 // live read-back check proves MisterShell stored the flag.
-func TestAccNetworkResource_sshgwAllowApiKey(t *testing.T) {
+func TestAccNetworkResource_sshgwAllowPersonalKey(t *testing.T) {
 	testAccSSHResourcePreCheck(t)
-	name := acctestPrefix + "sshgw-api-key"
+	name := acctestPrefix + "sshgw-personal-key"
 	var createdID string
 
 	liveFlag := func(want bool) resource.TestCheckFunc {
@@ -194,8 +194,8 @@ func TestAccNetworkResource_sshgwAllowApiKey(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if actual.SshgwAllowAPIKey != want {
-				return fmt.Errorf("live sshgw_allow_api_key=%t, want %t", actual.SshgwAllowAPIKey, want)
+			if actual.SshgwAllowPersonalKey != want {
+				return fmt.Errorf("live sshgw_allow_personal_key=%t, want %t", actual.SshgwAllowPersonalKey, want)
 			}
 			return nil
 		}
@@ -209,7 +209,7 @@ func TestAccNetworkResource_sshgwAllowApiKey(t *testing.T) {
 				Config: testAccSSHResourceSshgwConfig(name, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					captureResourceID("mistershell_resource.test", &createdID),
-					resource.TestCheckResourceAttr("mistershell_resource.test", "sshgw_allow_api_key", "true"),
+					resource.TestCheckResourceAttr("mistershell_resource.test", "sshgw_allow_personal_key", "true"),
 					liveFlag(true),
 				),
 			},
@@ -217,7 +217,7 @@ func TestAccNetworkResource_sshgwAllowApiKey(t *testing.T) {
 				Config: testAccSSHResourceSshgwConfig(name, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					checkResourceID("mistershell_resource.test", &createdID),
-					resource.TestCheckResourceAttr("mistershell_resource.test", "sshgw_allow_api_key", "false"),
+					resource.TestCheckResourceAttr("mistershell_resource.test", "sshgw_allow_personal_key", "false"),
 					liveFlag(false),
 				),
 			},
@@ -230,10 +230,10 @@ func TestAccNetworkResource_sshgwAllowApiKey(t *testing.T) {
 	})
 }
 
-// MisterShell rejects sshgw_allow_api_key = true on graphical-only types with
+// MisterShell rejects sshgw_allow_personal_key = true on graphical-only types with
 // HTTP 400. Onboarding connects for real, so each subtest needs a live target
 // of that type and skips without one.
-func TestAccNetworkResource_sshgwAllowApiKeyRejectedOnGraphicalTypes(t *testing.T) {
+func TestAccNetworkResource_sshgwAllowPersonalKeyRejectedOnGraphicalTypes(t *testing.T) {
 	testAccPreCheck(t)
 	for _, tc := range []struct {
 		resourceType, envPrefix, portField string
@@ -274,7 +274,7 @@ resource "mistershell_resource" "test" {
   resource_type       = %q
   location_id         = mistershell_location.test.id
   credential_id       = mistershell_credential.test.id
-  sshgw_allow_api_key = true
+  sshgw_allow_personal_key = true
   connector_data = {
     host = %q
     %s   = %d
@@ -295,7 +295,7 @@ resource "mistershell_resource" "test" {
 
 func testAccSSHResourceSshgwConfig(name string, allow bool) string {
 	base := testAccSSHResourceConfig(name, "")
-	return strings.Replace(base, "  connector_data = {", fmt.Sprintf("  sshgw_allow_api_key = %t\n  connector_data = {", allow), 1)
+	return strings.Replace(base, "  connector_data = {", fmt.Sprintf("  sshgw_allow_personal_key = %t\n  connector_data = {", allow), 1)
 }
 
 func captureResourceID(address string, target *string) resource.TestCheckFunc {

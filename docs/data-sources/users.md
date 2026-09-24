@@ -37,6 +37,7 @@ data "mistershell_users" "active_admins" {
 
 Read-Only:
 
+- `auth_provider_id` (Number) ID of the external authentication provider the user signs in through; null for LOCAL users (and on MisterShell < 2.0.9).
 - `auth_type` (String) Authentication type.
 - `email` (String) User email.
 - `email_verified` (Boolean) Whether the email is verified.
@@ -50,7 +51,7 @@ Read-Only:
 | attribute | behavior |
 |---|---|
 | `search` | Optional case-insensitive substring filter on name/email. Omit to return all users. |
-| `users` | Computed list; each element has `id`, `email`, `first_name`, `last_name`, `auth_type`, `is_active`, `email_verified`. |
+| `users` | Computed list; each element has `id`, `email`, `first_name`, `last_name`, `auth_type`, `auth_provider_id` (the external auth provider the user signs in through; null for `LOCAL` users and on MisterShell < 2.0.9), `is_active`, `email_verified`. |
 
 Use the singular `mistershell_user` data source to fetch one user together with
 its assigned `roles`.

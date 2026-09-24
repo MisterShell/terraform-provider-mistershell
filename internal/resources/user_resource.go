@@ -29,18 +29,19 @@ type UserResource struct {
 }
 
 type UserResourceModel struct {
-	ID            types.Int64  `tfsdk:"id"`
-	Email         types.String `tfsdk:"email"`
-	FirstName     types.String `tfsdk:"first_name"`
-	LastName      types.String `tfsdk:"last_name"`
-	Password      types.String `tfsdk:"password"`
-	AuthType      types.String `tfsdk:"auth_type"`
-	IsActive      types.Bool   `tfsdk:"is_active"`
-	EmailVerified types.Bool   `tfsdk:"email_verified"`
-	Roles         types.List   `tfsdk:"roles"`
-	Permissions   types.Set    `tfsdk:"permissions"`
-	CreatedAt     types.String `tfsdk:"created_at"`
-	UpdatedAt     types.String `tfsdk:"updated_at"`
+	ID             types.Int64  `tfsdk:"id"`
+	Email          types.String `tfsdk:"email"`
+	FirstName      types.String `tfsdk:"first_name"`
+	LastName       types.String `tfsdk:"last_name"`
+	Password       types.String `tfsdk:"password"`
+	AuthType       types.String `tfsdk:"auth_type"`
+	AuthProviderID types.Int64  `tfsdk:"auth_provider_id"`
+	IsActive       types.Bool   `tfsdk:"is_active"`
+	EmailVerified  types.Bool   `tfsdk:"email_verified"`
+	Roles          types.List   `tfsdk:"roles"`
+	Permissions    types.Set    `tfsdk:"permissions"`
+	CreatedAt      types.String `tfsdk:"created_at"`
+	UpdatedAt      types.String `tfsdk:"updated_at"`
 }
 
 func NewUserResource() resource.Resource {
@@ -94,6 +95,13 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"auth_provider_id": schema.Int64Attribute{
+				Description: "ID of the external authentication provider (mistershell_auth_provider) the user signs in through; null for LOCAL users and for users not yet linked to a provider. Read-only; null on MisterShell < 2.0.9.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.Int64{
+					int64UseStateForUnknown(),
 				},
 			},
 			"is_active": schema.BoolAttribute{

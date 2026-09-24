@@ -53,6 +53,7 @@ resource "mistershell_user" "oidc_bob" {
 
 ### Read-Only
 
+- `auth_provider_id` (Number) ID of the external authentication provider (mistershell_auth_provider) the user signs in through; null for LOCAL users and for users not yet linked to a provider. Read-only; null on MisterShell < 2.0.9.
 - `created_at` (String) Creation timestamp.
 - `email_verified` (Boolean) Whether the user's email is verified (read-only).
 - `id` (Number) User ID.
@@ -98,6 +99,7 @@ password is still required by the API for every auth type.
 | attribute | meaning |
 |---|---|
 | `email_verified` | Whether the user's email has been verified. |
+| `auth_provider_id` | ID of the external authentication provider (`mistershell_auth_provider`) the user signs in through; null for `LOCAL` users, for external users not yet linked to a provider, and on MisterShell < 2.0.9. |
 | `roles` | List of `{ id, name, description }` for the roles assigned to the user. Manage assignments with `mistershell_user_role`. |
 
 ## Import

@@ -33,6 +33,7 @@ data "mistershell_user" "by_email" {
 
 ### Read-Only
 
+- `auth_provider_id` (Number) ID of the external authentication provider the user signs in through; null for LOCAL users (and on MisterShell < 2.0.9).
 - `auth_type` (String) Authentication type (LOCAL, LDAP, OIDC, SAML).
 - `created_at` (String) Creation timestamp.
 - `email_verified` (Boolean) Whether the user's email is verified.
@@ -66,6 +67,7 @@ Specify exactly one of:
 | attribute | meaning |
 |---|---|
 | `auth_type` | Authentication type: `LOCAL`, `LDAP`, `OIDC`, or `SAML`. |
+| `auth_provider_id` | ID of the external authentication provider (`mistershell_auth_provider`) the user signs in through; null for `LOCAL` users and on MisterShell < 2.0.9. |
 | `is_active` | Whether the account is active. |
 | `email_verified` | Whether the user's email has been verified. |
 | `roles` | List of `{ id, name, description }` for the roles assigned to the user. |

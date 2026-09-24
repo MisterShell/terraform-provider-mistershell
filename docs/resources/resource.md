@@ -90,19 +90,20 @@ resource "mistershell_resource" "parked" {
   }
 }
 
-# Native SSH automation: accept a user's personal API key, given as the SSH
-# password, in place of the account password and second authentication factor
-# (MFA) when opening native SSH sessions to this resource through the
-# MisterShell SSH gateway. The resource credential, session policy, recording,
-# and audit still apply. Only resource types with a shell
-# session mode accept it; MisterShell rejects it on generic_rdp, generic_vnc,
-# and generic_web with HTTP 400. Requires MisterShell > 2.0.13.
+# Native SSH automation: accept a user's registered personal SSH key (My
+# Account > Account Security > My SSH keys) on its own, in place of the account
+# password and second authentication factor (MFA), for direct native SSH
+# sessions to this resource through the MisterShell SSH gateway. The resource
+# credential, session policy, recording, and audit still apply. Only resource
+# types with a shell session mode accept it; MisterShell rejects it on
+# generic_rdp, generic_vnc, and generic_web with HTTP 400. Requires
+# MisterShell >= 2.0.15.
 resource "mistershell_resource" "automation_target" {
-  name                = "ci-runner-host.zurich"
-  resource_type       = "generic_ssh"
-  location_id         = mistershell_location.zurich.id
-  credential_id       = mistershell_credential.ssh_admin.id
-  sshgw_allow_api_key = true
+  name                     = "ci-runner-host.zurich"
+  resource_type            = "generic_ssh"
+  location_id              = mistershell_location.zurich.id
+  credential_id            = mistershell_credential.ssh_admin.id
+  sshgw_allow_personal_key = true
 
   connector_data = {
     host = "10.0.1.6"
@@ -126,7 +127,7 @@ resource "mistershell_resource" "automation_target" {
 - `engine_id` (String) Connection engine used for automatic onboarding. Supply engine_id without resource_type to let MisterShell discover the resource type.
 - `is_enabled` (Boolean) Whether automatic snapshot collection is enabled for this resource. Defaults to true. Disabling it does not prevent manual sessions or operations.
 - `resource_type` (String) Optional exact installed resource type. When supplied, MisterShell must discover that type or onboarding fails.
-- `sshgw_allow_api_key` (Boolean) Whether a user's personal API key, given as the SSH password, is accepted in place of the account password and the second authentication factor (MFA) when opening a native SSH session to this resource through the MisterShell SSH gateway, for automation clients that cannot complete an interactive login. The key alone signs the user in, as it already does for API calls; the account must still be valid and unlocked, and the resource credential, session policy, session recording, and audit logging still apply. Defaults to false. Only resource types with a shell session mode accept true; MisterShell rejects it on graphical-only types with HTTP 400. Requires MisterShell > 2.0.13: older backends reject true with HTTP 422 and read it back as false.
+- `sshgw_allow_personal_key` (Boolean) Whether a user's own SSH key, registered in MisterShell under My Account > Account Security > My SSH keys, is accepted on its own in place of the account password and the second authentication factor (MFA) when that user opens a direct native SSH session to this resource through the MisterShell SSH gateway, so non-interactive automation can connect. The account must still be active, and the resource credential, session policy, session recording, and audit logging still apply; deleting the key or deactivating the user ends access. Defaults to false. Only resource types with a shell session mode accept true; MisterShell rejects it on graphical-only types with HTTP 400. Requires MisterShell >= 2.0.15: older backends reject any create or update that sends it with HTTP 422.
 - `tag_ids` (Set of Number) Set of tag IDs to assign to this resource (reference them as mistershell_tag.<name>.id). When set, the provider manages the resource's tags **exclusively** (it adds and removes tags to match this set exactly; `[]` clears all tags). When **omitted/null**, the provider does not manage tags at all — leave it unset if you assign this resource's tags from the tag side via mistershell_tag.resource_ids. Own each tag↔resource edge from one side only.
 
 ### Read-Only
@@ -160,7 +161,8 @@ Read-Only:
 
 ## Onboarding modes
 
-Provider 2.0.7 requires **MisterShell >= 2.0.7**.
+Provider 2.0.15 requires **MisterShell >= 2.0.7**; `sshgw_allow_personal_key`
+requires MisterShell >= 2.0.15.
 
 Creating a resource always performs a live connection test and can take several
 minutes. The provider waits up to five minutes for the worker task and its
@@ -208,20 +210,31 @@ Moving a resource to another location alone does not pause collection. Removing
 it from Terraform configuration still deletes it from MisterShell on apply;
 parking requires keeping the resource in configuration.
 
-## API-key logins through the SSH gateway
+## Personal SSH key logins through the SSH gateway
 
-`sshgw_allow_api_key` lets a user's personal MisterShell API key, given as the
-SSH password, be accepted in place of the account password and the second
-authentication factor (MFA) when that user opens a native SSH session to this
-resource through the MisterShell SSH gateway, so non-interactive automation can
-connect. It defaults to `false`. The key alone signs the user in, as it already
-does for API calls; the account must still be valid and unlocked, and the
-resource credential, session policy, session recording, and audit logging still
-apply. Only resource types with a shell session mode
+`sshgw_allow_personal_key` lets a user's own SSH key, registered in MisterShell
+under **My Account → Account Security → My SSH keys**, be accepted on its own in
+place of the account password and the second authentication factor (MFA) when
+that user opens a direct native SSH session to this resource through the
+MisterShell SSH gateway, so non-interactive automation can connect. It defaults
+to `false`. The account must still be active, and the resource credential,
+session policy, session recording, and audit logging still apply; deleting the
+key or deactivating the user ends access. Users register their keys in the
+MisterShell UI; this provider does not manage personal SSH keys.
+
+Only resource types with a shell session mode
 (SSH, database, AWS, Azure, Kubernetes) accept `true`; MisterShell rejects it on
-`generic_rdp`, `generic_vnc`, and `generic_web` with HTTP 400 at apply. Requires
-MisterShell > 2.0.13: older backends reject a create or update that sets it to
-`true` with HTTP 422 and read it back as `false`.
+`generic_rdp`, `generic_vnc`, and `generic_web` with HTTP 400 at apply.
+
+**Requires MisterShell >= 2.0.15.** Older backends reject any create or update
+that sends this attribute with HTTP 422 and read it back as `false`. The
+provider sends it only when it is `true` on create or when its value changes, so
+configurations that leave it at the default keep working on older backends.
+
+MisterShell 2.0.15 removed the earlier API-key SSH sign-in and does not carry
+existing opt-ins over: after upgrading the backend, re-enable the option on each
+resource that needs it (set `sshgw_allow_personal_key = true`) and have the
+automation users register an SSH key.
 
 ## SSH host-key trust
 

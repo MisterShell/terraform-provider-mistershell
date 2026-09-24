@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -21,8 +24,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &AuthProviderResource{}
-	_ resource.ResourceWithImportState = &AuthProviderResource{}
+	_ resource.Resource                   = &AuthProviderResource{}
+	_ resource.ResourceWithImportState    = &AuthProviderResource{}
+	_ resource.ResourceWithValidateConfig = &AuthProviderResource{}
 )
 
 type AuthProviderResource struct {
@@ -109,7 +113,7 @@ func (r *AuthProviderResource) Schema(_ context.Context, _ resource.SchemaReques
 				},
 			},
 			"config": schema.DynamicAttribute{
-				Description: "Per-provider_type config as a native Terraform object. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout. For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.",
+				Description: "Per-provider_type config as a native Terraform object. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout/mfa_method (none or totp; email MFA cannot be managed with Terraform, omit mfa_method to keep a method set in the UI). For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.",
 				Required:    true,
 				Sensitive:   true,
 			},
@@ -142,6 +146,40 @@ func (r *AuthProviderResource) Schema(_ context.Context, _ resource.SchemaReques
 			},
 		},
 	}
+}
+
+// terraformMfaMethods are the LDAP config.mfa_method values this provider can
+// apply. MisterShell only turns on "email" with a single-use activation proof
+// from an interactive emailed-code check, which Terraform cannot perform.
+var terraformMfaMethods = []string{"none", "totp"}
+
+// ValidateConfig rejects config.mfa_method values the provider cannot apply,
+// so they fail at plan time instead of with HTTP 400 at apply.
+func (r *AuthProviderResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config types.Dynamic
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("config"), &config)...)
+	if resp.Diagnostics.HasError() || config.IsNull() || config.IsUnknown() || config.IsUnderlyingValueUnknown() {
+		return
+	}
+	var attrs map[string]attr.Value
+	switch v := config.UnderlyingValue().(type) {
+	case types.Object:
+		attrs = v.Attributes()
+	case types.Map:
+		attrs = v.Elements()
+	default:
+		return
+	}
+	method, ok := attrs["mfa_method"].(types.String)
+	if !ok || method.IsNull() || method.IsUnknown() || slices.Contains(terraformMfaMethods, method.ValueString()) {
+		return
+	}
+	detail := fmt.Sprintf("config.mfa_method must be one of: %s.", strings.Join(terraformMfaMethods, ", "))
+	if method.ValueString() == "email" {
+		detail = "Email MFA cannot be managed with Terraform: MisterShell only enables it after an interactive emailed-code check. " +
+			"Enable it in the MisterShell UI (Settings > User Access > Auth Providers) and omit mfa_method from config so Terraform leaves the stored method unchanged."
+	}
+	resp.Diagnostics.AddAttributeError(path.Root("config").AtName("mfa_method"), "Unsupported mfa_method", detail)
 }
 
 func (r *AuthProviderResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {

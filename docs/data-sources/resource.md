@@ -69,7 +69,7 @@ output "switch_tags" {
 - `last_connectivity_check` (String) Timestamp of last connectivity check.
 - `last_connectivity_result` (Dynamic) Structured result of the most recent connectivity check (read-only).
 - `next_collection_at` (String) Scheduled time for next data collection.
-- `sshgw_allow_api_key` (Boolean) Whether a user's personal API key is accepted in place of the account password and MFA for native SSH sessions to this resource; see the mistershell_resource resource's sshgw_allow_api_key. Reads back as false on MisterShell <= 2.0.13.
+- `sshgw_allow_personal_key` (Boolean) Whether a user's registered personal SSH key is accepted on its own, in place of the account password and MFA, for direct native SSH sessions to this resource; see the mistershell_resource resource's sshgw_allow_personal_key. Reads back as false on MisterShell < 2.0.15.
 - `tags` (Attributes List) Tags assigned to this resource, as objects with id, name, color, and description. (see [below for nested schema](#nestedatt--tags))
 - `updated_at` (String) Last update timestamp.
 

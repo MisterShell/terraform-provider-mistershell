@@ -93,6 +93,7 @@ Delete works unlicensed.
 | `use_tls` | boolean | no | `true` | no |
 | `tls_verify` | boolean | no | `false` | no |
 | `connection_timeout` | integer (1-60) | no | `10` | no |
+| `mfa_method` | string: `none` or `totp` (`email` is not supported by this provider) | no | `none` on create; unchanged on update when omitted | no |
 
 `use_tls` and `tls_verify` are independent: `use_tls` encrypts the connection,
 `tls_verify` decides whether the LDAP server's certificate is validated (against
@@ -112,6 +113,35 @@ config = {
   use_tls       = true
 }
 ```
+
+#### LDAP multi-factor authentication (`mfa_method`)
+
+`mfa_method` selects the second factor LDAP users must complete at sign-in
+(**requires MisterShell >= 2.0.12**). It applies to LDAP only; OIDC and SAML
+users complete the verification configured at their identity provider. This
+provider supports two values:
+
+| `mfa_method` | Effect |
+|---|---|
+| `none` | Password only (the default when a provider is created without `mfa_method`). |
+| `totp` | An authenticator app (TOTP). Users enroll at their next sign-in and receive one-time recovery codes. |
+
+**Email MFA is not supported by this provider.** MisterShell enables
+`mfa_method = "email"` only after an interactive check in which an
+administrator receives and enters an emailed code, which Terraform cannot
+perform. The provider rejects `mfa_method = "email"` at plan time. To use email
+MFA, enable it in the MisterShell UI (**Settings → User Access → Auth
+Providers**) and **omit `mfa_method`** from `config`: when the key is omitted,
+updates leave the stored method unchanged. Because `config` is stored from your
+configuration and not read back, Terraform does not show a method set in the UI
+as drift.
+
+Any change of `mfa_method`, including back to `none`, invalidates the MFA
+proof of existing sessions for that provider, so its users must sign in again.
+Changing away from `totp` keeps users' authenticator enrollments for later reuse.
+
+MisterShell 2.0.9–2.0.11 used a boolean `email_mfa_enabled` config key instead;
+2.0.12 and later reject it (HTTP 422). Remove `email_mfa_enabled` from `config`.
 
 ### `provider_type = "OIDC"` config
 

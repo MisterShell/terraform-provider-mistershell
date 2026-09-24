@@ -76,19 +76,20 @@ resource "mistershell_resource" "parked" {
   }
 }
 
-# Native SSH automation: accept a user's personal API key, given as the SSH
-# password, in place of the account password and second authentication factor
-# (MFA) when opening native SSH sessions to this resource through the
-# MisterShell SSH gateway. The resource credential, session policy, recording,
-# and audit still apply. Only resource types with a shell
-# session mode accept it; MisterShell rejects it on generic_rdp, generic_vnc,
-# and generic_web with HTTP 400. Requires MisterShell > 2.0.13.
+# Native SSH automation: accept a user's registered personal SSH key (My
+# Account > Account Security > My SSH keys) on its own, in place of the account
+# password and second authentication factor (MFA), for direct native SSH
+# sessions to this resource through the MisterShell SSH gateway. The resource
+# credential, session policy, recording, and audit still apply. Only resource
+# types with a shell session mode accept it; MisterShell rejects it on
+# generic_rdp, generic_vnc, and generic_web with HTTP 400. Requires
+# MisterShell >= 2.0.15.
 resource "mistershell_resource" "automation_target" {
-  name                = "ci-runner-host.zurich"
-  resource_type       = "generic_ssh"
-  location_id         = mistershell_location.zurich.id
-  credential_id       = mistershell_credential.ssh_admin.id
-  sshgw_allow_api_key = true
+  name                     = "ci-runner-host.zurich"
+  resource_type            = "generic_ssh"
+  location_id              = mistershell_location.zurich.id
+  credential_id            = mistershell_credential.ssh_admin.id
+  sshgw_allow_personal_key = true
 
   connector_data = {
     host = "10.0.1.6"

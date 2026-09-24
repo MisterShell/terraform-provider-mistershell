@@ -69,13 +69,15 @@ output "retention_is_secret" {
 
 ## Valid `key` values
 
-The following table is derived from the MisterShell 2.0.7 registry. Unknown keys
+The following table is derived from the MisterShell 2.0.15 registry. Unknown keys
 return 404. Defaults below are registry defaults, not the instance's current
 values. The session inactivity timeout accepts 1–240 minutes; backend upgrades
 clamp larger stored values to 240.
 
 | key | type and constraints | default | secret | meaning |
 |---|---|---|---|---|
+| `local_mfa` | object; `method` one of `"none"`, `"email"`, `"totp"`; `revision` string (min length 1) | `{"method": "none", "revision": "<random>"}` | no | Local sign-in MFA policy. **Read-only through this provider**: MisterShell rejects writes and resets of this key with HTTP 400 `Manage Local MFA through Auth Providers`; change it in the MisterShell UI (Settings → User Access → Auth Providers). |
+| `carto_api_key` | string; max length 4096 | `""` | **yes** | Optional API key for CARTO light and dark map backgrounds. Leave empty to use OpenStreetMap. |
 | `enable_email_notifications` | boolean | `false` | no | Global toggle for email notification feature |
 | `rate_limiting_enabled` | boolean | `true` | no | Enable or disable API rate limiting globally |
 | `api_rate_limit_per_minute` | integer; >= 10; <= 10000 | `600` | no | Rate limit for authenticated API endpoints per user |
@@ -142,7 +144,8 @@ clamp larger stored values to 240.
 | `fact_version_retention_days` | integer; >= 1; <= 3650 | `90` | no | Fact version history retention in days |
 | `cache_max_memory_mb` | integer; >= 64; <= 16384 | `256` | no | Maximum cache memory budget in MB |
 | `session_inactivity_timeout_minutes` | integer; >= 1; <= 240 | `15` | no | Session inactivity timeout (minutes) |
-| `worker_max_concurrent_sessions` | integer; >= 1; <= 20 | `3` | no | Maximum concurrent interactive SSH sessions a single worker can handle |
+| `max_shell_sessions_per_resource` | integer; >= 1; <= 20 | `3` | no | Maximum live shell sessions per user and resource, across shell modes |
+| `worker_max_concurrent_sessions` | integer; >= 1; <= 20 | `3` | no | Maximum concurrent sessions a worker can handle across all session types |
 | `enable_session_resume` | boolean | `true` | no | Pick up shell sessions where you left them after closing a tab |
 | `session_log_retention_days` | integer; >= 1; <= 3650 | `90` | no | Session history retention period in days (all session types) |
 | `ai_usage_retention_days` | integer; >= 1; <= 3650 | `90` | no | AI usage log retention period in days |
@@ -175,3 +178,11 @@ clamp larger stored values to 240.
 | `ssh_conn_timeout_seconds` | integer; >= 1; <= 300 | `30` | no | SSH connect timeout applied when a resource does not override it |
 | `ssh_auth_timeout_seconds` | integer; >= 1; <= 300 | `30` | no | SSH auth timeout applied when a resource does not override it |
 | `ssh_banner_timeout_seconds` | integer; >= 1; <= 300 | `15` | no | SSH banner timeout applied when a resource does not override it |
+| `sshgw_enabled` | boolean | `true` | no | Accept operator ssh/sftp connections on the Core's SSH port |
+| `sshgw_port` | integer; >= 1; <= 65535 | `2222` | no | Port the SSH gateway listens on inside the Core and the port operators connect to (map it 1:1 at the host / load balancer). A change restarts the listener within 30 s |
+| `sshgw_host_key` | string | `""` | **yes** | SSH host key (Ed25519, PEM). Reset to default to rotate; every client will see a changed key |
+| `sshgw_internal_token` | string | `""` | **yes** | Token the SSH gateway process presents to the Core's internal endpoints (auto-generated) |
+| `sshgw_max_connections` | integer; >= 1; <= 10000 | `200` | no | Maximum concurrent SSH connections per Core |
+| `sshgw_unauth_connections_per_ip` | integer; >= 1; <= 1000 | `5` | no | Maximum concurrent unauthenticated SSH connections from one source address |
+| `sshgw_auth_attempts_per_ip_per_10min` | integer; >= 1; <= 10000 | `20` | no | SSH authentication attempts allowed per source address per 10 minutes |
+| `sshgw_max_tabs` | integer; >= 1; <= 32 | `8` | no | Maximum open session tabs per interactive SSH gateway terminal |

@@ -39,6 +39,7 @@ func TestAccUser_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("mistershell_user.test", "first_name", "First"),
 					resource.TestCheckResourceAttr("mistershell_user.test", "last_name", "Last"),
 					resource.TestCheckResourceAttr("mistershell_user.test", "auth_type", "LOCAL"),
+					resource.TestCheckNoResourceAttr("mistershell_user.test", "auth_provider_id"),
 					resource.TestCheckResourceAttr("mistershell_user.test", "is_active", "true"),
 					resource.TestCheckResourceAttr("mistershell_user.test", "roles.#", "0"),
 					resource.TestCheckResourceAttrSet("mistershell_user.test", "id"),
@@ -165,6 +166,7 @@ func TestAccUsersDataSource_allFilteredAndByID(t *testing.T) {
 					checkUsersContain("data.mistershell_users.filtered", map[string]string{emailOne: "Catalog", emailTwo: "Catalog"}),
 					resource.TestCheckResourceAttrPair("data.mistershell_user.by_id", "id", "mistershell_user.one", "id"),
 					resource.TestCheckResourceAttr("data.mistershell_user.by_id", "email", emailOne),
+					resource.TestCheckNoResourceAttr("data.mistershell_user.by_id", "auth_provider_id"),
 				),
 			},
 			{

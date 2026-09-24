@@ -33,7 +33,7 @@ type NetworkResourceDataSourceModel struct {
 	CoordinateSourceName   types.String  `tfsdk:"coordinate_source_location_name"`
 	Status                 types.String  `tfsdk:"status"`
 	IsEnabled              types.Bool    `tfsdk:"is_enabled"`
-	SshgwAllowAPIKey       types.Bool    `tfsdk:"sshgw_allow_api_key"`
+	SshgwAllowPersonalKey  types.Bool    `tfsdk:"sshgw_allow_personal_key"`
 	Tags                   types.List    `tfsdk:"tags"`
 	ExtraData              types.Dynamic `tfsdk:"extra_data"`
 	CreatedAt              types.String  `tfsdk:"created_at"`
@@ -121,8 +121,8 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 				Description: "Whether automatic snapshot collection is enabled for this resource. Disabling it does not prevent manual sessions or operations.",
 				Computed:    true,
 			},
-			"sshgw_allow_api_key": schema.BoolAttribute{
-				Description: "Whether a user's personal API key is accepted in place of the account password and MFA for native SSH sessions to this resource; see the mistershell_resource resource's sshgw_allow_api_key. Reads back as false on MisterShell <= 2.0.13.",
+			"sshgw_allow_personal_key": schema.BoolAttribute{
+				Description: "Whether a user's registered personal SSH key is accepted on its own, in place of the account password and MFA, for direct native SSH sessions to this resource; see the mistershell_resource resource's sshgw_allow_personal_key. Reads back as false on MisterShell < 2.0.15.",
 				Computed:    true,
 			},
 			"tags": schema.ListNestedAttribute{
@@ -284,7 +284,7 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 	mapNetworkResourceCoordinatesToDataSourceModel(res.EffectiveCoordinates, &config)
 	config.Status = types.StringValue(res.Status)
 	config.IsEnabled = types.BoolValue(res.IsEnabled)
-	config.SshgwAllowAPIKey = types.BoolValue(res.SshgwAllowAPIKey)
+	config.SshgwAllowPersonalKey = types.BoolValue(res.SshgwAllowPersonalKey)
 
 	tags, terr := d.client.GetResourceTags(ctx, res.ID)
 	if terr != nil {

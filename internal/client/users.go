@@ -35,15 +35,16 @@ type UserUpdateInput struct {
 }
 
 type UserResponse struct { // POST/PATCH
-	ID            int64  `json:"id"`
-	Email         string `json:"email"`
-	FirstName     string `json:"first_name"`
-	LastName      string `json:"last_name"`
-	AuthType      string `json:"auth_type"`
-	IsActive      bool   `json:"is_active"`
-	EmailVerified bool   `json:"email_verified"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
+	ID             int64  `json:"id"`
+	Email          string `json:"email"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
+	AuthType       string `json:"auth_type"`
+	AuthProviderID *int64 `json:"auth_provider_id"` // null for LOCAL users; absent before MisterShell 2.0.9
+	IsActive       bool   `json:"is_active"`
+	EmailVerified  bool   `json:"email_verified"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
 }
 
 type UserDetailResponse struct { // GET + List

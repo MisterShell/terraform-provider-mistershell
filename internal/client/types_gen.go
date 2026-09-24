@@ -106,6 +106,7 @@ var SupportedAuthProviderTypes = []string{
 // SupportedPolicyRuleActions are the session-policy rule action values.
 var SupportedPolicyRuleActions = []string{
 	"accept",
+	"approve",
 	"deny",
 }
 

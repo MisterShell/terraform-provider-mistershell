@@ -33,6 +33,27 @@ func TestMisterShell2ManagedResourceSchemas(t *testing.T) {
 			t.Fatalf("oidc_redirect_uri schema = %#v", resp.Schema.Attributes["oidc_redirect_uri"])
 		}
 	})
+
+	t.Run("session policy rule accepts an optional approval block", func(t *testing.T) {
+		var resp resource.SchemaResponse
+		(&SessionPolicyRuleResource{}).Schema(context.Background(), resource.SchemaRequest{}, &resp)
+		approval, ok := resp.Schema.Attributes["approval"].(resourceschema.SingleNestedAttribute)
+		if !ok || !approval.Optional || approval.Computed {
+			t.Fatalf("approval schema = %#v", resp.Schema.Attributes["approval"])
+		}
+		if roles, ok := approval.Attributes["approver_role_ids"].(resourceschema.SetAttribute); !ok || !roles.Required {
+			t.Fatalf("approver_role_ids schema = %#v", approval.Attributes["approver_role_ids"])
+		}
+	})
+
+	t.Run("user exposes read-only auth provider id", func(t *testing.T) {
+		var resp resource.SchemaResponse
+		(&UserResource{}).Schema(context.Background(), resource.SchemaRequest{}, &resp)
+		attribute, ok := resp.Schema.Attributes["auth_provider_id"].(resourceschema.Int64Attribute)
+		if !ok || !attribute.Computed || attribute.Optional || attribute.Required {
+			t.Fatalf("auth_provider_id schema = %#v", resp.Schema.Attributes["auth_provider_id"])
+		}
+	})
 }
 
 func TestJSONPayloadResourceAttributesUseNativeTerraformValues(t *testing.T) {

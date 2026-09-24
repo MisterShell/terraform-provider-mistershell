@@ -5,27 +5,82 @@ Notable changes to the MisterShell Terraform provider, for people writing HCL ag
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.15] - 2026-09-24
+
+**Requires MisterShell >= 2.0.7.** Adds support for MisterShell 2.0.15; each
+feature below states the backend release it needs.
 
 ### Added
 
-- `mistershell_resource.sshgw_allow_api_key` (optional boolean, defaults to
-  `false`): when `true`, a user's personal MisterShell API key, given as the
-  SSH password, is accepted in place of the account password and the second
-  authentication factor (MFA) for native SSH sessions to that resource through
-  the MisterShell SSH gateway, so non-interactive automation can connect. The
-  key alone signs the user in, as it already does for API calls; the account
-  must still be valid and unlocked, and the resource credential, session
-  policy, session recording, and audit logging still apply. Only resource types with a shell session mode (SSH, database,
-  AWS, Azure, Kubernetes) accept `true`: setting it on `generic_rdp`,
-  `generic_vnc`, or `generic_web` fails at apply with HTTP 400. The
-  `mistershell_resource` data source reads it back.
-  **Requires MisterShell > 2.0.13** (the release that adds API-key logins
-  through the SSH gateway). Older backends reject any create or update that
-  sets it to `true` with HTTP 422 (their API forbids unknown fields) and read
-  it back as `false`; the provider only sends the attribute when it is `true`
-  or changed, so configurations that leave it at the default keep working on
-  those backends.
+- `mistershell_resource.sshgw_allow_personal_key` (optional boolean, defaults
+  to `false`): when `true`, a user's own SSH key, registered in MisterShell
+  under My Account → Account Security → My SSH keys, is accepted on its own in
+  place of the account password and the second authentication factor (MFA)
+  for direct native SSH sessions to that resource through the MisterShell SSH
+  gateway, so non-interactive automation can connect. The account must still
+  be active, and the resource credential, session policy, session recording,
+  and audit logging still apply. Only resource types with a shell session mode
+  (SSH, database, AWS, Azure, Kubernetes) accept `true`: setting it on
+  `generic_rdp`, `generic_vnc`, or `generic_web` fails at apply with HTTP 400.
+  The `mistershell_resource` data source reads it back.
+  **Requires MisterShell >= 2.0.15.** Older backends reject any create or
+  update that sends it with HTTP 422 and read it back as `false`; the provider
+  sends it only when it is `true` on create or when it changes, so
+  configurations that leave it at the default keep working on older backends.
+  MisterShell 2.0.15 removed API-key sign-in over SSH and does not carry
+  existing opt-ins over: after upgrading the backend, set
+  `sshgw_allow_personal_key = true` on each resource that needs it and have the
+  automation users register an SSH key.
+- `mistershell_session_policy_rule` accepts `action = "approve"` with a new
+  `approval` block (`approver_role_ids`, `expiration_seconds` default `86400`,
+  `validity_seconds` default `3600`, `notify_email` default `false`,
+  `allow_self_approval` default `false`). A matching user must get a decision
+  from a member of an approver role before opening a new connection; approve
+  rules are evaluated before all accept/deny rules regardless of `position`.
+  The `approval` block is required for `approve` and not allowed for `accept`
+  or `deny`, and approve rules cannot set `command_acl_ids`; the provider
+  reports these mistakes at plan time. The `mistershell_session_policy_rule`
+  data source returns `approval` (null for accept/deny rules).
+  **Requires MisterShell >= 2.0.10.** Older backends reject `approve` with
+  HTTP 422; accept/deny rules keep working on them.
+- LDAP `config.mfa_method` is now documented and validated: `none` (the
+  default on create) or `totp` (authenticator app). **Requires MisterShell >=
+  2.0.12.** Email MFA (`mfa_method = "email"`) is not supported by this
+  provider, because MisterShell enables it only after an interactive
+  emailed-code check; the provider rejects it at plan time. To use email MFA,
+  enable it in the MisterShell UI and omit `mfa_method` from `config`, which
+  leaves the stored method unchanged on update. MisterShell 2.0.9–2.0.11 used
+  `email_mfa_enabled` instead; 2.0.12 and later reject that key with HTTP 422,
+  so remove it from `config`.
+- Read-only `auth_provider_id` on `mistershell_user`, `mistershell_user`
+  (data source), and each `mistershell_users` element: the external
+  authentication provider a user signs in through, null for `LOCAL` users and
+  on MisterShell < 2.0.9.
+- The `mistershell_setting` pages list the 11 settings added through
+  MisterShell 2.0.15: `carto_api_key` (secret), `max_shell_sessions_per_resource`,
+  `sshgw_enabled`, `sshgw_port`, `sshgw_host_key` (secret),
+  `sshgw_internal_token` (secret), `sshgw_max_connections`,
+  `sshgw_unauth_connections_per_ip`, `sshgw_auth_attempts_per_ip_per_10min`,
+  `sshgw_max_tabs`, and `local_mfa`. `local_mfa` can be read but not managed:
+  MisterShell rejects writes and resets of it with HTTP 400 `Manage Local MFA
+  through Auth Providers`.
+
+### Changed
+
+- Update `mistershell_role.permissions` in HCL when upgrading the backend from
+  2.0.7 to 2.0.15. MisterShell migrates stored grants, and HCL that is not
+  updated either fails or plans to remove the migrated grants:
+
+  | Previous grant | Change in HCL |
+  |---|---|
+  | `app.tasks.delete` | Remove it (scheduled tasks can no longer be deleted); keeping it fails with HTTP 400 `Invalid permission` |
+  | `app.collector.read` | Add `app.collector.execute` to keep viewing collected syslog messages |
+  | `app.sensors.read` | Add `app.sensors.execute` to keep viewing IDS alerts |
+  | `app.fact_policies.read` | Add `app.fact_policies.execute` to keep viewing compliance results and history |
+
+  The backend adds each `*.execute` grant to every role that held the matching
+  `*.read` grant. If HCL is not updated, the next apply removes it and the role
+  loses that visibility.
 
 ## [2.0.7] - 2026-09-11
 

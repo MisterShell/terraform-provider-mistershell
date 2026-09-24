@@ -102,6 +102,17 @@ func (c *Client) GetAcl(ctx context.Context, id int64) (*AclResponse, error) {
 // Session-Policy Rule API models
 // ---------------------------------------------------------------------------
 
+// RuleApproval is the approver configuration of an action=approve rule
+// (PolicyApprovalConfig). The backend requires it on approve rules and rejects
+// it on accept/deny rules.
+type RuleApproval struct {
+	ApproverRoleIDs   []int64 `json:"approver_role_ids"`  // 1-100 unique role IDs
+	ExpirationSeconds int64   `json:"expiration_seconds"` // pending-request lifetime, 60..2592000
+	ValiditySeconds   int64   `json:"validity_seconds"`   // grant lifetime after approval, 60..2592000
+	NotifyEmail       bool    `json:"notify_email"`
+	AllowSelfApproval bool    `json:"allow_self_approval"`
+}
+
 // RuleCreateInput: empty selector lists mean "Any". resource_types reuse the
 // inventory type strings.
 type RuleCreateInput struct {
@@ -114,50 +125,58 @@ type RuleCreateInput struct {
 	TagIDs        []int64  `json:"tag_ids"`
 	RoleIDs       []int64  `json:"role_ids"`
 	CommandAclIDs []int64  `json:"command_acl_ids"`
-	Action        string   `json:"action,omitempty"` // accept|deny, default accept
+	Action        string   `json:"action,omitempty"` // accept|deny|approve, default accept
 	Notify        bool     `json:"notify"`
 	Log           bool     `json:"log"`
 	Enabled       bool     `json:"enabled"`
+	// Approval is required with action=approve and omitted otherwise, so
+	// accept/deny creates stay valid on backends that predate approvals.
+	Approval *RuleApproval `json:"approval,omitempty"`
 }
 
 // RuleUpdateInput is a full-replace PUT (RuleUpdate == RuleCreate). Comment uses
 // *string with NO omitempty so clearing sends explicit null. Position is *int64
 // (omit leaves it unchanged server-side: update only sets it if non-None).
+// Approval also has NO omitempty: the backend merges the PATCH onto the stored
+// rule, so switching an approve rule to accept/deny must send explicit null.
+// Backends before 2.0.10 ignore the unknown field.
 type RuleUpdateInput struct {
-	Name          string   `json:"name"`
-	Comment       *string  `json:"comment"` // no omitempty: explicit null clears
-	Position      *int64   `json:"position,omitempty"`
-	ResourceTypes []string `json:"resource_types"`
-	SessionTypes  []string `json:"session_types"`
-	LocationIDs   []int64  `json:"location_ids"`
-	TagIDs        []int64  `json:"tag_ids"`
-	RoleIDs       []int64  `json:"role_ids"`
-	CommandAclIDs []int64  `json:"command_acl_ids"`
-	Action        string   `json:"action"`
-	Notify        bool     `json:"notify"`
-	Log           bool     `json:"log"`
-	Enabled       bool     `json:"enabled"`
+	Name          string        `json:"name"`
+	Comment       *string       `json:"comment"` // no omitempty: explicit null clears
+	Position      *int64        `json:"position,omitempty"`
+	ResourceTypes []string      `json:"resource_types"`
+	SessionTypes  []string      `json:"session_types"`
+	LocationIDs   []int64       `json:"location_ids"`
+	TagIDs        []int64       `json:"tag_ids"`
+	RoleIDs       []int64       `json:"role_ids"`
+	CommandAclIDs []int64       `json:"command_acl_ids"`
+	Action        string        `json:"action"`
+	Notify        bool          `json:"notify"`
+	Log           bool          `json:"log"`
+	Enabled       bool          `json:"enabled"`
+	Approval      *RuleApproval `json:"approval"` // no omitempty: explicit null clears
 }
 
 type RuleResponse struct {
-	ID            int64    `json:"id"`
-	Position      int64    `json:"position"`
-	Name          string   `json:"name"`
-	Comment       *string  `json:"comment"`
-	ResourceTypes []string `json:"resource_types"`
-	SessionTypes  []string `json:"session_types"`
-	LocationIDs   []int64  `json:"location_ids"`
-	TagIDs        []int64  `json:"tag_ids"`
-	RoleIDs       []int64  `json:"role_ids"`
-	CommandAclIDs []int64  `json:"command_acl_ids"`
-	Action        string   `json:"action"`
-	Notify        bool     `json:"notify"`
-	Log           bool     `json:"log"`
-	Enabled       bool     `json:"enabled"`
-	HitCount      int64    `json:"hit_count"`
-	LastHitAt     *string  `json:"last_hit_at"`
-	CreatedAt     string   `json:"created_at"`
-	UpdatedAt     string   `json:"updated_at"`
+	ID            int64         `json:"id"`
+	Position      int64         `json:"position"`
+	Name          string        `json:"name"`
+	Comment       *string       `json:"comment"`
+	ResourceTypes []string      `json:"resource_types"`
+	SessionTypes  []string      `json:"session_types"`
+	LocationIDs   []int64       `json:"location_ids"`
+	TagIDs        []int64       `json:"tag_ids"`
+	RoleIDs       []int64       `json:"role_ids"`
+	CommandAclIDs []int64       `json:"command_acl_ids"`
+	Action        string        `json:"action"`
+	Notify        bool          `json:"notify"`
+	Log           bool          `json:"log"`
+	Enabled       bool          `json:"enabled"`
+	Approval      *RuleApproval `json:"approval"` // null unless action=approve (absent before 2.0.10)
+	HitCount      int64         `json:"hit_count"`
+	LastHitAt     *string       `json:"last_hit_at"`
+	CreatedAt     string        `json:"created_at"`
+	UpdatedAt     string        `json:"updated_at"`
 }
 
 func (c *Client) CreateRule(ctx context.Context, input RuleCreateInput) (*RuleResponse, error) {

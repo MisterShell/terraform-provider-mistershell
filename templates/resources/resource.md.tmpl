@@ -19,7 +19,8 @@ description: |-
 
 ## Onboarding modes
 
-Provider 2.0.7 requires **MisterShell >= 2.0.7**.
+Provider 2.0.15 requires **MisterShell >= 2.0.7**; `sshgw_allow_personal_key`
+requires MisterShell >= 2.0.15.
 
 Creating a resource always performs a live connection test and can take several
 minutes. The provider waits up to five minutes for the worker task and its
@@ -67,20 +68,31 @@ Moving a resource to another location alone does not pause collection. Removing
 it from Terraform configuration still deletes it from MisterShell on apply;
 parking requires keeping the resource in configuration.
 
-## API-key logins through the SSH gateway
+## Personal SSH key logins through the SSH gateway
 
-`sshgw_allow_api_key` lets a user's personal MisterShell API key, given as the
-SSH password, be accepted in place of the account password and the second
-authentication factor (MFA) when that user opens a native SSH session to this
-resource through the MisterShell SSH gateway, so non-interactive automation can
-connect. It defaults to `false`. The key alone signs the user in, as it already
-does for API calls; the account must still be valid and unlocked, and the
-resource credential, session policy, session recording, and audit logging still
-apply. Only resource types with a shell session mode
+`sshgw_allow_personal_key` lets a user's own SSH key, registered in MisterShell
+under **My Account → Account Security → My SSH keys**, be accepted on its own in
+place of the account password and the second authentication factor (MFA) when
+that user opens a direct native SSH session to this resource through the
+MisterShell SSH gateway, so non-interactive automation can connect. It defaults
+to `false`. The account must still be active, and the resource credential,
+session policy, session recording, and audit logging still apply; deleting the
+key or deactivating the user ends access. Users register their keys in the
+MisterShell UI; this provider does not manage personal SSH keys.
+
+Only resource types with a shell session mode
 (SSH, database, AWS, Azure, Kubernetes) accept `true`; MisterShell rejects it on
-`generic_rdp`, `generic_vnc`, and `generic_web` with HTTP 400 at apply. Requires
-MisterShell > 2.0.13: older backends reject a create or update that sets it to
-`true` with HTTP 422 and read it back as `false`.
+`generic_rdp`, `generic_vnc`, and `generic_web` with HTTP 400 at apply.
+
+**Requires MisterShell >= 2.0.15.** Older backends reject any create or update
+that sends this attribute with HTTP 422 and read it back as `false`. The
+provider sends it only when it is `true` on create or when its value changes, so
+configurations that leave it at the default keep working on older backends.
+
+MisterShell 2.0.15 removed the earlier API-key SSH sign-in and does not carry
+existing opt-ins over: after upgrading the backend, re-enable the option on each
+resource that needs it (set `sshgw_allow_personal_key = true`) and have the
+automation users register an SSH key.
 
 ## SSH host-key trust
 

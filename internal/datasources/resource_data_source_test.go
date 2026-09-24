@@ -49,15 +49,15 @@ func TestMapNetworkResourceCoordinatesToDataSourceModel(t *testing.T) {
 	}
 }
 
-// The data source reads the flag straight from the API; a MisterShell <= 2.0.13
+// The data source reads the flag straight from the API; a MisterShell < 2.0.15
 // response has no such field and must read back as false, not unknown.
-func TestNetworkResourceDataSourceReadsSshgwAllowAPIKey(t *testing.T) {
+func TestNetworkResourceDataSourceReadsSshgwAllowPersonalKey(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		field string
 		want  bool
 	}{
-		{"allowed", `"sshgw_allow_api_key":true,`, true},
+		{"allowed", `"sshgw_allow_personal_key":true,`, true},
 		{"older backend omits the field", ``, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -96,8 +96,8 @@ func TestNetworkResourceDataSourceReadsSshgwAllowAPIKey(t *testing.T) {
 			if diags := response.State.Get(ctx, &state); diags.HasError() {
 				t.Fatal(diags)
 			}
-			if !state.SshgwAllowAPIKey.Equal(types.BoolValue(tc.want)) {
-				t.Fatalf("sshgw_allow_api_key=%v, want %t", state.SshgwAllowAPIKey, tc.want)
+			if !state.SshgwAllowPersonalKey.Equal(types.BoolValue(tc.want)) {
+				t.Fatalf("sshgw_allow_personal_key=%v, want %t", state.SshgwAllowPersonalKey, tc.want)
 			}
 		})
 	}

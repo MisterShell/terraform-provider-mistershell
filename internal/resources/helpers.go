@@ -350,6 +350,7 @@ func mapUserBaseResponseToModel(u *client.UserResponse, m *UserResourceModel) {
 	m.FirstName = types.StringValue(u.FirstName)
 	m.LastName = types.StringValue(u.LastName)
 	m.AuthType = types.StringValue(u.AuthType)
+	m.AuthProviderID = int64PtrToValue(u.AuthProviderID)
 	m.IsActive = types.BoolValue(u.IsActive)
 	m.EmailVerified = types.BoolValue(u.EmailVerified)
 	m.CreatedAt = types.StringValue(u.CreatedAt)

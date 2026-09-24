@@ -21,13 +21,15 @@ func TestMisterShell2DataSourceSchemas(t *testing.T) {
 			"effective_longitude",
 			"coordinate_source_location_id",
 			"coordinate_source_location_name",
-			"sshgw_allow_api_key",
+			"sshgw_allow_personal_key",
 		}},
 		{"role", NewRoleDataSource(), []string{"location_scope_mode"}},
 		{"auth provider", NewAuthProviderDataSource(), []string{"mnemonic", "oidc_redirect_uri"}},
 		{"worker", NewWorkerDataSource(), []string{"version", "rdk_contract_major", "rdk_catalog_identity", "rdk_compatible"}},
 		{"AI tool", NewAIToolDataSource(), []string{"restricted_to_agent_types"}},
 		{"setting", NewSettingDataSource(), []string{"schema", "is_encrypted"}},
+		{"session policy rule", NewSessionPolicyRuleDataSource(), []string{"approval"}},
+		{"user", NewUserDataSource(), []string{"auth_provider_id"}},
 	}
 
 	for _, test := range tests {

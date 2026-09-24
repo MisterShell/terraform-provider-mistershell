@@ -32,13 +32,14 @@ func (d *UsersDataSource) Metadata(_ context.Context, req datasource.MetadataReq
 
 // usersCatalogAttrTypes is the element object type for the catalog `users` list.
 var usersCatalogAttrTypes = map[string]attr.Type{
-	"id":             types.Int64Type,
-	"email":          types.StringType,
-	"first_name":     types.StringType,
-	"last_name":      types.StringType,
-	"auth_type":      types.StringType,
-	"is_active":      types.BoolType,
-	"email_verified": types.BoolType,
+	"id":               types.Int64Type,
+	"email":            types.StringType,
+	"first_name":       types.StringType,
+	"last_name":        types.StringType,
+	"auth_type":        types.StringType,
+	"auth_provider_id": types.Int64Type,
+	"is_active":        types.BoolType,
+	"email_verified":   types.BoolType,
 }
 
 var usersCatalogObjectType = types.ObjectType{AttrTypes: usersCatalogAttrTypes}
@@ -56,13 +57,14 @@ func (d *UsersDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 				Computed:    true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"id":             schema.Int64Attribute{Computed: true, Description: "User ID."},
-						"email":          schema.StringAttribute{Computed: true, Description: "User email."},
-						"first_name":     schema.StringAttribute{Computed: true, Description: "User first name."},
-						"last_name":      schema.StringAttribute{Computed: true, Description: "User last name."},
-						"auth_type":      schema.StringAttribute{Computed: true, Description: "Authentication type."},
-						"is_active":      schema.BoolAttribute{Computed: true, Description: "Whether the account is active."},
-						"email_verified": schema.BoolAttribute{Computed: true, Description: "Whether the email is verified."},
+						"id":               schema.Int64Attribute{Computed: true, Description: "User ID."},
+						"email":            schema.StringAttribute{Computed: true, Description: "User email."},
+						"first_name":       schema.StringAttribute{Computed: true, Description: "User first name."},
+						"last_name":        schema.StringAttribute{Computed: true, Description: "User last name."},
+						"auth_type":        schema.StringAttribute{Computed: true, Description: "Authentication type."},
+						"auth_provider_id": schema.Int64Attribute{Computed: true, Description: "ID of the external authentication provider the user signs in through; null for LOCAL users (and on MisterShell < 2.0.9)."},
+						"is_active":        schema.BoolAttribute{Computed: true, Description: "Whether the account is active."},
+						"email_verified":   schema.BoolAttribute{Computed: true, Description: "Whether the email is verified."},
 					},
 				},
 			},
@@ -103,13 +105,14 @@ func (d *UsersDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 	elems := make([]attr.Value, 0, len(items))
 	for _, it := range items {
 		obj := types.ObjectValueMust(usersCatalogAttrTypes, map[string]attr.Value{
-			"id":             types.Int64Value(it.ID),
-			"email":          types.StringValue(it.Email),
-			"first_name":     types.StringValue(it.FirstName),
-			"last_name":      types.StringValue(it.LastName),
-			"auth_type":      types.StringValue(it.AuthType),
-			"is_active":      types.BoolValue(it.IsActive),
-			"email_verified": types.BoolValue(it.EmailVerified),
+			"id":               types.Int64Value(it.ID),
+			"email":            types.StringValue(it.Email),
+			"first_name":       types.StringValue(it.FirstName),
+			"last_name":        types.StringValue(it.LastName),
+			"auth_type":        types.StringValue(it.AuthType),
+			"auth_provider_id": int64PtrToValue(it.AuthProviderID),
+			"is_active":        types.BoolValue(it.IsActive),
+			"email_verified":   types.BoolValue(it.EmailVerified),
 		})
 		elems = append(elems, obj)
 	}

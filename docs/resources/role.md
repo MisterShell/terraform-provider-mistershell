@@ -92,9 +92,35 @@ server-side grants. Retired names otherwise cause recurring drift and HTTP 400
 For example, change `permissions = ["app.workers.read", "app.resources.test"]`
 to `permissions = ["app.fabric.read", "app.resources.execute"]`.
 
+## Backend 2.0.15 permissions and upgrades
+
+Upgrading the backend from 2.0.7 to 2.0.15 migrates stored role grants again.
+Edit `permissions` in HCL to match, or the next plan shows drift and apply
+either fails or silently narrows the role:
+
+| Previous grant | After the backend upgrade | HCL change |
+|---|---|---|
+| `app.tasks.delete` | Removed (scheduled tasks can no longer be deleted) | Remove it; keeping it fails with HTTP 400 `Invalid permission` |
+| `app.collector.read` | Split: `app.collector.read` now covers collector policy rules only; viewing collected syslog messages needs `app.collector.execute` | Add `app.collector.execute` to keep log visibility |
+| `app.sensors.read` | Split: `app.sensors.read` now covers IDS rulesets, sources, rules and alert policy; viewing IDS alerts needs `app.sensors.execute` | Add `app.sensors.execute` to keep alert visibility |
+| `app.fact_policies.read` | Split: `app.fact_policies.read` now covers rules and check definitions; compliance results and history need `app.fact_policies.execute` | Add `app.fact_policies.execute` to keep compliance visibility |
+
+The backend adds the new `*.execute` grant to every role that held the matching
+`*.read` grant, so existing access is preserved server-side. If HCL is not
+updated, Terraform plans to remove the added grant and the role loses that
+visibility on the next apply. For example, change
+`permissions = ["app.collector.read", "app.tasks.delete"]` to
+`permissions = ["app.collector.read", "app.collector.execute"]`.
+
 Granting `*.*.*` requires an API key whose caller is already a superuser. The
 name `admin` is reserved. Built-in roles are protected from edits and deletion;
 use the role data source to read them instead of importing them as resources.
+
+A role listed in a `mistershell_session_policy_rule`'s
+`approval.approver_role_ids` cannot be deleted while that rule exists
+(MisterShell >= 2.0.10), including a disabled rule or a pending approval request
+naming the role. Reference the role's `id` from the rule so Terraform destroys
+the rule first.
 
 Include the applicable delete permissions in the role used by Terraform.
 For example, `app.audit.write` permits log-destination changes but destruction

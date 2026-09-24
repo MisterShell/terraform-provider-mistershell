@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -32,6 +33,7 @@ type SessionPolicyRuleDataSourceModel struct {
 	Notify        types.Bool   `tfsdk:"notify"`
 	Log           types.Bool   `tfsdk:"log"`
 	Enabled       types.Bool   `tfsdk:"enabled"`
+	Approval      types.Object `tfsdk:"approval"`
 	HitCount      types.Int64  `tfsdk:"hit_count"`
 	LastHitAt     types.String `tfsdk:"last_hit_at"`
 	CreatedAt     types.String `tfsdk:"created_at"`
@@ -99,7 +101,7 @@ func (d *SessionPolicyRuleDataSource) Schema(_ context.Context, _ datasource.Sch
 				ElementType: types.Int64Type,
 			},
 			"action": schema.StringAttribute{
-				Description: "Rule action (accept or deny).",
+				Description: "Rule action: accept, deny, or approve.",
 				Computed:    true,
 			},
 			"notify": schema.BoolAttribute{
@@ -113,6 +115,33 @@ func (d *SessionPolicyRuleDataSource) Schema(_ context.Context, _ datasource.Sch
 			"enabled": schema.BoolAttribute{
 				Description: "Whether the rule is enabled.",
 				Computed:    true,
+			},
+			"approval": schema.SingleNestedAttribute{
+				Description: "Approver configuration of an approve rule; null for accept/deny rules (and on MisterShell < 2.0.10).",
+				Computed:    true,
+				Attributes: map[string]schema.Attribute{
+					"approver_role_ids": schema.SetAttribute{
+						Description: "IDs of the roles whose members may approve or deny requests.",
+						Computed:    true,
+						ElementType: types.Int64Type,
+					},
+					"expiration_seconds": schema.Int64Attribute{
+						Description: "How long a pending request stays open before it expires, in seconds.",
+						Computed:    true,
+					},
+					"validity_seconds": schema.Int64Attribute{
+						Description: "How long an approval grants access, counted from the approval time, in seconds.",
+						Computed:    true,
+					},
+					"notify_email": schema.BoolAttribute{
+						Description: "Whether approvers are also notified by email.",
+						Computed:    true,
+					},
+					"allow_self_approval": schema.BoolAttribute{
+						Description: "Whether a requester who belongs to an approver role may decide their own request.",
+						Computed:    true,
+					},
+				},
 			},
 			"hit_count": schema.Int64Attribute{
 				Description: "Number of times this rule has matched (runtime telemetry).",
@@ -209,10 +238,34 @@ func (d *SessionPolicyRuleDataSource) Read(ctx context.Context, req datasource.R
 	config.Notify = types.BoolValue(rule.Notify)
 	config.Log = types.BoolValue(rule.Log)
 	config.Enabled = types.BoolValue(rule.Enabled)
+	config.Approval = ruleApprovalToObject(rule.Approval)
 	config.HitCount = types.Int64Value(rule.HitCount)
 	config.LastHitAt = optStringPtrToValue(rule.LastHitAt)
 	config.CreatedAt = types.StringValue(rule.CreatedAt)
 	config.UpdatedAt = types.StringValue(rule.UpdatedAt)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+var ruleApprovalAttrTypes = map[string]attr.Type{
+	"approver_role_ids":   types.SetType{ElemType: types.Int64Type},
+	"expiration_seconds":  types.Int64Type,
+	"validity_seconds":    types.Int64Type,
+	"notify_email":        types.BoolType,
+	"allow_self_approval": types.BoolType,
+}
+
+// ruleApprovalToObject maps the API approval (null unless action=approve) to
+// the computed `approval` object.
+func ruleApprovalToObject(a *client.RuleApproval) types.Object {
+	if a == nil {
+		return types.ObjectNull(ruleApprovalAttrTypes)
+	}
+	return types.ObjectValueMust(ruleApprovalAttrTypes, map[string]attr.Value{
+		"approver_role_ids":   int64SliceToSet(a.ApproverRoleIDs),
+		"expiration_seconds":  types.Int64Value(a.ExpirationSeconds),
+		"validity_seconds":    types.Int64Value(a.ValiditySeconds),
+		"notify_email":        types.BoolValue(a.NotifyEmail),
+		"allow_self_approval": types.BoolValue(a.AllowSelfApproval),
+	})
 }

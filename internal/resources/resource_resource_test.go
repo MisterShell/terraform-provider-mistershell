@@ -80,7 +80,7 @@ func TestBuildNetworkResourceUpdateSendsOnlyChangedFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildNetworkResourceUpdate() error: %v", err)
 	}
-	if got.Name == nil || *got.Name != "new" || got.LocationID != nil || got.CredentialID != nil || got.ConnectorData != nil || got.IsEnabled != nil || got.SshgwAllowAPIKey != nil {
+	if got.Name == nil || *got.Name != "new" || got.LocationID != nil || got.CredentialID != nil || got.ConnectorData != nil || got.IsEnabled != nil || got.SshgwAllowPersonalKey != nil {
 		t.Fatalf("name-only update = %#v", got)
 	}
 

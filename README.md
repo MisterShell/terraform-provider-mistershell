@@ -5,7 +5,7 @@ The MisterShell Terraform provider enables infrastructure-as-code management of 
 ## Requirements
 
 - [Terraform](https://www.terraform.io/downloads) >= 1.5
-- A running MisterShell 2.0.7 or newer instance for provider 2.0.7
+- A running MisterShell 2.0.7 or newer instance; some features need a newer backend (up to 2.0.15), as stated in the [CHANGELOG](CHANGELOG.md)
 - A MisterShell API key (`apikey_` prefixed)
 
 ## Installation
@@ -38,8 +38,9 @@ the objects Terraform manages. Workers use `app.fabric.read`, `app.fabric.write`
 and `app.fabric.delete`;
 log-destination deletion uses `app.audit.delete`, and auth-provider mapping
 deletion uses `app.auth_providers.delete`. Log-destination creation/updates also
-require a Pro license with `log_forwarding.configure`. See the [2.0.7 upgrade
-notes](CHANGELOG.md#207---2026-09-11) for renamed role permissions and setting limits.
+require a Pro license with `log_forwarding.configure`. See the [2.0.7](CHANGELOG.md#207---2026-09-11) and
+[2.0.15](CHANGELOG.md#2015---2026-09-24) upgrade notes for renamed role
+permissions, setting limits, and per-feature backend requirements.
 
 Keep the API key's location scope covering all managed objects and their target
 locations. An object outside that scope can return HTTP 404; Terraform treats it

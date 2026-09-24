@@ -18,17 +18,18 @@ type UserDataSource struct {
 }
 
 type UserDataSourceModel struct {
-	ID            types.Int64  `tfsdk:"id"`
-	Email         types.String `tfsdk:"email"`
-	FirstName     types.String `tfsdk:"first_name"`
-	LastName      types.String `tfsdk:"last_name"`
-	AuthType      types.String `tfsdk:"auth_type"`
-	IsActive      types.Bool   `tfsdk:"is_active"`
-	EmailVerified types.Bool   `tfsdk:"email_verified"`
-	Roles         types.List   `tfsdk:"roles"`
-	Permissions   types.Set    `tfsdk:"permissions"`
-	CreatedAt     types.String `tfsdk:"created_at"`
-	UpdatedAt     types.String `tfsdk:"updated_at"`
+	ID             types.Int64  `tfsdk:"id"`
+	Email          types.String `tfsdk:"email"`
+	FirstName      types.String `tfsdk:"first_name"`
+	LastName       types.String `tfsdk:"last_name"`
+	AuthType       types.String `tfsdk:"auth_type"`
+	AuthProviderID types.Int64  `tfsdk:"auth_provider_id"`
+	IsActive       types.Bool   `tfsdk:"is_active"`
+	EmailVerified  types.Bool   `tfsdk:"email_verified"`
+	Roles          types.List   `tfsdk:"roles"`
+	Permissions    types.Set    `tfsdk:"permissions"`
+	CreatedAt      types.String `tfsdk:"created_at"`
+	UpdatedAt      types.String `tfsdk:"updated_at"`
 }
 
 func NewUserDataSource() datasource.DataSource {
@@ -53,10 +54,11 @@ func (d *UserDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 				Optional:    true,
 				Computed:    true,
 			},
-			"first_name": schema.StringAttribute{Description: "User first name.", Computed: true},
-			"last_name":  schema.StringAttribute{Description: "User last name.", Computed: true},
-			"auth_type":  schema.StringAttribute{Description: "Authentication type (LOCAL, LDAP, OIDC, SAML).", Computed: true},
-			"is_active":  schema.BoolAttribute{Description: "Whether the account is active.", Computed: true},
+			"first_name":       schema.StringAttribute{Description: "User first name.", Computed: true},
+			"last_name":        schema.StringAttribute{Description: "User last name.", Computed: true},
+			"auth_type":        schema.StringAttribute{Description: "Authentication type (LOCAL, LDAP, OIDC, SAML).", Computed: true},
+			"auth_provider_id": schema.Int64Attribute{Description: "ID of the external authentication provider the user signs in through; null for LOCAL users (and on MisterShell < 2.0.9).", Computed: true},
+			"is_active":        schema.BoolAttribute{Description: "Whether the account is active.", Computed: true},
 			"email_verified": schema.BoolAttribute{
 				Description: "Whether the user's email is verified.",
 				Computed:    true,
@@ -149,6 +151,7 @@ func (d *UserDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	config.FirstName = types.StringValue(user.FirstName)
 	config.LastName = types.StringValue(user.LastName)
 	config.AuthType = types.StringValue(user.AuthType)
+	config.AuthProviderID = int64PtrToValue(user.AuthProviderID)
 	config.IsActive = types.BoolValue(user.IsActive)
 	config.EmailVerified = types.BoolValue(user.EmailVerified)
 	config.Roles = rolesToList(user.Roles)

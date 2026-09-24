@@ -20,3 +20,20 @@ resource "mistershell_session_policy_rule" "allow_rest" {
   position = 20
   action   = "accept"
 }
+
+# An approval gate: members of the "on-call-leads" role must approve new
+# connections to production databases. Approve rules are evaluated before all
+# accept/deny rules regardless of position, and cannot reference command ACLs.
+resource "mistershell_session_policy_rule" "approve_prod_db" {
+  name           = "approve-production-databases"
+  action         = "approve"
+  resource_types = ["database_postgres", "database_mysql"]
+  location_ids   = [mistershell_location.production.id]
+
+  approval = {
+    approver_role_ids  = [mistershell_role.on_call_leads.id]
+    expiration_seconds = 3600 # pending requests expire after 1 hour
+    validity_seconds   = 1800 # an approval grants 30 minutes of access
+    notify_email       = true
+  }
+}

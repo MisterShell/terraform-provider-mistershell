@@ -45,7 +45,7 @@ type NetworkResourceResourceModel struct {
 	CredentialID           types.Int64   `tfsdk:"credential_id"`
 	ExtraData              types.Dynamic `tfsdk:"extra_data"`
 	IsEnabled              types.Bool    `tfsdk:"is_enabled"`
-	SshgwAllowAPIKey       types.Bool    `tfsdk:"sshgw_allow_api_key"`
+	SshgwAllowPersonalKey  types.Bool    `tfsdk:"sshgw_allow_personal_key"`
 	TagIDs                 types.Set     `tfsdk:"tag_ids"`
 	Tags                   types.List    `tfsdk:"tags"`
 	ConnectorID            types.String  `tfsdk:"connector_id"`
@@ -145,8 +145,8 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
 			},
-			"sshgw_allow_api_key": schema.BoolAttribute{
-				Description: "Whether a user's personal API key, given as the SSH password, is accepted in place of the account password and the second authentication factor (MFA) when opening a native SSH session to this resource through the MisterShell SSH gateway, for automation clients that cannot complete an interactive login. The key alone signs the user in, as it already does for API calls; the account must still be valid and unlocked, and the resource credential, session policy, session recording, and audit logging still apply. Defaults to false. Only resource types with a shell session mode accept true; MisterShell rejects it on graphical-only types with HTTP 400. Requires MisterShell > 2.0.13: older backends reject true with HTTP 422 and read it back as false.",
+			"sshgw_allow_personal_key": schema.BoolAttribute{
+				Description: "Whether a user's own SSH key, registered in MisterShell under My Account > Account Security > My SSH keys, is accepted on its own in place of the account password and the second authentication factor (MFA) when that user opens a direct native SSH session to this resource through the MisterShell SSH gateway, so non-interactive automation can connect. The account must still be active, and the resource credential, session policy, session recording, and audit logging still apply; deleting the key or deactivating the user ends access. Defaults to false. Only resource types with a shell session mode accept true; MisterShell rejects it on graphical-only types with HTTP 400. Requires MisterShell >= 2.0.15: older backends reject any create or update that sends it with HTTP 422.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
@@ -270,10 +270,10 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 	}
 	input.CredentialID = int64ValueToPtr(plan.CredentialID)
 	// false is the server default and the field is unknown to MisterShell
-	// <= 2.0.13 (extra fields are rejected with HTTP 422), so it is only sent
+	// < 2.0.15 (extra fields are rejected with HTTP 422), so it is only sent
 	// when the user opts in; that keeps creates working on older backends.
-	if plan.SshgwAllowAPIKey.ValueBool() {
-		input.SshgwAllowAPIKey = boolValueToPtr(plan.SshgwAllowAPIKey)
+	if plan.SshgwAllowPersonalKey.ValueBool() {
+		input.SshgwAllowPersonalKey = boolValueToPtr(plan.SshgwAllowPersonalKey)
 	}
 
 	res, err := r.client.CreateNetworkResource(createCtx, input)
@@ -470,7 +470,7 @@ func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *N
 		return fmt.Errorf("extra_data: %w", err)
 	}
 	m.IsEnabled = types.BoolValue(res.IsEnabled)
-	m.SshgwAllowAPIKey = types.BoolValue(res.SshgwAllowAPIKey)
+	m.SshgwAllowPersonalKey = types.BoolValue(res.SshgwAllowPersonalKey)
 	m.ConnectorID = types.StringValue(res.ConnectorID)
 	m.Status = types.StringValue(res.Status)
 	m.CreatedAt = types.StringValue(res.CreatedAt)
@@ -530,9 +530,9 @@ func buildNetworkResourceUpdate(plan, state *NetworkResourceResourceModel) (clie
 		value := plan.IsEnabled.ValueBool()
 		input.IsEnabled = &value
 	}
-	if !plan.SshgwAllowAPIKey.Equal(state.SshgwAllowAPIKey) {
-		value := plan.SshgwAllowAPIKey.ValueBool()
-		input.SshgwAllowAPIKey = &value
+	if !plan.SshgwAllowPersonalKey.Equal(state.SshgwAllowPersonalKey) {
+		value := plan.SshgwAllowPersonalKey.ValueBool()
+		input.SshgwAllowPersonalKey = &value
 	}
 	return input, nil
 }

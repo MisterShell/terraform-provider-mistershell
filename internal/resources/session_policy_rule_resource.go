@@ -9,23 +9,27 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 
 	"terraform-provider-mistershell/internal/client"
 )
 
 var (
-	_ resource.Resource                = &SessionPolicyRuleResource{}
-	_ resource.ResourceWithImportState = &SessionPolicyRuleResource{}
+	_ resource.Resource                   = &SessionPolicyRuleResource{}
+	_ resource.ResourceWithImportState    = &SessionPolicyRuleResource{}
+	_ resource.ResourceWithValidateConfig = &SessionPolicyRuleResource{}
 )
 
 type SessionPolicyRuleResource struct {
@@ -47,6 +51,7 @@ type SessionPolicyRuleResourceModel struct {
 	Notify        types.Bool   `tfsdk:"notify"`
 	Log           types.Bool   `tfsdk:"log"`
 	Enabled       types.Bool   `tfsdk:"enabled"`
+	Approval      types.Object `tfsdk:"approval"`
 	HitCount      types.Int64  `tfsdk:"hit_count"`
 	LastHitAt     types.String `tfsdk:"last_hit_at"`
 	CreatedAt     types.String `tfsdk:"created_at"`
@@ -137,14 +142,14 @@ func (r *SessionPolicyRuleResource) Schema(_ context.Context, _ resource.SchemaR
 				Default:     setdefault.StaticValue(emptyInt64Set),
 			},
 			"command_acl_ids": schema.SetAttribute{
-				Description: "Command ACL IDs referenced by this rule. Empty set means Any.",
+				Description: "Command ACL IDs referenced by this rule. Empty set means Any. Must be empty when action is approve.",
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.Int64Type,
 				Default:     setdefault.StaticValue(emptyInt64Set),
 			},
 			"action": schema.StringAttribute{
-				Description: "Rule action. One of: accept, deny. Defaults to accept.",
+				Description: "Rule action. One of: accept, deny, approve. Defaults to accept. approve requires a human decision before a matching user opens a new connection and requires the approval block; approve rules are evaluated before accept/deny rules regardless of position (requires MisterShell >= 2.0.10).",
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString("accept"),
@@ -169,6 +174,51 @@ func (r *SessionPolicyRuleResource) Schema(_ context.Context, _ resource.SchemaR
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
+			},
+			"approval": schema.SingleNestedAttribute{
+				Description: "Approver configuration. Required when action is approve and not allowed otherwise (MisterShell rejects approval on accept/deny rules).",
+				Optional:    true,
+				Attributes: map[string]schema.Attribute{
+					"approver_role_ids": schema.SetAttribute{
+						Description: "IDs of the roles whose members may approve or deny requests (1-100 roles). A referenced role cannot be deleted while this rule exists.",
+						Required:    true,
+						ElementType: types.Int64Type,
+						Validators: []validator.Set{
+							setvalidator.SizeBetween(1, 100),
+							setvalidator.ValueInt64sAre(int64validator.AtLeast(1)),
+						},
+					},
+					"expiration_seconds": schema.Int64Attribute{
+						Description: "How long a pending request stays open before it expires, in seconds (60-2592000). Defaults to 86400 (24 hours).",
+						Optional:    true,
+						Computed:    true,
+						Default:     int64default.StaticInt64(86400),
+						Validators: []validator.Int64{
+							int64validator.Between(60, 2592000),
+						},
+					},
+					"validity_seconds": schema.Int64Attribute{
+						Description: "How long an approval grants access, counted from the approval time, in seconds (60-2592000). Defaults to 3600 (1 hour).",
+						Optional:    true,
+						Computed:    true,
+						Default:     int64default.StaticInt64(3600),
+						Validators: []validator.Int64{
+							int64validator.Between(60, 2592000),
+						},
+					},
+					"notify_email": schema.BoolAttribute{
+						Description: "Whether approvers are also notified by email (UI notification is always on). Defaults to false.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+					"allow_self_approval": schema.BoolAttribute{
+						Description: "Whether a requester who belongs to an approver role may decide their own request. Defaults to false.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+				},
 			},
 			"hit_count": schema.Int64Attribute{
 				Description: "Number of times this rule has matched (runtime telemetry, read-only).",
@@ -205,6 +255,29 @@ func (r *SessionPolicyRuleResource) Configure(_ context.Context, req resource.Co
 	r.client = c
 }
 
+// ValidateConfig mirrors the backend's approve-rule constraints so they fail at
+// plan time instead of with HTTP 422 at apply.
+func (r *SessionPolicyRuleResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config SessionPolicyRuleResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() || config.Action.IsUnknown() || config.Approval.IsUnknown() {
+		return
+	}
+	approve := config.Action.ValueString() == "approve"
+	if approve && config.Approval.IsNull() {
+		resp.Diagnostics.AddAttributeError(path.Root("approval"), "Missing approval configuration",
+			"A rule with action = \"approve\" requires an approval block.")
+	}
+	if !approve && !config.Approval.IsNull() {
+		resp.Diagnostics.AddAttributeError(path.Root("approval"), "Unexpected approval configuration",
+			"Only rules with action = \"approve\" may have an approval block.")
+	}
+	if approve && !config.CommandAclIDs.IsNull() && !config.CommandAclIDs.IsUnknown() && len(config.CommandAclIDs.Elements()) > 0 {
+		resp.Diagnostics.AddAttributeError(path.Root("command_acl_ids"), "Command ACLs not allowed on approve rules",
+			"Rules with action = \"approve\" gate access to the resource and cannot reference command ACLs.")
+	}
+}
+
 func (r *SessionPolicyRuleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan SessionPolicyRuleResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -227,6 +300,12 @@ func (r *SessionPolicyRuleResource) Create(ctx context.Context, req resource.Cre
 		Log:           plan.Log.ValueBool(),
 		Enabled:       plan.Enabled.ValueBool(),
 	}
+	approval, diags := ruleApprovalFromObject(ctx, plan.Approval)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	input.Approval = approval
 
 	rule, err := r.client.CreateRule(ctx, input)
 	if err != nil {
@@ -287,6 +366,12 @@ func (r *SessionPolicyRuleResource) Update(ctx context.Context, req resource.Upd
 		Log:           plan.Log.ValueBool(),
 		Enabled:       plan.Enabled.ValueBool(),
 	}
+	approval, diags := ruleApprovalFromObject(ctx, plan.Approval)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	input.Approval = approval
 
 	rule, err := r.client.UpdateRule(ctx, state.ID.ValueInt64(), input)
 	if err != nil {
@@ -334,8 +419,60 @@ func mapRuleResponseToModel(rule *client.RuleResponse, m *SessionPolicyRuleResou
 	m.Notify = types.BoolValue(rule.Notify)
 	m.Log = types.BoolValue(rule.Log)
 	m.Enabled = types.BoolValue(rule.Enabled)
+	m.Approval = ruleApprovalToObject(rule.Approval)
 	m.HitCount = types.Int64Value(rule.HitCount)
 	m.LastHitAt = optStringPtrToValue(rule.LastHitAt)
 	m.CreatedAt = types.StringValue(rule.CreatedAt)
 	m.UpdatedAt = types.StringValue(rule.UpdatedAt)
+}
+
+// ruleApprovalAttrTypes is the object type of the `approval` block.
+var ruleApprovalAttrTypes = map[string]attr.Type{
+	"approver_role_ids":   types.SetType{ElemType: types.Int64Type},
+	"expiration_seconds":  types.Int64Type,
+	"validity_seconds":    types.Int64Type,
+	"notify_email":        types.BoolType,
+	"allow_self_approval": types.BoolType,
+}
+
+type ruleApprovalModel struct {
+	ApproverRoleIDs   types.Set   `tfsdk:"approver_role_ids"`
+	ExpirationSeconds types.Int64 `tfsdk:"expiration_seconds"`
+	ValiditySeconds   types.Int64 `tfsdk:"validity_seconds"`
+	NotifyEmail       types.Bool  `tfsdk:"notify_email"`
+	AllowSelfApproval types.Bool  `tfsdk:"allow_self_approval"`
+}
+
+// ruleApprovalFromObject converts the planned `approval` block to the API
+// shape; null (accept/deny rules) maps to nil.
+func ruleApprovalFromObject(ctx context.Context, obj types.Object) (*client.RuleApproval, diag.Diagnostics) {
+	if obj.IsNull() || obj.IsUnknown() {
+		return nil, nil
+	}
+	var m ruleApprovalModel
+	if diags := obj.As(ctx, &m, basetypes.ObjectAsOptions{}); diags.HasError() {
+		return nil, diags
+	}
+	return &client.RuleApproval{
+		ApproverRoleIDs:   int64SetToSlice(m.ApproverRoleIDs),
+		ExpirationSeconds: m.ExpirationSeconds.ValueInt64(),
+		ValiditySeconds:   m.ValiditySeconds.ValueInt64(),
+		NotifyEmail:       m.NotifyEmail.ValueBool(),
+		AllowSelfApproval: m.AllowSelfApproval.ValueBool(),
+	}, nil
+}
+
+// ruleApprovalToObject maps the API approval (null unless action=approve) to
+// the `approval` block.
+func ruleApprovalToObject(a *client.RuleApproval) types.Object {
+	if a == nil {
+		return types.ObjectNull(ruleApprovalAttrTypes)
+	}
+	return types.ObjectValueMust(ruleApprovalAttrTypes, map[string]attr.Value{
+		"approver_role_ids":   int64SliceToSet(a.ApproverRoleIDs),
+		"expiration_seconds":  types.Int64Value(a.ExpirationSeconds),
+		"validity_seconds":    types.Int64Value(a.ValiditySeconds),
+		"notify_email":        types.BoolValue(a.NotifyEmail),
+		"allow_self_approval": types.BoolValue(a.AllowSelfApproval),
+	})
 }

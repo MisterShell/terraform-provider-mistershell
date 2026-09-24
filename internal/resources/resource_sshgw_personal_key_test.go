@@ -17,25 +17,25 @@ import (
 	"terraform-provider-mistershell/internal/client"
 )
 
-func TestNetworkResourceSchemaSshgwAllowAPIKeyDefaultsToFalse(t *testing.T) {
+func TestNetworkResourceSchemaSshgwAllowPersonalKeyDefaultsToFalse(t *testing.T) {
 	var resp resource.SchemaResponse
 	(&NetworkResourceResource{}).Schema(context.Background(), resource.SchemaRequest{}, &resp)
-	attribute, ok := resp.Schema.Attributes["sshgw_allow_api_key"].(resourceschema.BoolAttribute)
+	attribute, ok := resp.Schema.Attributes["sshgw_allow_personal_key"].(resourceschema.BoolAttribute)
 	if !ok || !attribute.Optional || !attribute.Computed || attribute.Required || attribute.Default == nil {
-		t.Fatalf("sshgw_allow_api_key schema = %#v", resp.Schema.Attributes["sshgw_allow_api_key"])
+		t.Fatalf("sshgw_allow_personal_key schema = %#v", resp.Schema.Attributes["sshgw_allow_personal_key"])
 	}
 	var result defaults.BoolResponse
 	attribute.Default.DefaultBool(context.Background(), defaults.BoolRequest{}, &result)
 	if result.Diagnostics.HasError() || !result.PlanValue.Equal(types.BoolValue(false)) {
-		t.Fatalf("sshgw_allow_api_key default = %v (diags %v), want false", result.PlanValue, result.Diagnostics)
+		t.Fatalf("sshgw_allow_personal_key default = %v (diags %v), want false", result.PlanValue, result.Diagnostics)
 	}
 }
 
-// MisterShell <= 2.0.13 rejects unknown create fields with HTTP 422, so the
+// MisterShell < 2.0.15 rejects unknown create fields with HTTP 422, so the
 // flag must only reach the initial POST when the user opts in. The mock answers
 // like an older backend (no field in the response) unless the flag was sent,
 // which also exercises the false read-back on those backends.
-func TestNetworkResourceCreateSendsSshgwAllowAPIKeyOnlyWhenOptedIn(t *testing.T) {
+func TestNetworkResourceCreateSendsSshgwAllowPersonalKeyOnlyWhenOptedIn(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		planned  types.Bool
@@ -60,13 +60,13 @@ func TestNetworkResourceCreateSendsSshgwAllowAPIKeyOnlyWhenOptedIn(t *testing.T)
 					if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 						t.Error(err)
 					}
-					sent, present := body["sshgw_allow_api_key"]
+					sent, present := body["sshgw_allow_personal_key"]
 					if present != tc.wantSent || (present && sent != true) {
-						t.Errorf("initial create sshgw_allow_api_key = %#v (present=%t), want sent=%t", sent, present, tc.wantSent)
+						t.Errorf("initial create sshgw_allow_personal_key = %#v (present=%t), want sent=%t", sent, present, tc.wantSent)
 					}
 					field := ""
 					if present {
-						field = `"sshgw_allow_api_key":true,`
+						field = `"sshgw_allow_personal_key":true,`
 					}
 					fmt.Fprintf(w, `{"success":true,"data":{"id":9,"name":"edge","resource_type":"generic_ssh","connector_id":"ssh","external_id":null,"connector_data":{"host":"192.0.2.10"},"credential_id":7,"location_id":3,"status":"verified","is_enabled":true,%s"extra_data":null,"created_at":"2026-09-18T10:00:00Z","updated_at":"2026-09-18T10:00:00Z"}}`, field)
 				case "GET /api/v1/resources/9/tags":
@@ -82,7 +82,7 @@ func TestNetworkResourceCreateSendsSshgwAllowAPIKeyOnlyWhenOptedIn(t *testing.T)
 			r.Schema(ctx, resource.SchemaRequest{}, &schema)
 			planned := tc.planned
 			if planned.IsNull() {
-				attribute := schema.Schema.Attributes["sshgw_allow_api_key"].(resourceschema.BoolAttribute)
+				attribute := schema.Schema.Attributes["sshgw_allow_personal_key"].(resourceschema.BoolAttribute)
 				var result defaults.BoolResponse
 				attribute.Default.DefaultBool(ctx, defaults.BoolRequest{}, &result)
 				if result.Diagnostics.HasError() {
@@ -95,8 +95,8 @@ func TestNetworkResourceCreateSendsSshgwAllowAPIKeyOnlyWhenOptedIn(t *testing.T)
 				Name: types.StringValue("edge"), EngineID: types.StringValue("ssh"),
 				LocationID: types.Int64Value(3), CredentialID: types.Int64Value(7),
 				ConnectorData: testConnectorData("192.0.2.10"), IsEnabled: types.BoolValue(true),
-				SshgwAllowAPIKey: planned,
-				TagIDs:           types.SetNull(types.Int64Type), Tags: types.ListNull(tagObjectType),
+				SshgwAllowPersonalKey: planned,
+				TagIDs:                types.SetNull(types.Int64Type), Tags: types.ListNull(tagObjectType),
 			}); diags.HasError() {
 				t.Fatal(diags)
 			}
@@ -109,18 +109,18 @@ func TestNetworkResourceCreateSendsSshgwAllowAPIKeyOnlyWhenOptedIn(t *testing.T)
 			if diags := response.State.Get(ctx, &state); diags.HasError() {
 				t.Fatal(diags)
 			}
-			if !state.SshgwAllowAPIKey.Equal(types.BoolValue(tc.wantSent)) {
-				t.Fatalf("created state sshgw_allow_api_key=%v, want %t", state.SshgwAllowAPIKey, tc.wantSent)
+			if !state.SshgwAllowPersonalKey.Equal(types.BoolValue(tc.wantSent)) {
+				t.Fatalf("created state sshgw_allow_personal_key=%v, want %t", state.SshgwAllowPersonalKey, tc.wantSent)
 			}
 		})
 	}
 }
 
-func TestNetworkResourceUpdateSendsSshgwAllowAPIKeyOnlyOnChange(t *testing.T) {
+func TestNetworkResourceUpdateSendsSshgwAllowPersonalKeyOnlyOnChange(t *testing.T) {
 	state := NetworkResourceResourceModel{
 		Name: types.StringValue("edge"), LocationID: types.Int64Value(3),
 		CredentialID: types.Int64Value(7), ConnectorData: testConnectorData("192.0.2.10"),
-		IsEnabled: types.BoolValue(true), SshgwAllowAPIKey: types.BoolValue(true),
+		IsEnabled: types.BoolValue(true), SshgwAllowPersonalKey: types.BoolValue(true),
 	}
 	for _, tc := range []struct {
 		name    string
@@ -128,11 +128,11 @@ func TestNetworkResourceUpdateSendsSshgwAllowAPIKeyOnlyOnChange(t *testing.T) {
 		want    string
 	}{
 		{"unchanged", true, `{}`},
-		{"revoked", false, `{"sshgw_allow_api_key":false}`},
+		{"revoked", false, `{"sshgw_allow_personal_key":false}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			plan := state
-			plan.SshgwAllowAPIKey = types.BoolValue(tc.planned)
+			plan.SshgwAllowPersonalKey = types.BoolValue(tc.planned)
 			input, err := buildNetworkResourceUpdate(&plan, &state)
 			if err != nil {
 				t.Fatal(err)
@@ -148,14 +148,14 @@ func TestNetworkResourceUpdateSendsSshgwAllowAPIKeyOnlyOnChange(t *testing.T) {
 	}
 }
 
-func TestNetworkResourceRefreshDetectsSshgwAllowAPIKeyDrift(t *testing.T) {
-	model := NetworkResourceResourceModel{SshgwAllowAPIKey: types.BoolValue(true)}
+func TestNetworkResourceRefreshDetectsSshgwAllowPersonalKeyDrift(t *testing.T) {
+	model := NetworkResourceResourceModel{SshgwAllowPersonalKey: types.BoolValue(true)}
 	for _, allowed := range []bool{false, true} {
-		if err := mapNetworkResourceResponseToModel(&client.NetworkResourceResponse{SshgwAllowAPIKey: allowed}, &model); err != nil {
+		if err := mapNetworkResourceResponseToModel(&client.NetworkResourceResponse{SshgwAllowPersonalKey: allowed}, &model); err != nil {
 			t.Fatal(err)
 		}
-		if !model.SshgwAllowAPIKey.Equal(types.BoolValue(allowed)) {
-			t.Fatalf("refreshed sshgw_allow_api_key=%v, want %v", model.SshgwAllowAPIKey, allowed)
+		if !model.SshgwAllowPersonalKey.Equal(types.BoolValue(allowed)) {
+			t.Fatalf("refreshed sshgw_allow_personal_key=%v, want %v", model.SshgwAllowPersonalKey, allowed)
 		}
 	}
 }

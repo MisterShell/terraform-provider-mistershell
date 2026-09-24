@@ -42,7 +42,8 @@ output "rule_action" {
 
 ### Read-Only
 
-- `action` (String) Rule action (accept or deny).
+- `action` (String) Rule action: accept, deny, or approve.
+- `approval` (Attributes) Approver configuration of an approve rule; null for accept/deny rules (and on MisterShell < 2.0.10). (see [below for nested schema](#nestedatt--approval))
 - `command_acl_ids` (Set of Number) Command ACL IDs referenced by this rule (empty means Any).
 - `comment` (String) Free-form comment.
 - `created_at` (String) Creation timestamp.
@@ -59,6 +60,28 @@ output "rule_action" {
 - `tag_ids` (Set of Number) Tag IDs this rule applies to (empty means Any).
 - `updated_at` (String) Last update timestamp.
 
+<a id="nestedatt--approval"></a>
+### Nested Schema for `approval`
+
+Read-Only:
+
+- `allow_self_approval` (Boolean) Whether a requester who belongs to an approver role may decide their own request.
+- `approver_role_ids` (Set of Number) IDs of the roles whose members may approve or deny requests.
+- `expiration_seconds` (Number) How long a pending request stays open before it expires, in seconds.
+- `notify_email` (Boolean) Whether approvers are also notified by email.
+- `validity_seconds` (Number) How long an approval grants access, counted from the approval time, in seconds.
+
 `resource_types` values come from the target instance's live type catalog at
 `GET /api/v1/resources/types`; installed extensions may add values. Empty match
 sets mean “any.” `hit_count` and `last_hit_at` are runtime telemetry.
+
+`action` is one of `accept`, `deny`, or `approve` (MisterShell >= 2.0.10).
+`approval` is set only for `approve` rules and is null otherwise:
+
+| `approval` attribute | Meaning |
+|---|---|
+| `approver_role_ids` | Roles whose members may approve or deny requests. |
+| `expiration_seconds` | How long a pending request stays open before it expires (60–2592000 s; default 86400). |
+| `validity_seconds` | How long an approval grants access, from the approval time (60–2592000 s; default 3600). |
+| `notify_email` | Whether approvers are also notified by email. |
+| `allow_self_approval` | Whether a requester in an approver role may decide their own request. |
