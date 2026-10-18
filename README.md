@@ -13,7 +13,7 @@ fixture requirements are in [the disposable test guide](testdata/disposable/READ
 
 ## Current API coverage
 
-The unreleased API-completeness changes target MisterShell 2.0.22. New resources
+Provider 2.0.22 targets MisterShell 2.0.22. New resources
 cover CA certificates, recording and file-transfer policies/stores, fact policies,
 automation playbooks, Configure templates/stacks/policies/resource variables,
 proxies, sensors and rule configuration, report templates, saved commands, MOTDs,
@@ -42,7 +42,7 @@ terraform {
   required_providers {
     mistershell = {
       source  = "MisterShell/mistershell"
-      version = "~> 2.0"
+      version = "~> 2.0.22"
     }
   }
 }

@@ -7,6 +7,11 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [2.0.22] - 2026-10-18
+
+The new resource families and external-vault integration require **MisterShell
+>= 2.0.22**. Existing features retain their documented backend minimums.
+
 ### Added
 
 - API 2.0.22 resources and matching data sources for CA certificates, recording
@@ -19,8 +24,6 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   variable catalogs.
 - Resource health metadata, role builtin/scope metadata, writable inventory
   configuration metadata, and explicit verified trust/identity acceptance.
-- Repeatable disposable Core, SSH, PostgreSQL and external-vault acceptance
-  fixtures, including interruption cleanup and private startup diagnostics.
 - `mistershell_external_vault` resource and data source for HashiCorp Vault,
   OpenBao, AWS Secrets Manager and Azure Key Vault. Supports imports, exact
   lookup, masked configuration and explicit resets of removed config keys.
