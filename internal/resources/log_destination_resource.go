@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-mistershell/internal/client"
+	"terraform-provider-mistershell/internal/tfjson"
 )
 
 var (
@@ -51,7 +52,7 @@ func (r *LogDestinationResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *LogDestinationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).",
+		Description: "Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and preserved from config while non-secret fields are refreshed.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Log destination ID.",
@@ -76,9 +77,7 @@ func (r *LogDestinationResource) Schema(_ context.Context, _ resource.SchemaRequ
 			"type": schema.StringAttribute{
 				Description: "Destination type. One of: syslog, webhook. Cannot be changed after creation (the config shape is type-coupled).",
 				Required:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+
 				Validators: []validator.String{
 					stringvalidator.OneOf(client.SupportedLogDestinationTypes...),
 				},
@@ -102,7 +101,7 @@ func (r *LogDestinationResource) Schema(_ context.Context, _ resource.SchemaRequ
 				},
 			},
 			"config": schema.DynamicAttribute{
-				Description: "Per-type config as a native Terraform object. For type=syslog: host, port, protocol, format, facility, tls_verify. For type=webhook: url, method, headers, auth, body_format, timeout_seconds, tls_verify. Webhook auth secrets (bearer token, basic password, header value) are masked as '****' by the API and stored from config, not read back. See the config field tables on this page.",
+				Description: "Per-type config as a native Terraform object. For type=syslog: host, port, protocol, format, facility, tls_verify. For type=webhook: url, method, headers, auth, body_format, timeout_seconds, tls_verify. Webhook auth secrets (bearer token, basic password, header value) are masked as '****' by the API and preserved from config while non-secret fields are refreshed. See the config field tables on this page.",
 				Required:    true,
 				Sensitive:   true,
 			},
@@ -188,16 +187,13 @@ func (r *LogDestinationResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	// Preserve the config already in state (the user's value). The server both
-	// reorders config keys and injects per-type defaults (e.g. syslog facility,
-	// tls_verify), so reflecting the server config would differ byte-wise from
-	// the planned/required config and break Terraform's apply-consistency
-	// contract for this Required+Sensitive attribute ("inconsistent values for
-	// sensitive attribute"). webhook auth secrets are additionally masked ****.
-	// Both cases therefore use the stored-from-config rule (like credential_data).
-	savedConfig := state.Config
+	config, err := tfjson.Reconcile(state.Config, dest.Config, []string{"token", "password", "header_value"})
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading log destination config", err.Error())
+		return
+	}
 	mapLogDestinationResponseToModel(dest, &state)
-	state.Config = savedConfig
+	state.Config = config
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

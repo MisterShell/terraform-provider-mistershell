@@ -122,7 +122,7 @@ func (d *LogDestinationDataSource) Read(ctx context.Context, req datasource.Read
 			return
 		}
 
-		dests, err := d.client.ListLogDestinations(ctx, client.LogDestinationListFilter{Search: config.Name.ValueString()})
+		dests, err := d.client.ListLogDestinations(ctx, client.LogDestinationListFilter{Search: client.SearchPrefix(config.Name.ValueString())})
 		if err != nil {
 			resp.Diagnostics.AddError("Error searching log destinations", err.Error())
 			return

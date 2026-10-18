@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -63,4 +64,20 @@ func (e *NotFoundError) Error() string { return "not found: " + e.Path }
 func IsNotFound(err error) bool {
 	var nfe *NotFoundError
 	return errors.As(err, &nfe)
+}
+
+// APIError retains the HTTP status so callers can handle optional capabilities
+// without interpreting an error message supplied by the server.
+type APIError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("API error (status %d): %s", e.StatusCode, e.Message)
+}
+
+func IsForbidden(err error) bool {
+	var apiError *APIError
+	return errors.As(err, &apiError) && apiError.StatusCode == http.StatusForbidden
 }

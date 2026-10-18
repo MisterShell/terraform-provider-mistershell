@@ -1,0 +1,2417 @@
+[
+  {
+    "name": "ca_certificate",
+    "list_only": false,
+    "path": "/api/v1/ca-certificates",
+    "item_path": "/api/v1/ca-certificates/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "days_remaining",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Days remaining."
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": false,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "computed": false,
+        "default": true
+      },
+      {
+        "name": "fingerprint_sha256",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Fingerprint sha256."
+      },
+      {
+        "name": "is_ca",
+        "kind": "boolean",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Is ca."
+      },
+      {
+        "name": "issuer",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Issuer."
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 255
+      },
+      {
+        "name": "not_after",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Not after."
+      },
+      {
+        "name": "not_before",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Not before."
+      },
+      {
+        "name": "pem",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Pem.",
+        "min_length": 1
+      },
+      {
+        "name": "public_key",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Public key."
+      },
+      {
+        "name": "san",
+        "kind": "dynamic",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "San."
+      },
+      {
+        "name": "serial",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Serial."
+      },
+      {
+        "name": "signature_algorithm",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Signature algorithm."
+      },
+      {
+        "name": "subject",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Subject."
+      },
+      {
+        "name": "version",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Version."
+      }
+    ],
+    "description": "Manages a MisterShell ca certificate.",
+    "list_path": "/api/v1/ca-certificates"
+  },
+  {
+    "name": "recording_store",
+    "list_only": false,
+    "path": "/api/v1/session-policy/recording-stores",
+    "item_path": "/api/v1/session-policy/recording-stores/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "backend",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Backend.",
+        "enum": [
+          "local",
+          "s3",
+          "azure"
+        ]
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "credential_id",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Credential id."
+      },
+      {
+        "name": "credential_name",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Credential name."
+      },
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Description.",
+        "default": "",
+        "max_length": 255
+      },
+      {
+        "name": "is_builtin",
+        "kind": "boolean",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Is builtin."
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "params",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Params.",
+        "default": {}
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell recording store.",
+    "list_path": "/api/v1/session-policy/recording-stores"
+  },
+  {
+    "name": "recording_rule",
+    "list_only": false,
+    "path": "/api/v1/session-policy/recording-rules",
+    "item_path": "/api/v1/session-policy/recording-rules/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "action",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Action.",
+        "default": "record",
+        "enum": [
+          "record",
+          "skip"
+        ]
+      },
+      {
+        "name": "comment",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Comment."
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "destination_store_id",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Destination store id.",
+        "computed": true
+      },
+      {
+        "name": "destination_store_name",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Destination store name."
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": true
+      },
+      {
+        "name": "hit_count",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Hit count."
+      },
+      {
+        "name": "last_hit_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Last hit at."
+      },
+      {
+        "name": "location_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Location ids.",
+        "default": []
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Name.",
+        "default": "",
+        "max_length": 128
+      },
+      {
+        "name": "position",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Insert position (1-based); appended if omitted",
+        "computed": true
+      },
+      {
+        "name": "resource_types",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Resource types.",
+        "default": []
+      },
+      {
+        "name": "retention_days",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Retention days.",
+        "computed": true
+      },
+      {
+        "name": "role_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Role ids.",
+        "default": []
+      },
+      {
+        "name": "session_types",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Session types.",
+        "default": []
+      },
+      {
+        "name": "tag_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Tag ids.",
+        "default": []
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell recording rule.",
+    "list_path": "/api/v1/session-policy/recording-rules"
+  },
+  {
+    "name": "file_store",
+    "list_only": false,
+    "path": "/api/v1/file-policy/stores",
+    "item_path": "/api/v1/file-policy/stores/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "backend",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Backend.",
+        "enum": [
+          "local",
+          "s3",
+          "azure"
+        ]
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "credential_id",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Credential id."
+      },
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Description.",
+        "default": "",
+        "max_length": 4096
+      },
+      {
+        "name": "is_builtin",
+        "kind": "boolean",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Is builtin."
+      },
+      {
+        "name": "location_id",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Location id."
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "params",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Params.",
+        "default": {}
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell file store.",
+    "list_path": "/api/v1/file-policy/stores"
+  },
+  {
+    "name": "file_transfer_rule",
+    "list_only": false,
+    "path": "/api/v1/file-policy/rules",
+    "item_path": "/api/v1/file-policy/rules/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "action",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Action.",
+        "enum": [
+          "accept",
+          "deny",
+          "approve"
+        ]
+      },
+      {
+        "name": "approval",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Approval."
+      },
+      {
+        "name": "comment",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Comment.",
+        "max_length": 4096
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "destination_globs",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Destination globs.",
+        "default": []
+      },
+      {
+        "name": "directions",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Directions.",
+        "default": []
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": true
+      },
+      {
+        "name": "hit_count",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Hit count."
+      },
+      {
+        "name": "last_hit_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Last hit at."
+      },
+      {
+        "name": "location_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Location ids.",
+        "default": []
+      },
+      {
+        "name": "log",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Log.",
+        "default": false
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "notify",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Notify.",
+        "default": false
+      },
+      {
+        "name": "position",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Position.",
+        "computed": true
+      },
+      {
+        "name": "resource_types",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Resource types.",
+        "default": []
+      },
+      {
+        "name": "role_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Role ids.",
+        "default": []
+      },
+      {
+        "name": "source_globs",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Source globs.",
+        "default": []
+      },
+      {
+        "name": "tag_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Tag ids.",
+        "default": []
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell file transfer rule.",
+    "list_path": "/api/v1/file-policy/rules"
+  },
+  {
+    "name": "fact_check",
+    "list_only": false,
+    "path": "/api/v1/fact-policy/checks",
+    "item_path": "/api/v1/fact-policy/checks/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "assertions",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Assertions."
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Description.",
+        "default": "",
+        "max_length": 255
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": false,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "computed": true
+      },
+      {
+        "name": "fact_type",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Fact type.",
+        "min_length": 1,
+        "max_length": 64
+      },
+      {
+        "name": "is_builtin",
+        "kind": "boolean",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Is builtin."
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell fact check.",
+    "list_path": "/api/v1/fact-policy/checks"
+  },
+  {
+    "name": "fact_policy_rule",
+    "list_only": false,
+    "path": "/api/v1/fact-policy/rules",
+    "item_path": "/api/v1/fact-policy/rules/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "check_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Check ids.",
+        "default": []
+      },
+      {
+        "name": "comment",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Comment.",
+        "max_length": 2048
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": true
+      },
+      {
+        "name": "hit_count",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Hit count."
+      },
+      {
+        "name": "last_hit_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Last hit at."
+      },
+      {
+        "name": "location_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Location ids.",
+        "default": []
+      },
+      {
+        "name": "log",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Log.",
+        "default": false
+      },
+      {
+        "name": "match",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Match.",
+        "default": "pass",
+        "enum": [
+          "pass",
+          "fail"
+        ]
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Name.",
+        "default": "",
+        "max_length": 128
+      },
+      {
+        "name": "notify",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Notify.",
+        "default": false
+      },
+      {
+        "name": "position",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Insert position (1-based); appended if omitted",
+        "computed": true
+      },
+      {
+        "name": "resource_types",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Resource types.",
+        "default": []
+      },
+      {
+        "name": "tag_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Tag ids.",
+        "default": []
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell fact policy rule.",
+    "list_path": "/api/v1/fact-policy/rules"
+  },
+  {
+    "name": "automation_playbook",
+    "list_only": false,
+    "path": "/api/v1/automation/playbooks",
+    "item_path": "/api/v1/automation/playbooks/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Description.",
+        "max_length": 4000
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": true
+      },
+      {
+        "name": "graph",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": true,
+        "description": "Graph.",
+        "secret_keys": [
+          "token",
+          "password",
+          "header_value"
+        ]
+      },
+      {
+        "name": "last_run_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Last run at."
+      },
+      {
+        "name": "last_run_status",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Last run status."
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 255
+      },
+      {
+        "name": "run_count",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Run count."
+      },
+      {
+        "name": "trigger_event_name",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Trigger event name."
+      },
+      {
+        "name": "trigger_filters",
+        "kind": "dynamic",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Trigger filters."
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell automation playbook.",
+    "list_path": "/api/v1/automation/playbooks"
+  },
+  {
+    "name": "configure_template",
+    "list_only": false,
+    "path": "/api/v1/configure/templates",
+    "item_path": "/api/v1/configure/templates/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "body",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Body.",
+        "default": ""
+      },
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Description.",
+        "default": ""
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "renderer",
+        "kind": "string",
+        "create": true,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Renderer.",
+        "default": "jinja2",
+        "immutable": true
+      },
+      {
+        "name": "variables_schema",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Variables schema.",
+        "default": []
+      }
+    ],
+    "description": "Manages a MisterShell configure template.",
+    "list_path": "/api/v1/configure/templates"
+  },
+  {
+    "name": "configure_stack",
+    "list_only": false,
+    "path": "/api/v1/configure/stacks",
+    "item_path": "/api/v1/configure/stacks/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Description.",
+        "default": ""
+      },
+      {
+        "name": "members",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Members.",
+        "default": []
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 128
+      }
+    ],
+    "description": "Manages a MisterShell configure stack.",
+    "list_path": "/api/v1/configure/stacks"
+  },
+  {
+    "name": "configure_policy",
+    "list_only": false,
+    "path": "/api/v1/configure/policies",
+    "item_path": "/api/v1/configure/policies/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": true
+      },
+      {
+        "name": "location_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Location ids.",
+        "default": []
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "position",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Position.",
+        "computed": true
+      },
+      {
+        "name": "resource_types",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Resource types.",
+        "default": []
+      },
+      {
+        "name": "stack_id",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Stack id."
+      },
+      {
+        "name": "stack_name",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Stack name."
+      },
+      {
+        "name": "tag_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Tag ids.",
+        "default": []
+      }
+    ],
+    "description": "Manages a MisterShell configure policy.",
+    "list_path": "/api/v1/configure/policies"
+  },
+  {
+    "name": "configure_resource_vars",
+    "list_only": false,
+    "path": "/api/v1/configure/resource-vars",
+    "item_path": "/api/v1/configure/resource-vars",
+    "method": "PUT",
+    "update_method": "PUT",
+    "fields": [
+      {
+        "name": "resource_id",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Resource id.",
+        "immutable": true
+      },
+      {
+        "name": "stack_id",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Stack id.",
+        "immutable": true
+      },
+      {
+        "name": "values",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": true,
+        "description": "Values."
+      }
+    ],
+    "description": "Manages a MisterShell configure resource vars.",
+    "list_path": "/api/v1/configure/resource-vars"
+  },
+  {
+    "name": "proxy",
+    "list_only": false,
+    "path": "/api/v1/proxies",
+    "item_path": "/api/v1/proxies/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "active_sessions",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Active sessions."
+      },
+      {
+        "name": "connected_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Connected at."
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Description."
+      },
+      {
+        "name": "is_enabled",
+        "kind": "boolean",
+        "create": false,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Is enabled.",
+        "computed": true
+      },
+      {
+        "name": "last_heartbeat_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Last heartbeat at."
+      },
+      {
+        "name": "location",
+        "kind": "dynamic",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Location."
+      },
+      {
+        "name": "location_id",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Location ID (required)"
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 255
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Status."
+      },
+      {
+        "name": "token",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": true,
+        "description": "Proxy authentication token. Shown only once at creation. Store it securely."
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      },
+      {
+        "name": "version",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Version."
+      }
+    ],
+    "description": "Manages a MisterShell proxy.",
+    "list_path": "/api/v1/proxies"
+  },
+  {
+    "name": "sensor",
+    "list_only": false,
+    "path": "/api/v1/sensors",
+    "item_path": "/api/v1/sensors/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "applied_config_version",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Applied config version."
+      },
+      {
+        "name": "applied_ruleset_version",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Applied ruleset version."
+      },
+      {
+        "name": "config",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Config."
+      },
+      {
+        "name": "config_version",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Config version."
+      },
+      {
+        "name": "connected_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Connected at."
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Description."
+      },
+      {
+        "name": "is_enabled",
+        "kind": "boolean",
+        "create": false,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Is enabled.",
+        "computed": true
+      },
+      {
+        "name": "last_heartbeat_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Last heartbeat at."
+      },
+      {
+        "name": "location",
+        "kind": "dynamic",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Location."
+      },
+      {
+        "name": "location_id",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Location ID (required)"
+      },
+      {
+        "name": "mode",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Mode."
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 255
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Status."
+      },
+      {
+        "name": "suricata_version",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Suricata version."
+      },
+      {
+        "name": "token",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": true,
+        "description": "Sensor authentication token. Shown only once at creation. Store it securely."
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      },
+      {
+        "name": "version",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Version."
+      }
+    ],
+    "description": "Manages a MisterShell sensor.",
+    "list_path": "/api/v1/sensors"
+  },
+  {
+    "name": "sensor_custom_rule",
+    "list_only": true,
+    "path": "/api/v1/sensors/custom-rules",
+    "item_path": "/api/v1/sensors/custom-rules/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "content",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Content.",
+        "min_length": 1
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": true
+      },
+      {
+        "name": "kind",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Kind.",
+        "enum": [
+          "local"
+        ]
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      },
+      {
+        "name": "updated_by",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated by."
+      }
+    ],
+    "description": "Manages a MisterShell sensor custom rule.",
+    "list_path": "/api/v1/sensors/custom-rules"
+  },
+  {
+    "name": "sensor_alert_rule",
+    "list_only": true,
+    "path": "/api/v1/sensors/alert-rules",
+    "item_path": "/api/v1/sensors/alert-rules/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "categories",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Categories.",
+        "default": []
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": true
+      },
+      {
+        "name": "hit_count",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Hit count."
+      },
+      {
+        "name": "last_hit_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Last hit at."
+      },
+      {
+        "name": "location_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Location ids.",
+        "default": []
+      },
+      {
+        "name": "log",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Log.",
+        "default": false
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Name.",
+        "default": "",
+        "max_length": 128
+      },
+      {
+        "name": "notify",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Notify.",
+        "default": false
+      },
+      {
+        "name": "position",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Position.",
+        "computed": true
+      },
+      {
+        "name": "sensor_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Sensor ids.",
+        "default": []
+      },
+      {
+        "name": "severities",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Severities.",
+        "default": []
+      },
+      {
+        "name": "signature_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Signature ids.",
+        "default": []
+      },
+      {
+        "name": "suppress",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Suppress.",
+        "default": false
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell sensor alert rule.",
+    "list_path": "/api/v1/sensors/alert-rules"
+  },
+  {
+    "name": "sensor_source",
+    "list_only": true,
+    "path": "/api/v1/sensors/sources/custom",
+    "item_path": "/api/v1/sensors/sources/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": false,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": false
+      },
+      {
+        "name": "license",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "License."
+      },
+      {
+        "name": "min_version",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Min version."
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": false,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "immutable": true,
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "obsolete",
+        "kind": "boolean",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Obsolete."
+      },
+      {
+        "name": "parameters",
+        "kind": "dynamic",
+        "create": false,
+        "update": true,
+        "required": false,
+        "sensitive": true,
+        "description": "Parameters.",
+        "computed": true
+      },
+      {
+        "name": "params_set",
+        "kind": "boolean",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Params set."
+      },
+      {
+        "name": "replaces",
+        "kind": "dynamic",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Replaces."
+      },
+      {
+        "name": "required_parameters",
+        "kind": "dynamic",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Required parameters."
+      },
+      {
+        "name": "source_type",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Source type."
+      },
+      {
+        "name": "summary",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Summary."
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      },
+      {
+        "name": "url",
+        "kind": "string",
+        "create": true,
+        "update": false,
+        "required": true,
+        "sensitive": false,
+        "description": "Url.",
+        "immutable": true,
+        "min_length": 1,
+        "max_length": 1024
+      },
+      {
+        "name": "vendor",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Vendor."
+      }
+    ],
+    "description": "Manages a MisterShell sensor source.",
+    "list_path": "/api/v1/sensors/sources"
+  },
+  {
+    "name": "report_template",
+    "list_only": false,
+    "path": "/api/v1/reporting/templates",
+    "item_path": "/api/v1/reporting/templates/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "access_mode",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Access mode.",
+        "default": "role_scoped",
+        "enum": [
+          "public",
+          "role_scoped"
+        ]
+      },
+      {
+        "name": "ai_summary_enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Ai summary enabled.",
+        "default": false
+      },
+      {
+        "name": "allowed_role_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Allowed role ids.",
+        "default": []
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "created_by_user_id",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created by user id."
+      },
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Description.",
+        "max_length": 4000
+      },
+      {
+        "name": "filters",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Filters.",
+        "default": {}
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 255
+      },
+      {
+        "name": "report_type",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Report type.",
+        "min_length": 1,
+        "max_length": 64
+      },
+      {
+        "name": "ttl_hours",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Ttl hours."
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell report template.",
+    "list_path": "/api/v1/reporting/templates"
+  },
+  {
+    "name": "command",
+    "list_only": true,
+    "path": "/api/v1/commands",
+    "item_path": "/api/v1/commands/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "category",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Category.",
+        "max_length": 64
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "definition",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Definition."
+      },
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Description.",
+        "max_length": 255
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": false,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "computed": true
+      },
+      {
+        "name": "executor",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Executor."
+      },
+      {
+        "name": "is_builtin",
+        "kind": "boolean",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Is builtin."
+      },
+      {
+        "name": "is_editable_definition",
+        "kind": "boolean",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Is editable definition."
+      },
+      {
+        "name": "mode",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Mode.",
+        "enum": [
+          "read",
+          "write",
+          "execute"
+        ]
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": false,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "immutable": true,
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "parameter_schema",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Parameter schema.",
+        "default": []
+      },
+      {
+        "name": "parse_source",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Parse source."
+      },
+      {
+        "name": "resource_type",
+        "kind": "string",
+        "create": true,
+        "update": false,
+        "required": true,
+        "sensitive": false,
+        "description": "Resource type.",
+        "immutable": true
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell command.",
+    "list_path": "/api/v1/commands"
+  },
+  {
+    "name": "motd",
+    "list_only": false,
+    "path": "/api/v1/motds",
+    "item_path": "/api/v1/motds/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "content",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Article content (Markdown/HTML)",
+        "min_length": 1
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "icon",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Material icon name",
+        "default": "info",
+        "max_length": 100
+      },
+      {
+        "name": "is_enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Whether to display this article",
+        "default": true
+      },
+      {
+        "name": "order",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Order."
+      },
+      {
+        "name": "title",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Article title",
+        "min_length": 1,
+        "max_length": 255
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell motd.",
+    "list_path": "/api/v1/motds"
+  }
+]

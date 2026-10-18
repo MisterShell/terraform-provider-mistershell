@@ -74,7 +74,10 @@ Read-Only:
 
 - `description` (String)
 - `id` (Number)
+- `is_builtin` (Boolean) Whether this is a built-in role.
+- `location_scope_mode` (String) Role location scope mode.
 - `name` (String)
+- `scope_location_ids` (Set of Number) Role location scope roots.
 
 ## Overview
 

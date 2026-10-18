@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -49,17 +48,16 @@ import (
 // explicit reason) the license-bound tests.
 func authProviderLicensed(t *testing.T) bool {
 	t.Helper()
-	url := os.Getenv("MISTERSHELL_URL")
-	apiKey := os.Getenv("MISTERSHELL_API_KEY")
-	if url == "" || apiKey == "" {
+	c := testAccClient()
+	if c == nil {
 		return false
 	}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url+"/api/v1/licenses/", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, c.BaseURL+"/api/v1/licenses/", nil)
 	if err != nil {
 		t.Fatalf("authProviderLicensed: building request: %v", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	resp, err := http.DefaultClient.Do(req)
+	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		t.Fatalf("authProviderLicensed: querying licenses: %v", err)
 	}
@@ -402,6 +400,7 @@ func TestAccAuthProvider_basic(t *testing.T) {
 	for _, providerType := range client.SupportedAuthProviderTypes {
 		fx := fixtures[providerType]
 		t.Run(providerType, func(t *testing.T) {
+			testAccConfigureAppBaseURL(t, providerType)
 			name := acctestPrefix + strings.ToLower(providerType)
 
 			createChecks := []resource.TestCheckFunc{
@@ -508,6 +507,7 @@ func TestAccAuthProviderDataSource_byIDAndName(t *testing.T) {
 	for _, providerType := range client.SupportedAuthProviderTypes {
 		fx := fixtures[providerType]
 		t.Run(providerType, func(t *testing.T) {
+			testAccConfigureAppBaseURL(t, providerType)
 			name := acctestPrefix + strings.ToLower(providerType) + "-ds"
 			const byID = "data.mistershell_auth_provider.by_id"
 			const byName = "data.mistershell_auth_provider.by_name"
@@ -556,6 +556,7 @@ func TestAccAuthProviderMapping_basic(t *testing.T) {
 	for _, providerType := range client.SupportedAuthProviderTypes {
 		fx := fixtures[providerType]
 		t.Run(providerType, func(t *testing.T) {
+			testAccConfigureAppBaseURL(t, providerType)
 			name := acctestPrefix + strings.ToLower(providerType) + "-map"
 			var providerID, mappingID int64
 

@@ -1,0 +1,1 @@
+terraform import mistershell_recording_rule.example 123

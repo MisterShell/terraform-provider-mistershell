@@ -42,6 +42,8 @@ func TestNetworkResourceSSHTrustLifecycle(t *testing.T) {
 			}
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				switch req.Method + " " + req.URL.Path {
+				case "GET /api/v1/credentials/7":
+					fmt.Fprint(w, `{"success":true,"data":{"id":7}}`)
 				case "POST /api/v1/resources/test/discovery":
 					discoveries++
 					var body map[string]any
@@ -118,7 +120,7 @@ func TestNetworkResourceSSHTrustLifecycle(t *testing.T) {
 					map[string]attr.Value{"host": types.StringValue("192.0.2.10"), "port": types.Int64Value(port), "strict_host_key": types.BoolValue(strict)},
 				))
 			}
-			model := NetworkResourceResourceModel{
+			model := NetworkResourceResourceModel{AcceptedTrustFields: types.SetNull(types.StringType),
 				Name: types.StringValue("edge"), EngineID: types.StringValue("ssh"),
 				CredentialID: types.Int64Value(7), LocationID: types.Int64Value(3), IsEnabled: types.BoolValue(true),
 				ConnectorData: connectorValue(22), TagIDs: types.SetNull(types.Int64Type), Tags: types.ListNull(tagObjectType),

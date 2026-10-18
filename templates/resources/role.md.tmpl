@@ -24,6 +24,13 @@ description: |-
 one location root and applies the role beneath those subtrees. Superuser
 permission `*.*.*` is global and cannot be combined with other permissions.
 
+`permissions` manages the complete grant set. Removing the attribute revokes
+all permissions; imported roles expose their current grants for review.
+
+Permissions and scope are submitted atomically, including transitions between
+global superuser and restricted roles. `is_builtin` exposes the backend role
+protection metadata.
+
 Permission names are validated by MisterShell's live registry. Use the
 `mistershell_permissions` data source to enumerate names, modules, and current
 role assignments.

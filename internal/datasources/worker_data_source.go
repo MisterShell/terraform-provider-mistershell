@@ -185,7 +185,7 @@ func (d *WorkerDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 			return
 		}
 
-		workers, err := d.client.ListWorkers(ctx, client.WorkerListFilter{Search: config.Name.ValueString()})
+		workers, err := d.client.ListWorkers(ctx, client.WorkerListFilter{Search: client.SearchPrefix(config.Name.ValueString())})
 		if err != nil {
 			resp.Diagnostics.AddError("Error searching workers", err.Error())
 			return

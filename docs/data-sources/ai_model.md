@@ -75,6 +75,6 @@ Specify exactly one of:
 | `updated_at` | Last update timestamp. |
 
 For the full shape of `config` per provider (which keys apply to which
-`model_provider`, which are secret, and the stored-from-config secret-handling
+`model_provider`, which are secret, and the refresh and secret-handling
 rule), see the
 [`mistershell_ai_model` resource](../resources/ai_model.md) page.

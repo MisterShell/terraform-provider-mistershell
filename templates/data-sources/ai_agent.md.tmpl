@@ -27,8 +27,8 @@ Specify exactly one of:
 | `name` | Exact-match lookup by name (fuzzy server search, then exact `name ==` filter). Errors if zero or more than one agent matches. |
 
 This data source resolves **both** user agents (`chat`, `background`) and
-builtin agents (`builtin_*`), which are otherwise read-only and not manageable
-through the resource.
+builtin agents (`builtin_*`). Built-in runtime settings can be managed with
+[`mistershell_ai_agent_override`](../resources/ai_agent_override.md).
 
 ## Returned values
 

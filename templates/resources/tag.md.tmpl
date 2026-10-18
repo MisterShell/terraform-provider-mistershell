@@ -38,7 +38,7 @@ Computed: omit it and it resolves to `grey`.
 
 `resource_ids` is the **complete set** of network-resource IDs that carry this
 tag. It maps to the tag's assignment endpoint, which uses **whole-set replace
-semantics**: on every apply Terraform sends the entire planned set, replacing
+semantics**: when an explicitly configured, known set changes Terraform sends it, replacing
 whatever was assigned before. Managing this attribute therefore takes
 **exclusive ownership** of the tag's resource membership — IDs added out of band
 (through the UI or another caller) are removed on the next apply, and IDs you

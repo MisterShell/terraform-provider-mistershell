@@ -1,0 +1,1 @@
+terraform import mistershell_fact_policy_rule.example 123

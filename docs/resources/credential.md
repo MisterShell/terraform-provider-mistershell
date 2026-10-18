@@ -149,21 +149,49 @@ variable "kubeconfig" {
 
 ### Required
 
-- `credential_data` (Dynamic, Sensitive) Credential secret data as a native Terraform object. Fields vary by credential_type; see the valid credential_type values table on this page for the fields per type. Note: the API masks secret values in responses, so this value is stored from config, not read back from the server.
-- `credential_type` (String) Installed credential type. MisterShell validates it against its runtime credential catalog. Cannot be changed after creation; backend-managed singleton types cannot be managed by this resource.
+- `credential_type` (String) Installed credential type. MisterShell validates it against its runtime credential catalog. Changing type updates this credential in place and requires complete data valid for the new type; backend-managed singleton types cannot be managed by this resource.
 - `name` (String) Unique credential name.
 
 ### Optional
 
+- `credential_data` (Dynamic, Sensitive) Credential secret data as a native Terraform object. Fields vary by credential_type; see the valid credential_type values table on this page for the fields per type. Readable fields refresh from the API; masked secret fields retain configured values. Imports hydrate readable fields and leave unknown secrets null.
 - `description` (String) Credential description.
+- `external_vault_id` (Number) Positive external vault ID, required for an external source.
+- `external_vault_ref` (Attributes) Vault reference. Templates are passed literally to MisterShell; Terraform never resolves secrets. (see [below for nested schema](#nestedatt--external_vault_ref))
 - `extra_data` (Dynamic) Non-sensitive metadata as a native Terraform value.
-- `requires_user_mapping` (Boolean) Whether users must fill their own credential copy for interactive sessions.
+- `requires_user_mapping` (Boolean) Whether interactive sessions use the independent user credential source. Automation always uses the platform source.
+- `source` (String) Credential source: local or external. Defaults to local on creation. Changing the user source to external purges saved user fills.
+- `user_credential_data` (Dynamic, Sensitive) Literal fields for an external user source. Omit for local user credentials, which are filled individually.
+- `user_external_vault_id` (Number) Positive external vault ID, required for an external source.
+- `user_external_vault_ref` (Attributes) Vault reference. Templates are passed literally to MisterShell; Terraform never resolves secrets. (see [below for nested schema](#nestedatt--user_external_vault_ref))
+- `user_source` (String) Credential source: local or external. Defaults to local on creation. Changing the user source to external purges saved user fills.
 
 ### Read-Only
 
 - `created_at` (String) Creation timestamp.
+- `external_vault_name` (String) Referenced vault name.
+- `external_vault_type` (String) Referenced vault type.
 - `id` (Number) Credential ID.
 - `updated_at` (String) Last update timestamp.
+- `user_external_vault_name` (String) Referenced vault name.
+- `user_external_vault_type` (String) Referenced vault type.
+
+<a id="nestedatt--external_vault_ref"></a>
+### Nested Schema for `external_vault_ref`
+
+Required:
+
+- `base` (Dynamic) Vault-specific reference parameters as an object containing strings or integers.
+- `fields` (Map of String) Credential field names mapped to vault keys or secret names.
+
+
+<a id="nestedatt--user_external_vault_ref"></a>
+### Nested Schema for `user_external_vault_ref`
+
+Required:
+
+- `base` (Dynamic) Vault-specific reference parameters as an object containing strings or integers.
+- `fields` (Map of String) Credential field names mapped to vault keys or secret names.
 
 ## Runtime credential catalog
 
@@ -171,8 +199,68 @@ Credential types and their JSON Schemas come from the target MisterShell
 instance. Installed extensions may add types, so the provider does
 not embed a closed list. Query `GET /api/v1/credentials/types` for current type
 IDs, schemas, and secret-field metadata, and `GET /api/v1/resources/types` for
-resource compatibility. API responses mask secrets; `credential_data` is kept
-from Terraform configuration rather than reconstructed from a read.
+resource compatibility. Reads reconcile readable fields for both `credential_data`
+and `user_credential_data`, including imported values. Only fields marked
+`x-secret` by the installed credential schema preserve configured values when
+the API masks them. Imports leave masked secrets null; re-supply those secrets
+before applying changes. Reading credentials therefore also requires catalog-read
+permission. Server-added defaults do not create perpetual configuration drift.
+
+Changing `credential_type` updates the existing ID. Supply complete valid data
+and source references for the new type; stored secret masks cannot be reused
+across type changes. The backend may reject changes incompatible with resources
+that use this credential.
+
+## Platform and user sources
+
+`source` selects the platform credential for automation. `user_source` independently
+selects interactive credentials when `requires_user_mapping = true`. Both accept
+`local` or `external`; omitted sources default to local on creation and preserve
+existing sources on refresh/import.
+
+For an external source, set the corresponding `external_vault_id` and
+`external_vault_ref` (or `user_external_vault_id` and `user_external_vault_ref`).
+The reference contains `base` (string/integer values) and `fields` (credential
+field to vault field). Keep Jinja expressions such as `{{ resource.name }}`
+and `{{ user.email }}` literal: Core renders them at connection time.
+Platform references may use resource/location context; user references may also
+use user context. Resource creation passes its planned name during discovery. The API key needs
+`app.credentials.read` to inspect an external platform source for this name-based
+discovery context. Existing local discovery can still use a supplied credential
+ID without credential-metadata read permission.
+
+`credential_data` and `user_credential_data` contain only literal fields not
+mapped by the reference. They can be omitted when all fields are mapped. Local
+platform credentials still require their type-specific data. Local user sources
+use individual user fills and cannot carry `user_credential_data` or vault refs.
+
+```hcl
+resource "mistershell_credential" "operators" {
+  name                  = "Operators"
+  credential_type       = "username_password"
+  requires_user_mapping = true
+  source                = "local"
+  credential_data       = { username = "automation", password = var.automation_password }
+  user_source           = "external"
+  user_external_vault_id = mistershell_external_vault.production.id
+  user_external_vault_ref = {
+    base   = { path = "users/{{ user.email }}" }
+    fields = { username = "username", password = "password" }
+  }
+}
+```
+
+Source changes update the existing credential ID. Supply complete new literal
+data when changing sources; omit external literals only when every required
+field is mapped. Switching the user source from local to external deletes saved
+per-user fills. Source changes invalidate resource connection verification.
+Neither Terraform reads nor plans resolve external secrets. Configured literals
+are sensitive but remain in Terraform state. After import, re-supply local
+secrets; masked API responses cannot recover them.
+
+External vault functionality is tested against MisterShell 2.0.22 and requires
+the Pro/Enterprise external-vault capability and an enabled vault. Existing
+local workflows continue to omit new default source fields on older backends.
 
 ## Import
 

@@ -23,11 +23,10 @@ type WorkerCreateInput struct {
 	IsEnabled    bool            `json:"is_enabled"`
 }
 
-// WorkerUpdateInput is a PATCH: Description omits omitempty so clearing sends
-// explicit null.
+// WorkerUpdateInput sends only changed fields; RawMessage distinguishes omission from null.
 type WorkerUpdateInput struct {
 	Name         *string         `json:"name,omitempty"`
-	Description  *string         `json:"description"`
+	Description  json.RawMessage `json:"description,omitempty"`
 	LocationID   *int64          `json:"location_id,omitempty"`
 	Config       json.RawMessage `json:"config,omitempty"`
 	ConfigSchema json.RawMessage `json:"config_schema,omitempty"`
@@ -108,8 +107,7 @@ func (c *Client) GetWorker(ctx context.Context, id int64) (*WorkerResponse, erro
 	return &worker, nil
 }
 
-// UpdateWorker patches a worker. The default worker (is_default=true) returns
-// 403 on PATCH.
+// UpdateWorker patches a worker. Default workers accept config-only PATCH requests.
 func (c *Client) UpdateWorker(ctx context.Context, id int64, input WorkerUpdateInput) (*WorkerResponse, error) {
 	data, err := c.doRequest(ctx, http.MethodPatch, fmt.Sprintf("/api/v1/workers/%d", id), input)
 	if err != nil {

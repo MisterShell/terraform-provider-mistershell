@@ -16,8 +16,7 @@ type UserCreateInput struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
-	// Password is required for LOCAL users and ignored by the backend for
-	// external auth types. omitempty keeps it out of the body when empty.
+	// Password is required by the create API for every authentication type.
 	Password string `json:"password,omitempty"`
 	AuthType string `json:"auth_type,omitempty"`
 	IsActive bool   `json:"is_active"`

@@ -64,10 +64,12 @@ output "switch_tags" {
 - `engine_id` (String) Connection engine inferred from the installed resource-type catalog.
 - `external_id` (String) External identifier.
 - `extra_data` (Dynamic) Discovered metadata as a native Terraform value.
+- `health_status` (String) Current resource health: healthy, degraded, critical, or unknown.
 - `is_enabled` (Boolean) Whether automatic snapshot collection is enabled for this resource. Disabling it does not prevent manual sessions or operations.
 - `last_collection_at` (String) Timestamp of last data collection.
 - `last_connectivity_check` (String) Timestamp of last connectivity check.
 - `last_connectivity_result` (Dynamic) Structured result of the most recent connectivity check (read-only).
+- `last_health_at` (String) Timestamp of the latest resource health observation.
 - `next_collection_at` (String) Scheduled time for next data collection.
 - `sshgw_allow_personal_key` (Boolean) Whether a user's registered personal SSH key is accepted on its own, in place of the account password and MFA, for direct native SSH sessions to this resource; see the mistershell_resource resource's sshgw_allow_personal_key. Reads back as false on MisterShell < 2.0.15.
 - `tags` (Attributes List) Tags assigned to this resource, as objects with id, name, color, and description. (see [below for nested schema](#nestedatt--tags))

@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-mistershell/internal/client"
+	"terraform-provider-mistershell/internal/tfjson"
 )
 
 var (
@@ -31,6 +33,11 @@ type NetworkResourceResource struct {
 }
 
 type NetworkResourceResourceModel struct {
+	CheckTaskID            types.Int64   `tfsdk:"check_task_id"`
+	AcceptedTrustFields    types.Set     `tfsdk:"accepted_trust_fields"`
+	AcceptedIdentity       types.Bool    `tfsdk:"accepted_identity"`
+	HealthStatus           types.String  `tfsdk:"health_status"`
+	LastHealthAt           types.String  `tfsdk:"last_health_at"`
 	ID                     types.Int64   `tfsdk:"id"`
 	Name                   types.String  `tfsdk:"name"`
 	EngineID               types.String  `tfsdk:"engine_id"`
@@ -70,6 +77,11 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 	resp.Schema = schema.Schema{
 		Description: "Manages a MisterShell network resource through live onboarding. Creation requires a successful connection and may take several minutes. Set engine_id for automatic discovery (SSH falls back to Generic SSH) or resource_type for exact-type discovery. external_id is discovered and may be null.",
 		Attributes: map[string]schema.Attribute{
+			"check_task_id":         schema.Int64Attribute{Optional: true, Description: "Explicit completed edit-check task ID. Obtain and review a resource check for this exact draft using the same API principal before applying. A new ID is submitted once when changed; the backend validates ownership, draft, freshness and evidence. Update only; never automatically runs or trusts a check."},
+			"accepted_trust_fields": schema.SetAttribute{Optional: true, ElementType: types.StringType, Description: "Explicit trust observations to accept from a new check_task_id. Only host_key_fingerprint is supported. Omit unless you reviewed and intend to accept the observed host key."},
+			"accepted_identity":     schema.BoolAttribute{Optional: true, Description: "Explicitly accept the new external identity observed by a new check_task_id. Omit unless you reviewed the identity change."},
+			"health_status":         schema.StringAttribute{Computed: true, Description: "Current resource health: healthy, degraded, critical, or unknown."},
+			"last_health_at":        schema.StringAttribute{Computed: true, Description: "Timestamp of the latest resource health observation."},
 			"id": schema.Int64Attribute{
 				Description: "Resource ID.",
 				Computed:    true,
@@ -136,7 +148,8 @@ func (r *NetworkResourceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Required:    true,
 			},
 			"extra_data": schema.DynamicAttribute{
-				Description: "Discovered metadata as a native Terraform value. Auto-populated by MisterShell from connectivity checks.",
+				Optional:    true,
+				Description: "Resource metadata/configuration as a native Terraform object. Omit to read discovered metadata. Configured keys are managed; file_transfer_available is an observation and cannot be configured. Valid writable keys depend on the installed resource type.",
 				Computed:    true,
 			},
 			"is_enabled": schema.BoolAttribute{
@@ -235,6 +248,10 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
+	if !plan.CheckTaskID.IsNull() && !plan.CheckTaskID.IsUnknown() || plan.AcceptedIdentity.ValueBool() || len(plan.AcceptedTrustFields.Elements()) > 0 {
+		resp.Diagnostics.AddError("Edit evidence requires an existing resource", "Create the resource first, then review a completed edit check and configure check_task_id to accept its evidence.")
+		return
+	}
 	createCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -248,7 +265,21 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		resp.Diagnostics.AddError("Error encoding resource connector_data", err.Error())
 		return
 	}
+	credential, err := r.client.GetCredential(createCtx, plan.CredentialID.ValueInt64())
+	if err != nil && !client.IsForbidden(err) {
+		resp.Diagnostics.AddError("Error reading onboarding credential", err.Error())
+		return
+	}
+	// Only external platform credentials need name-based reference inputs.
+	// Older backends reject this field and omit source in credential responses.
+	resourceName := ""
+	// Discovery itself checks credential access. Existing resource operators may
+	// execute with a supplied credential ID without permission to read metadata.
+	if credential != nil && credential.Source == "external" {
+		resourceName = plan.Name.ValueString()
+	}
 	discovery, err := r.client.DiscoverNetworkResource(createCtx, client.DiscoveryTestInput{
+		ResourceName:   resourceName,
 		EngineID:       engineID,
 		ExpectedTypeID: expectedTypeID,
 		CredentialID:   plan.CredentialID.ValueInt64(),
@@ -282,6 +313,7 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
+	configuredExtraData := plan.ExtraData
 	configuredConnectorData := plan.ConnectorData
 	if err := mapNetworkResourceResponseToModel(res, &plan); err != nil {
 		resp.Diagnostics.AddError("Error decoding network resource", err.Error())
@@ -295,6 +327,23 @@ func (r *NetworkResourceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
+	if !configuredExtraData.IsNull() && !configuredExtraData.IsUnknown() {
+		raw, err := dynamicToRawJSON(configuredExtraData)
+		if err != nil {
+			resp.Diagnostics.AddError("Error encoding resource extra_data", err.Error())
+			return
+		}
+		updated, err := r.client.UpdateNetworkResource(createCtx, res.ID, client.NetworkResourceUpdateInput{ExtraData: raw})
+		if err != nil {
+			resp.Diagnostics.AddError("Error configuring resource extra_data", err.Error())
+			return
+		}
+		plan.ExtraData = configuredExtraData
+		if err := mapNetworkResourceResponseToModel(updated, &plan); err != nil {
+			resp.Diagnostics.AddError("Error decoding resource", err.Error())
+			return
+		}
+	}
 	if err := r.reconcileTags(createCtx, res.ID, &plan); err != nil {
 		resp.Diagnostics.AddError("Error setting resource tags", err.Error())
 		return
@@ -319,14 +368,10 @@ func (r *NetworkResourceResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	// Preserve connector_data from state — the API enriches it with server-side defaults
-	// which would cause perpetual diffs.
-	savedConnectorData := state.ConnectorData
 	if err := mapNetworkResourceResponseToModel(res, &state); err != nil {
 		resp.Diagnostics.AddError("Error decoding network resource", err.Error())
 		return
 	}
-	state.ConnectorData = savedConnectorData
 	resourceType, err := r.client.FindResourceType(ctx, res.ResourceType)
 	if err != nil {
 		resp.Diagnostics.AddError("Error resolving network resource engine", err.Error())
@@ -363,6 +408,43 @@ func (r *NetworkResourceResource) Update(ctx context.Context, req resource.Updat
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating network resource", err.Error())
 		return
+	}
+
+	// Successful checks can enrich writable metadata with newly discovered values.
+	// Reapply explicitly planned metadata so acceptance cannot silently replace
+	// Terraform configuration. The backend deliberately invalidates the check's
+	// applicability when this changes metadata; the accepted identity/pin remains.
+	if !plan.ExtraData.IsNull() && !plan.ExtraData.IsUnknown() {
+		refreshed, err := tfjson.Reconcile(plan.ExtraData, res.ExtraData, nil)
+		if err != nil {
+			resp.Diagnostics.AddError("Error decoding resource extra_data", err.Error())
+			return
+		}
+		if !refreshed.Equal(plan.ExtraData) {
+			// Preserve completed evidence in partial state before the follow-up write,
+			// so a failed metadata PATCH does not replay a consumed/stale check on retry.
+			partial := plan
+			if err := mapNetworkResourceResponseToModel(res, &partial); err != nil {
+				resp.Diagnostics.AddError("Error decoding network resource", err.Error())
+				return
+			}
+			partial.EngineID = state.EngineID
+			partial.Tags = state.Tags
+			resp.Diagnostics.Append(resp.State.Set(ctx, &partial)...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			raw, err := dynamicToRawJSON(plan.ExtraData)
+			if err != nil {
+				resp.Diagnostics.AddError("Error encoding resource extra_data", err.Error())
+				return
+			}
+			res, err = r.client.UpdateNetworkResource(ctx, state.ID.ValueInt64(), client.NetworkResourceUpdateInput{ExtraData: raw})
+			if err != nil {
+				resp.Diagnostics.AddError("Error restoring configured resource extra_data", err.Error())
+				return
+			}
+		}
 	}
 
 	configuredConnectorData := plan.ConnectorData
@@ -461,11 +543,15 @@ func mapNetworkResourceResponseToModel(res *client.NetworkResourceResponse, m *N
 		m.CoordinateSourceID = int64PtrToValue(res.EffectiveCoordinates.SourceLocationID)
 		m.CoordinateSourceName = stringPtrToValue(res.EffectiveCoordinates.SourceLocationName)
 	}
-	// ConnectorData intentionally NOT set here — preserved from plan/state by the caller
-	// because the API enriches it with server-side defaults (e.g. strict_host_key).
 	m.CredentialID = int64PtrToValue(res.CredentialID)
 	var err error
-	m.ExtraData, err = rawJSONToDynamic(res.ExtraData)
+	m.ConnectorData, err = tfjson.Reconcile(m.ConnectorData, res.ConnectorData, nil)
+	if err != nil {
+		return fmt.Errorf("connector_data: %w", err)
+	}
+	m.HealthStatus = types.StringValue(res.HealthStatus)
+	m.LastHealthAt = optStringPtrToValue(res.LastHealthAt)
+	m.ExtraData, err = tfjson.Reconcile(m.ExtraData, res.ExtraData, nil)
 	if err != nil {
 		return fmt.Errorf("extra_data: %w", err)
 	}
@@ -508,6 +594,38 @@ func (r *NetworkResourceResource) resolveOnboardingMode(ctx context.Context, pla
 
 func buildNetworkResourceUpdate(plan, state *NetworkResourceResourceModel) (client.NetworkResourceUpdateInput, error) {
 	input := client.NetworkResourceUpdateInput{}
+	if !plan.ExtraData.IsNull() && !plan.ExtraData.IsUnknown() && !plan.ExtraData.Equal(state.ExtraData) {
+		var err error
+		input.ExtraData, err = dynamicToRawJSON(plan.ExtraData)
+		if err != nil {
+			return input, err
+		}
+	}
+	evidenceChanged := !plan.CheckTaskID.Equal(state.CheckTaskID) && !plan.CheckTaskID.IsNull() && !plan.CheckTaskID.IsUnknown()
+	if evidenceChanged {
+		// Evidence binds to submitted inputs, including the name and omitted
+		// defaults. Send the exact configured draft even when fields did not
+		// change; the saved discovery provenance may differ from these inputs.
+		input.Name = stringValueToPtr(plan.Name)
+		input.LocationID = int64ValueToPtr(plan.LocationID)
+		input.CredentialID = int64ValueToPtr(plan.CredentialID)
+		var err error
+		input.ConnectorData, err = dynamicToRawJSON(plan.ConnectorData)
+		if err != nil {
+			return input, err
+		}
+		input.CheckTaskID = int64ValueToPtr(plan.CheckTaskID)
+		for _, v := range plan.AcceptedTrustFields.Elements() {
+			if s, ok := v.(types.String); ok {
+				input.AcceptedTrustFields = append(input.AcceptedTrustFields, s.ValueString())
+			}
+		}
+		if plan.AcceptedIdentity.ValueBool() {
+			input.AcceptedIdentity = boolValueToPtr(plan.AcceptedIdentity)
+		}
+	} else if (!plan.AcceptedTrustFields.Equal(state.AcceptedTrustFields) && len(plan.AcceptedTrustFields.Elements()) > 0) || (!plan.AcceptedIdentity.Equal(state.AcceptedIdentity) && plan.AcceptedIdentity.ValueBool()) {
+		return input, fmt.Errorf("accepting trust or identity requires a new check_task_id; obtain and review a fresh edit check")
+	}
 	if !plan.Name.Equal(state.Name) {
 		value := plan.Name.ValueString()
 		input.Name = &value
@@ -535,4 +653,38 @@ func buildNetworkResourceUpdate(plan, state *NetworkResourceResourceModel) (clie
 		input.SshgwAllowPersonalKey = &value
 	}
 	return input, nil
+}
+
+func (r *NetworkResourceResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config NetworkResourceResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !config.CheckTaskID.IsNull() && !config.CheckTaskID.IsUnknown() && config.CheckTaskID.ValueInt64() < 1 {
+		resp.Diagnostics.AddAttributeError(path.Root("check_task_id"), "Invalid check evidence", "check_task_id must be positive.")
+	}
+	accepts := config.AcceptedIdentity.ValueBool() || len(config.AcceptedTrustFields.Elements()) > 0
+	if accepts && config.CheckTaskID.IsNull() {
+		resp.Diagnostics.AddAttributeError(path.Root("check_task_id"), "Missing check evidence", "Explicit trust or identity acceptance requires check_task_id from a completed, reviewed resource edit check.")
+	}
+	for _, v := range config.AcceptedTrustFields.Elements() {
+		if s, ok := v.(types.String); ok && !s.IsUnknown() && s.ValueString() != "host_key_fingerprint" {
+			resp.Diagnostics.AddAttributeError(path.Root("accepted_trust_fields"), "Invalid trust field", "Only host_key_fingerprint can be explicitly accepted.")
+		}
+	}
+	if !config.ExtraData.IsNull() && !config.ExtraData.IsUnknown() {
+		raw, err := dynamicToRawJSON(config.ExtraData)
+		if err != nil {
+			return
+		}
+		var obj map[string]json.RawMessage
+		if json.Unmarshal(raw, &obj) != nil || obj == nil {
+			resp.Diagnostics.AddAttributeError(path.Root("extra_data"), "Invalid extra_data", "extra_data must be an object.")
+			return
+		}
+		if _, ok := obj["file_transfer_available"]; ok {
+			resp.Diagnostics.AddAttributeError(path.Root("extra_data"), "Read-only observation", "file_transfer_available is discovered by MisterShell and cannot be configured.")
+		}
+	}
 }

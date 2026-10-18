@@ -69,10 +69,10 @@ func TestJSONPayloadResourceAttributesUseNativeTerraformValues(t *testing.T) {
 		sensitive bool
 	}{
 		{name: "location extra_data", resource: &LocationResource{}, attribute: "extra_data", optional: true},
-		{name: "credential credential_data", resource: &CredentialResource{}, attribute: "credential_data", required: true, sensitive: true},
+		{name: "credential credential_data", resource: &CredentialResource{}, attribute: "credential_data", optional: true, sensitive: true},
 		{name: "credential extra_data", resource: &CredentialResource{}, attribute: "extra_data", optional: true},
 		{name: "resource connector_data", resource: &NetworkResourceResource{}, attribute: "connector_data", required: true},
-		{name: "resource extra_data", resource: &NetworkResourceResource{}, attribute: "extra_data", computed: true},
+		{name: "resource extra_data", resource: &NetworkResourceResource{}, attribute: "extra_data", optional: true, computed: true},
 		{name: "resource last_connectivity_result", resource: &NetworkResourceResource{}, attribute: "last_connectivity_result", computed: true},
 		{name: "setting value", resource: &SettingResource{}, attribute: "value", required: true, sensitive: true},
 		{name: "setting default", resource: &SettingResource{}, attribute: "default", computed: true},

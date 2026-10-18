@@ -1,0 +1,30 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Ownership and lifecycle
+
+This resource owns custom sources. Backend index sources are available through the data source and cannot be imported as managed resources.
+
+Parameter updates merge secrets on the server. Removing keys, or supplying blank, null or masked values, cannot clear stored secrets and is rejected. To clear parameters, explicitly replace the custom source. Destroy deletes the custom source and its stored parameters.
+
+{{ if .HasImport -}}
+## Import
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

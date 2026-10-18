@@ -148,6 +148,8 @@ func testAccCheckAllDestroyed(s *terraform.State) error {
 			_, err = c.GetNetworkResource(ctx, id)
 		case "mistershell_credential":
 			_, err = c.GetCredential(ctx, id)
+		case "mistershell_external_vault":
+			_, err = c.GetExternalVault(ctx, id)
 		case "mistershell_tag":
 			_, err = c.GetTag(ctx, id)
 		case "mistershell_role":
@@ -220,6 +222,11 @@ func discoverRootLocationID(t *testing.T) int64 {
 // ---------------------------------------------------------------------------
 
 func init() {
+	resource.AddTestSweepers("mistershell_external_vault", &resource.Sweeper{
+		Name:         "mistershell_external_vault",
+		Dependencies: []string{"mistershell_credential"},
+		F:            sweepExternalVaults,
+	})
 	resource.AddTestSweepers("mistershell_resource", &resource.Sweeper{
 		Name: "mistershell_resource",
 		// Tags reference resources via assignments; sweep tags first.
@@ -358,6 +365,27 @@ func sweepCredentials(_ string) error {
 		}
 		if err := c.DeleteCredential(ctx, it.ID); err != nil && !client.IsNotFound(err) {
 			return fmt.Errorf("sweep: deleting credential %d (%s): %w", it.ID, it.Name, err)
+		}
+	}
+	return nil
+}
+
+func sweepExternalVaults(_ string) error {
+	c := testAccClient()
+	if c == nil {
+		return nil
+	}
+	ctx := context.Background()
+	items, err := c.ListExternalVaults(ctx, client.ExternalVaultListFilter{Search: sweepPrefix})
+	if err != nil {
+		return fmt.Errorf("sweep: listing external vaults: %w", err)
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Name, sweepPrefix) {
+			continue
+		}
+		if err := c.DeleteExternalVault(ctx, it.ID); err != nil && !client.IsNotFound(err) {
+			return fmt.Errorf("sweep: deleting external vault %d (%s): %w", it.ID, it.Name, err)
 		}
 	}
 	return nil

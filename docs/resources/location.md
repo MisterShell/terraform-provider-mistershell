@@ -60,6 +60,9 @@ resource "mistershell_location" "zurich" {
 - `resource_count` (Number) Number of resources directly assigned to this location.
 - `updated_at` (String) Last update timestamp.
 
+Locations with `kind = "org"` cannot set latitude or longitude. Terraform rejects
+that combination during validation; use `kind = "geo"` for coordinates.
+
 ## Valid `kind` values
 
 | kind | meaning |

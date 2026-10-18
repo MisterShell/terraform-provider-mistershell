@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"os"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -10,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
+	"terraform-provider-mistershell/internal/apimanaged"
 	"terraform-provider-mistershell/internal/client"
 	"terraform-provider-mistershell/internal/datasources"
 	"terraform-provider-mistershell/internal/resources"
@@ -40,7 +42,7 @@ func (p *MisterShellProvider) Metadata(_ context.Context, _ provider.MetadataReq
 
 func (p *MisterShellProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Terraform provider for managing MisterShell resources (locations, network resources, credentials, tags, roles, permissions, log destinations, application settings, session-policy ACLs and rules, external authentication providers with group mappings, workers, and AI models, prompts, agents, and skills).",
+		Description: "Terraform provider for managing MisterShell resources (locations, network resources, credentials, external vaults, tags, roles, permissions, log destinations, application settings, session-policy ACLs and rules, external authentication providers with group mappings, workers, and AI models, prompts, agents, and skills).",
 		Attributes: map[string]schema.Attribute{
 			"url": schema.StringAttribute{
 				Description: "MisterShell base URL (e.g. https://mistershell.example.com). Can also be set with the MISTERSHELL_URL environment variable.",
@@ -52,7 +54,7 @@ func (p *MisterShellProvider) Schema(_ context.Context, _ provider.SchemaRequest
 				Sensitive:   true,
 			},
 			"insecure": schema.BoolAttribute{
-				Description: "Skip TLS certificate verification. Use for self-signed certificates. Defaults to false.",
+				Description: "Skip TLS certificate verification. Can also be set with MISTERSHELL_INSECURE (1 or true, case-insensitive). An explicit value overrides the environment variable. Defaults to false.",
 				Optional:    true,
 			},
 		},
@@ -95,7 +97,8 @@ func (p *MisterShellProvider) Configure(ctx context.Context, req provider.Config
 	}
 
 	// Build HTTP client
-	insecure := false
+	v := os.Getenv("MISTERSHELL_INSECURE")
+	insecure := v == "1" || strings.EqualFold(v, "true")
 	if !config.Insecure.IsNull() && !config.Insecure.IsUnknown() {
 		insecure = config.Insecure.ValueBool()
 	}
@@ -107,10 +110,11 @@ func (p *MisterShellProvider) Configure(ctx context.Context, req provider.Config
 }
 
 func (p *MisterShellProvider) Resources(_ context.Context) []func() resource.Resource {
-	return []func() resource.Resource{
+	constructors := []func() resource.Resource{
 		resources.NewLocationResource,
 		resources.NewNetworkResourceResource,
 		resources.NewCredentialResource,
+		resources.NewExternalVaultResource,
 		resources.NewTagResource,
 		resources.NewRoleResource,
 		resources.NewLogDestinationResource,
@@ -126,14 +130,25 @@ func (p *MisterShellProvider) Resources(_ context.Context) []func() resource.Res
 		resources.NewAIPromptResource,
 		resources.NewAIAgentResource,
 		resources.NewAISkillResource,
+		resources.NewAIAgentOverrideResource,
+		resources.NewAISkillOverrideResource,
+		resources.NewAIGuardrailResource,
+		resources.NewSensorRuleOverrideResource,
 	}
+	for _, definition := range apimanaged.Definitions() {
+		constructors = append(constructors, func() resource.Resource { return apimanaged.NewResource(definition) })
+	}
+	return constructors
 }
 
 func (p *MisterShellProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
+	constructors := []func() datasource.DataSource{
 		datasources.NewLocationDataSource,
 		datasources.NewNetworkResourceDataSource,
 		datasources.NewCredentialDataSource,
+		datasources.NewCredentialTypesDataSource,
+		datasources.NewExternalVaultTypesDataSource,
+		datasources.NewExternalVaultDataSource,
 		datasources.NewTagDataSource,
 		datasources.NewTagsDataSource,
 		datasources.NewRoleDataSource,
@@ -146,11 +161,19 @@ func (p *MisterShellProvider) DataSources(_ context.Context) []func() datasource
 		datasources.NewSessionPolicyAclDataSource,
 		datasources.NewSessionPolicyRuleDataSource,
 		datasources.NewAuthProviderDataSource,
+		datasources.NewAuthProviderMappingDataSource,
 		datasources.NewWorkerDataSource,
 		datasources.NewAIModelDataSource,
 		datasources.NewAIPromptDataSource,
 		datasources.NewAIAgentDataSource,
 		datasources.NewAISkillDataSource,
 		datasources.NewAIToolDataSource,
+		datasources.NewAIGuardrailDataSource,
+		datasources.NewSensorRuleOverrideDataSource,
+		datasources.NewAIPromptVariablesDataSource,
 	}
+	for _, definition := range apimanaged.Definitions() {
+		constructors = append(constructors, func() datasource.DataSource { return apimanaged.NewDataSource(definition) })
+	}
+	return constructors
 }

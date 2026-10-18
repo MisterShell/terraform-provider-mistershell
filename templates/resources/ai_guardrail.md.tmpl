@@ -1,0 +1,37 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Ownership and restoration
+
+The resource manages one registered `resource_type`. Disabling its allowlist
+changes the commands AI may propose for injection. Adoption captures the current
+toggle in `original_allowlist_enabled`. Destroy restores that captured setting:
+a pre-existing disabled guardrail remains disabled after Terraform releases it.
+An originally enabled guardrail is restored using the dedicated reset endpoint.
+
+Import captures the current setting as the restoration baseline; it cannot
+recover a setting from before import. Keep one resource per resource type and
+retain its state until restoration completes. For existing state that lacks a
+baseline, the first refresh captures the then-current setting.
+
+{{ if .HasImport -}}
+## Import
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

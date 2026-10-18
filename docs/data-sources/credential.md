@@ -42,12 +42,47 @@ data "mistershell_credential" "k8s" {
 - `created_at` (String) Creation timestamp.
 - `credential_data` (Dynamic, Sensitive) Credential data as a native Terraform object. Secret fields are masked as '****' by the API.
 - `description` (String) Credential description.
+- `external_vault_id` (Number) Referenced external vault ID.
+- `external_vault_name` (String) Referenced vault name.
+- `external_vault_ref` (Attributes) Unresolved vault reference metadata. (see [below for nested schema](#nestedatt--external_vault_ref))
+- `external_vault_type` (String) Referenced vault type.
 - `extra_data` (Dynamic) Non-sensitive metadata as a native Terraform value.
-- `requires_user_mapping` (Boolean) Whether users must fill their own credential copy.
+- `requires_user_mapping` (Boolean) Whether interactive sessions use the independent user credential source.
+- `source` (String) Credential source: local or external.
 - `updated_at` (String) Last update timestamp.
+- `user_credential_data` (Dynamic, Sensitive) Masked user literal fields. Secrets are never resolved by Terraform.
+- `user_external_vault_id` (Number) Referenced external vault ID.
+- `user_external_vault_name` (String) Referenced vault name.
+- `user_external_vault_ref` (Attributes) Unresolved vault reference metadata. (see [below for nested schema](#nestedatt--user_external_vault_ref))
+- `user_external_vault_type` (String) Referenced vault type.
+- `user_source` (String) Credential source: local or external.
+
+<a id="nestedatt--external_vault_ref"></a>
+### Nested Schema for `external_vault_ref`
+
+Read-Only:
+
+- `base` (Dynamic) Vault-specific reference parameters.
+- `fields` (Map of String) Credential fields mapped to vault keys.
+
+
+<a id="nestedatt--user_external_vault_ref"></a>
+### Nested Schema for `user_external_vault_ref`
+
+Read-Only:
+
+- `base` (Dynamic) Vault-specific reference parameters.
+- `fields` (Map of String) Credential fields mapped to vault keys.
 
 ## Runtime credential types
 
 `credential_type` values are supplied by the target MisterShell instance.
 Query `GET /api/v1/credentials/types` for the
 current catalog and JSON Schemas; installed extensions may add types.
+
+## External sources
+
+Both platform and user sources expose their vault IDs, names, types, and reference
+metadata. Literal secret fields are masked as `****`; external mapped values are
+not fetched. This data source cannot provide resolved credentials to other
+providers. Name lookup fetches full detail, just like ID lookup.

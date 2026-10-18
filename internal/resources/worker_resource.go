@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-mistershell/internal/client"
+	"terraform-provider-mistershell/internal/tfjson"
 )
 
 var (
@@ -63,12 +65,7 @@ func (r *WorkerResource) Metadata(_ context.Context, req resource.MetadataReques
 
 func (r *WorkerResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// This resource manages user-created workers. The bootstrap default
-		// worker (is_default=true) is provisioned by the backend and cannot be
-		// edited or deleted — the API returns 403 — so it must not be managed
-		// here. The worker authentication token is returned only once, at
-		// creation, and can never be read back afterwards.
-		Description: "Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are native Terraform values (the worker's task-handler config and its JSON Schema). The bootstrap default worker (is_default=true) is provisioned by the backend and cannot be edited or deleted (the API returns 403); do not manage it with this resource. The authentication token is returned only once at creation and is never readable again.",
+		Description: "Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are native Terraform values (the worker's task-handler config and its JSON Schema). The backend-owned default worker may be imported to manage only config. Keep its other imported settings unchanged. Destroying an imported default worker only removes Terraform management and leaves its configuration intact. The authentication token is returned only once at creation and is never readable again.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Worker ID.",
@@ -119,7 +116,7 @@ func (r *WorkerResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Computed:    true,
 			},
 			"is_default": schema.BoolAttribute{
-				Description: "Whether this is the bootstrap default worker. Default workers cannot be edited or deleted via the API.",
+				Description: "Whether this is the bootstrap default worker. Only config may be edited on default workers. Terraform destroy leaves default workers intact.",
 				Computed:    true,
 			},
 			"active_task_count": schema.Int64Attribute{
@@ -285,15 +282,21 @@ func (r *WorkerResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	// The server GET does not return the token and may reorder config; preserve
-	// token and config/config_schema from prior state.
+	// Only the create-only token is unreadable. Refresh readable config and schemas.
 	savedToken := state.Token
-	savedConfig := state.Config
-	savedConfigSchema := state.ConfigSchema
+	var errConfig error
+	state.Config, errConfig = tfjson.Reconcile(state.Config, worker.Config, nil)
+	if errConfig != nil {
+		resp.Diagnostics.AddError("Error decoding worker config", errConfig.Error())
+		return
+	}
+	state.ConfigSchema, errConfig = tfjson.Reconcile(state.ConfigSchema, worker.ConfigSchema, nil)
+	if errConfig != nil {
+		resp.Diagnostics.AddError("Error decoding worker config_schema", errConfig.Error())
+		return
+	}
 	mapWorkerResponseToModel(worker, &state)
 	state.Token = savedToken
-	state.Config = savedConfig
-	state.ConfigSchema = savedConfigSchema
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -310,26 +313,10 @@ func (r *WorkerResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	name := plan.Name.ValueString()
-	locationID := plan.LocationID.ValueInt64()
-	isEnabled := plan.IsEnabled.ValueBool()
-	config, err := dynamicToRawJSON(plan.Config)
+	input, err := buildWorkerUpdateInput(&plan, &state)
 	if err != nil {
-		resp.Diagnostics.AddError("Error encoding worker config", err.Error())
+		resp.Diagnostics.AddError("Invalid worker update", err.Error())
 		return
-	}
-	configSchema, err := dynamicToRawJSON(plan.ConfigSchema)
-	if err != nil {
-		resp.Diagnostics.AddError("Error encoding worker config_schema", err.Error())
-		return
-	}
-	input := client.WorkerUpdateInput{
-		Name:         &name,
-		Description:  stringValueToPtr(plan.Description),
-		LocationID:   &locationID,
-		Config:       config,
-		ConfigSchema: configSchema,
-		IsEnabled:    &isEnabled,
 	}
 
 	worker, err := r.client.UpdateWorker(ctx, state.ID.ValueInt64(), input)
@@ -357,8 +344,11 @@ func (r *WorkerResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	// If the targeted worker is the bootstrap default (is_default=true), the API
-	// returns 403; let that error surface to the user.
+	// The backend owns the default worker lifecycle. Removing its Terraform
+	// management leaves the worker and its current configuration intact.
+	if state.IsDefault.ValueBool() {
+		return
+	}
 	if err := r.client.DeleteWorker(ctx, state.ID.ValueInt64()); err != nil {
 		resp.Diagnostics.AddError("Error deleting worker", err.Error())
 	}
@@ -396,4 +386,42 @@ func mapWorkerResponseToModel(worker *client.WorkerResponse, m *WorkerResourceMo
 	m.ConfigVersion = optStringPtrToValue(worker.ConfigVersion)
 	m.CreatedAt = types.StringValue(worker.CreatedAt)
 	m.UpdatedAt = types.StringValue(worker.UpdatedAt)
+}
+
+func buildWorkerUpdateInput(plan, state *WorkerResourceModel) (client.WorkerUpdateInput, error) {
+	input := client.WorkerUpdateInput{}
+	if !plan.Name.Equal(state.Name) {
+		input.Name = stringValueToPtr(plan.Name)
+	}
+	if !plan.Description.Equal(state.Description) {
+		input.Description, _ = json.Marshal(stringValueToPtr(plan.Description))
+	}
+	if !plan.LocationID.Equal(state.LocationID) {
+		input.LocationID = int64ValueToPtr(plan.LocationID)
+	}
+	if !plan.IsEnabled.Equal(state.IsEnabled) {
+		input.IsEnabled = boolValueToPtr(plan.IsEnabled)
+	}
+	for _, field := range []struct {
+		next, prior types.Dynamic
+		target      *json.RawMessage
+	}{
+		{plan.Config, state.Config, &input.Config}, {plan.ConfigSchema, state.ConfigSchema, &input.ConfigSchema},
+	} {
+		if field.next.Equal(field.prior) {
+			continue
+		}
+		raw, err := dynamicToRawJSON(field.next)
+		if err != nil {
+			return input, err
+		}
+		if len(raw) == 0 {
+			raw = json.RawMessage(`null`)
+		}
+		*field.target = raw
+	}
+	if state.IsDefault.ValueBool() && (input.Name != nil || input.Description != nil || input.LocationID != nil || input.IsEnabled != nil || input.ConfigSchema != nil) {
+		return input, fmt.Errorf("only config can be changed on the backend-owned default worker; keep its imported identity, enabled flag and config_schema unchanged")
+	}
+	return input, nil
 }

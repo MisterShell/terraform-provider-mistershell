@@ -104,10 +104,11 @@ func (r *SessionPolicyAclResource) Schema(_ context.Context, _ resource.SchemaRe
 				},
 			},
 			"enabled": schema.BoolAttribute{
-				Description: "Whether the ACL is enabled. Defaults to true.",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(true),
+				Description:        "Compatibility metadata only; this flag does not enable or disable ACL enforcement.",
+				DeprecationMessage: "Compatibility metadata only. This field has no effect on ACL enforcement; remove the ACL to revoke its grant.",
+				Optional:           true,
+				Computed:           true,
+				Default:            booldefault.StaticBool(true),
 			},
 			"is_builtin": schema.BoolAttribute{
 				Description: "Whether this is a built-in ACL (built-ins cannot be edited or deleted).",

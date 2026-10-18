@@ -4,7 +4,16 @@
 # used in stable login and callback URLs.
 #
 # Create and update require an active license.
+# OIDC and SAML also require the deployment's public URL before being enabled.
+# Manage this instance-wide setting once, and share it across auth providers.
+resource "mistershell_setting" "app_base_url" {
+  key   = "app_base_url"
+  value = jsonencode(var.mistershell_public_url)
+}
+
 resource "mistershell_auth_provider" "corp_oidc" {
+  depends_on = [mistershell_setting.app_base_url]
+
   name          = "corp-oidc"
   mnemonic      = "corp-oidc"
   provider_type = "OIDC"
@@ -17,6 +26,11 @@ resource "mistershell_auth_provider" "corp_oidc" {
     client_secret = var.oidc_client_secret # secret
     scopes        = ["openid", "profile", "email"]
   }
+}
+
+variable "mistershell_public_url" {
+  type        = string
+  description = "Public URL users and identity providers use to reach MisterShell (e.g. https://mistershell.example.com)."
 }
 
 variable "oidc_client_secret" {

@@ -220,7 +220,7 @@ func (r *TagResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	}
 
 	// Reconcile resource assignments if the set changed.
-	if !plan.ResourceIDs.Equal(state.ResourceIDs) {
+	if !plan.ResourceIDs.IsNull() && !plan.ResourceIDs.IsUnknown() && !plan.ResourceIDs.Equal(state.ResourceIDs) {
 		ids := int64SetToSlice(plan.ResourceIDs)
 		if err := r.client.SetTagAssignments(ctx, id, ids); err != nil {
 			resp.Diagnostics.AddError("Error updating tag resources", err.Error())

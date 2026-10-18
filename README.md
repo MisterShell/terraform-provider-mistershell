@@ -1,12 +1,39 @@
 # Terraform Provider for MisterShell
 
-The MisterShell Terraform provider enables infrastructure-as-code management of [MisterShell](https://www.mistershell.com) inventory — locations, network resources, and credentials.
+The MisterShell Terraform provider enables infrastructure-as-code management of [MisterShell](https://www.mistershell.com) inventory, authentication, policies, external vaults, automation, configuration, sensors, proxies, reporting, and AI settings.
 
 ## Requirements
 
 - [Terraform](https://www.terraform.io/downloads) >= 1.5
-- A running MisterShell 2.0.7 or newer instance; some features need a newer backend (up to 2.0.15), as stated in the [CHANGELOG](CHANGELOG.md)
+- A running MisterShell 2.0.7 or newer instance; some features need a newer backend (external vault support is tested on 2.0.22), as stated in the [CHANGELOG](CHANGELOG.md)
 - A MisterShell API key (`apikey_` prefixed)
+
+For repeatable end-to-end verification, use `make test-disposable`; setup and
+fixture requirements are in [the disposable test guide](testdata/disposable/README.md).
+
+## Current API coverage
+
+The unreleased API-completeness changes target MisterShell 2.0.22. New resources
+cover CA certificates, recording and file-transfer policies/stores, fact policies,
+automation playbooks, Configure templates/stacks/policies/resource variables,
+proxies, sensors and rule configuration, report templates, saved commands, MOTDs,
+and built-in AI overrides/guardrails. Each has a matching lookup data source where
+the API supports reads. Shell profiles and their mappings are excluded.
+
+Type catalogs expose installed credential and external-vault JSON schemas.
+See the generated [resource documentation](docs/resources) and
+[data-source documentation](docs/data-sources) for fields and examples.
+
+Sensitive attributes, including enrollment tokens and credential material, are
+stored in Terraform state. API-masked secrets cannot be recovered on import or
+checked for remote changes. Readable managed fields are refreshed for drift.
+Built-in AI overrides restore owned settings on destroy; configuration resource
+variables reset to an empty values object because the API has no delete operation.
+Sensor rule overrides manage staged state; applying a shared ruleset remains an
+explicit administrative operation.
+Custom-rule writes require manual ruleset mode because automatic mode can publish
+other operators' staged changes. The default worker remains in place on destroy,
+including its configuration, as documented in its resource lifecycle.
 
 ## Installation
 
@@ -33,6 +60,10 @@ provider "mistershell" {
 }
 ```
 
+`MISTERSHELL_INSECURE=1` or `true` (case-insensitive) also skips TLS verification.
+An explicit `insecure = true` or `false` in HCL takes precedence; otherwise TLS
+verification is enabled by default.
+
 The API key's role needs read, write, and the relevant delete permissions for
 the objects Terraform manages. Workers use `app.fabric.read`, `app.fabric.write`,
 and `app.fabric.delete`;
@@ -46,6 +77,17 @@ Keep the API key's location scope covering all managed objects and their target
 locations. An object outside that scope can return HTTP 404; Terraform treats it
 as missing and may plan to recreate it. A global location scope is appropriate
 when Terraform manages inventory across the entire instance.
+
+## External vaults
+
+Manage vault connections with `mistershell_external_vault` and select existing
+connections with its data source. Credentials support independent platform and
+user sources, including mixed literal values and vault references. See the
+[vault resource](docs/resources/external_vault.md) and
+[credential resource](docs/resources/credential.md) for examples and transitions.
+Vault operations need the Pro/Enterprise external-vault capability and
+`app.auth_providers.read/write/delete` permissions. Terraform stores connection
+secrets and configured literals in state, but never reads resolved vault secrets.
 
 ## Example Usage
 
@@ -103,7 +145,8 @@ resource "mistershell_resource" "core_switch" {
 
 ## Data Sources
 
-All data sources support lookup by `id` or by search filters. Filters must match exactly one result.
+Entity data sources support the identity or exact-match filters documented for
+each type. Catalog data sources return installed types or available variables.
 
 | Data Source | Lookup by |
 |---|---|
@@ -148,6 +191,10 @@ also starts an in-process unknown SSH server to prove automatic Generic SSH
 fallback. The Docker fixture is used to prove Linux discovery and explicit-type
 onboarding.
 
+OIDC/SAML acceptance tests temporarily set `app_base_url` to `MISTERSHELL_URL`
+and restore its previous value after each subtest. This is an instance-wide
+setting, so run the suite sequentially against the isolated development instance.
+
 The defaults are `127.0.0.1:12223`, user `tfacc`, and password
 `tfacc-password`. Override them with `MISTERSHELL_ACC_SSH_HOST`,
 `MISTERSHELL_ACC_SSH_PORT`, `MISTERSHELL_ACC_SSH_USERNAME`, and
@@ -188,3 +235,14 @@ variables:
 ## License
 
 See [LICENSE](LICENSE).
+
+### External vault acceptance tests
+
+`make test-live-vaults` covers vault lifecycle and credential sources. To also
+exercise actual HashiCorp/OpenBao resolution and per-user JWT identity, start the
+isolated fixtures described in [testdata/external-vaults](testdata/external-vaults/README.md)
+and set `MISTERSHELL_ACC_VAULT_FIXTURES` to their JSON metadata file. The fixtures
+must be reachable from MisterShell Core as well as the test runner. These tests
+seed and remove test secrets and temporarily configure `app_base_url`; use an
+isolated backend and run live suites sequentially. Cloud metadata/schema behavior
+is tested for AWS/Azure; real cloud authentication needs separate accounts.

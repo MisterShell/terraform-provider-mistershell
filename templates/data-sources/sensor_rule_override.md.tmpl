@@ -1,0 +1,23 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+`action` is `enable`, `disable`, or null when no override exists. `pending`
+compares the stored override with the active ruleset snapshot.
+`effective_enabled` reflects staged configuration; it does not prove that any
+sensor has downloaded or activated that configuration.

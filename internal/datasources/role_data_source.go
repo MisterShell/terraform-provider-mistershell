@@ -18,6 +18,7 @@ type RoleDataSource struct {
 }
 
 type RoleDataSourceModel struct {
+	IsBuiltin         types.Bool   `tfsdk:"is_builtin"`
 	ID                types.Int64  `tfsdk:"id"`
 	Name              types.String `tfsdk:"name"`
 	Description       types.String `tfsdk:"description"`
@@ -63,6 +64,7 @@ func (d *RoleDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 				Computed:    true,
 				ElementType: types.Int64Type,
 			},
+			"is_builtin": schema.BoolAttribute{Computed: true, Description: "Whether this is a built-in role."},
 			"permissions": schema.SetAttribute{
 				Description: "Set of permission names assigned to this role.",
 				Computed:    true,
@@ -142,6 +144,7 @@ func (d *RoleDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		role = &matched[0]
 	}
 
+	config.IsBuiltin = types.BoolValue(role.IsBuiltin)
 	config.ID = types.Int64Value(role.ID)
 	config.Name = types.StringValue(role.Name)
 	config.Description = stringPtrToValue(role.Description)

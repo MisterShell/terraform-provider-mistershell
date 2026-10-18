@@ -204,10 +204,11 @@ type AIAgentCreateInput struct {
 	ToolIDs        []int64         `json:"tool_ids,omitempty"`
 }
 
-// AIAgentUpdateInput is a PATCH. type is immutable and absent here; tool changes
+// AIAgentUpdateInput is a PATCH supporting chat/background type changes; tool changes
 // go through SetAIAgentTools. Description and ModelID omit omitempty so clearing
 // sends explicit null.
 type AIAgentUpdateInput struct {
+	Type           *string         `json:"type,omitempty"`
 	Name           *string         `json:"name,omitempty"`
 	Description    *string         `json:"description"`
 	ModelID        *int64          `json:"model_id"`
@@ -453,4 +454,66 @@ func (c *Client) ListAITools(ctx context.Context, filter AIToolListFilter) ([]AI
 		params.Set("search", filter.Search)
 	}
 	return paginateJSON[AIToolResponse](ctx, c, "/api/v1/ai/tools", params, "ai tools")
+}
+
+// UpdateAIAgentSettings changes only the explicitly owned built-in settings.
+// It deliberately omits identity and unrelated nullable fields.
+func (c *Client) UpdateAIAgentSettings(ctx context.Context, id int64, input map[string]any) (*AIAgentResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPatch, fmt.Sprintf("/api/v1/ai/agents/%d", id), input)
+	if err != nil {
+		return nil, err
+	}
+	var result AIAgentResponse
+	if err = json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+func (c *Client) UpdateAISkillEnabled(ctx context.Context, id int64, enabled bool) (*AISkillResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPatch, fmt.Sprintf("/api/v1/ai/skills/%d", id), map[string]bool{"is_enabled": enabled})
+	if err != nil {
+		return nil, err
+	}
+	var result AISkillResponse
+	if err = json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+type AIGuardrailResponse struct {
+	ResourceType     string `json:"resource_type"`
+	DisplayName      string `json:"display_name"`
+	Description      string `json:"ai_guardrails_description"`
+	AllowlistEnabled bool   `json:"allowlist_enabled"`
+}
+
+func (c *Client) ListAIGuardrails(ctx context.Context) ([]AIGuardrailResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, "/api/v1/ai/guardrails", nil)
+	if err != nil {
+		return nil, err
+	}
+	var result []AIGuardrailResponse
+	if err = json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+func (c *Client) SetAIGuardrail(ctx context.Context, resourceType string, enabled bool) (*AIGuardrailResponse, error) {
+	data, err := c.doRequest(ctx, http.MethodPut, "/api/v1/ai/guardrails/"+url.PathEscape(resourceType), map[string]bool{"allowlist_enabled": enabled})
+	if err != nil {
+		return nil, err
+	}
+	var result AIGuardrailResponse
+	if err = json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+func (c *Client) ResetAIGuardrail(ctx context.Context, resourceType string) error {
+	_, err := c.doRequest(ctx, http.MethodDelete, "/api/v1/ai/guardrails/"+url.PathEscape(resourceType), nil)
+	return err
+}
+func (c *Client) GetAIPromptVariables(ctx context.Context) (json.RawMessage, error) {
+	return c.doRequest(ctx, http.MethodGet, "/api/v1/ai/prompt-variables", nil)
 }

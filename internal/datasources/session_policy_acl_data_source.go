@@ -71,7 +71,7 @@ func (d *SessionPolicyAclDataSource) Schema(_ context.Context, _ datasource.Sche
 				},
 			},
 			"enabled": schema.BoolAttribute{
-				Description: "Whether the ACL is enabled.",
+				Description: "Compatibility metadata only; does not control ACL enforcement.",
 				Computed:    true,
 			},
 			"is_builtin": schema.BoolAttribute{
@@ -128,7 +128,7 @@ func (d *SessionPolicyAclDataSource) Read(ctx context.Context, req datasource.Re
 		}
 	} else {
 		name := config.Name.ValueString()
-		acls, err := d.client.ListAcls(ctx, client.AclListFilter{Search: name})
+		acls, err := d.client.ListAcls(ctx, client.AclListFilter{Search: client.SearchPrefix(name)})
 		if err != nil {
 			resp.Diagnostics.AddError("Error searching ACLs", err.Error())
 			return

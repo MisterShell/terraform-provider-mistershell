@@ -28,6 +28,7 @@ type RoleResource struct {
 }
 
 type RoleResourceModel struct {
+	IsBuiltin         types.Bool   `tfsdk:"is_builtin"`
 	ID                types.Int64  `tfsdk:"id"`
 	Name              types.String `tfsdk:"name"`
 	Description       types.String `tfsdk:"description"`
@@ -85,10 +86,10 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Optional:    true,
 				ElementType: types.Int64Type,
 			},
+			"is_builtin": schema.BoolAttribute{Computed: true, Description: "Whether this is a built-in role."},
 			"permissions": schema.SetAttribute{
-				Description: "Set of permission names assigned to this role (e.g. 'app.tags.read'). The backend validates names and superuser rules; invalid names are rejected.",
+				Description: "Complete permission set assigned to this role. Omitting this attribute removes all grants. The backend validates names and superuser rules.",
 				Optional:    true,
-				Computed:    true,
 				ElementType: types.StringType,
 			},
 			"created_at": schema.StringAttribute{
@@ -126,6 +127,7 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	input := client.RoleCreateInput{
+		Permissions:       stringSetToSlice(plan.Permissions),
 		Name:              plan.Name.ValueString(),
 		LocationScopeMode: plan.LocationScopeMode.ValueString(),
 	}
@@ -143,21 +145,13 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	desiredPermissions := plan.Permissions
 	mapRoleBaseResponseToModel(role, &plan)
-	plan.Permissions = types.SetValueMust(types.StringType, nil)
+	if plan.Permissions.IsUnknown() {
+		plan.Permissions = stringSliceToSet(nil)
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	if !desiredPermissions.IsNull() && !desiredPermissions.IsUnknown() {
-		for _, name := range stringSetToSlice(desiredPermissions) {
-			if err := r.client.AddRolePermission(ctx, role.ID, name); err != nil {
-				resp.Diagnostics.AddError("Error assigning role permission", fmt.Sprintf("permission %q: %s", name, err.Error()))
-				return
-			}
-		}
 	}
 
 	if err := r.finalizeState(ctx, role.ID, &plan); err != nil {
@@ -221,29 +215,16 @@ func (r *RoleResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		input.ScopeLocationIDs = &ids
 	}
 
+	if !plan.Permissions.IsUnknown() && !plan.Permissions.Equal(state.Permissions) {
+		permissions := stringSetToSlice(plan.Permissions)
+		if permissions == nil {
+			permissions = []string{}
+		}
+		input.Permissions = &permissions
+	}
 	if _, err := r.client.UpdateRole(ctx, id, input); err != nil {
 		resp.Diagnostics.AddError("Error updating role", err.Error())
 		return
-	}
-
-	// Reconcile permissions via per-name POST/DELETE. Removals first, then
-	// additions, so superuser-exclusivity invariants are not transiently violated.
-	if !plan.Permissions.Equal(state.Permissions) {
-		have := stringSetToSlice(state.Permissions)
-		want := stringSetToSlice(plan.Permissions)
-		added, removed := diffStrings(have, want)
-		for _, name := range removed {
-			if err := r.client.RemoveRolePermission(ctx, id, name); err != nil {
-				resp.Diagnostics.AddError("Error removing role permission", fmt.Sprintf("permission %q: %s", name, err.Error()))
-				return
-			}
-		}
-		for _, name := range added {
-			if err := r.client.AddRolePermission(ctx, id, name); err != nil {
-				resp.Diagnostics.AddError("Error assigning role permission", fmt.Sprintf("permission %q: %s", name, err.Error()))
-				return
-			}
-		}
 	}
 
 	if err := r.finalizeState(ctx, id, &plan); err != nil {
@@ -286,10 +267,15 @@ func (r *RoleResource) finalizeState(ctx context.Context, id int64, m *RoleResou
 
 func mapRoleResponseToModel(role *client.RoleDetailResponse, m *RoleResourceModel) {
 	mapRoleBaseResponseToModel(&role.RoleResponse, m)
-	m.Permissions = stringSliceToSet(role.Permissions)
+	if m.Permissions.IsNull() && len(role.Permissions) == 0 {
+		m.Permissions = types.SetNull(types.StringType)
+	} else {
+		m.Permissions = stringSliceToSet(role.Permissions)
+	}
 }
 
 func mapRoleBaseResponseToModel(role *client.RoleResponse, m *RoleResourceModel) {
+	m.IsBuiltin = types.BoolValue(role.IsBuiltin)
 	m.ID = types.Int64Value(role.ID)
 	m.Name = types.StringValue(role.Name)
 	m.Description = stringPtrToValue(role.Description)

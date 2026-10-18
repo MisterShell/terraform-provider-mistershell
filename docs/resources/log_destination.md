@@ -2,12 +2,12 @@
 page_title: "mistershell_log_destination Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).
+  Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and preserved from config while non-secret fields are refreshed.
 ---
 
 # mistershell_log_destination (Resource)
 
-Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and stored from config (not read back).
+Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and preserved from config while non-secret fields are refreshed.
 
 ## Example Usage
 
@@ -67,7 +67,7 @@ variable "webhook_token" {
 
 ### Required
 
-- `config` (Dynamic, Sensitive) Per-type config as a native Terraform object. For type=syslog: host, port, protocol, format, facility, tls_verify. For type=webhook: url, method, headers, auth, body_format, timeout_seconds, tls_verify. Webhook auth secrets (bearer token, basic password, header value) are masked as '****' by the API and stored from config, not read back. See the config field tables on this page.
+- `config` (Dynamic, Sensitive) Per-type config as a native Terraform object. For type=syslog: host, port, protocol, format, facility, tls_verify. For type=webhook: url, method, headers, auth, body_format, timeout_seconds, tls_verify. Webhook auth secrets (bearer token, basic password, header value) are masked as '****' by the API and preserved from config while non-secret fields are refreshed. See the config field tables on this page.
 - `name` (String) Log destination name (1-128 characters).
 - `streams` (Set of String) Log streams to forward. At least one of: security, policy, api, app, ids, collector.
 - `type` (String) Destination type. One of: syslog, webhook. Cannot be changed after creation (the config shape is type-coupled).
@@ -139,25 +139,15 @@ shape is determined by `type` and must include a matching `type` discriminator
 field inside the blob. The fields below are the complete set the backend accepts;
 any other key is rejected.
 
-**Secret handling.** Webhook `auth` secret fields (marked below) are encrypted at
-rest and **masked to `****`** in every API response. As with `credential_data`,
-the provider stores `config` **from your configuration** and does **not** read it
-back from the server. Two consequences:
+**Secret handling and refresh.** Webhook secrets are masked as `****` by the API.
+Refresh preserves configured secrets and detects changes to managed non-secret
+fields, including the URL and headers. Server defaults for omitted keys stay
+unmanaged. Import populates non-secret config; supply masked secrets in HCL
+before applying.
 
-- After **importing** a webhook destination, its secret is unknown until you
-  re-supply the full `config` in HCL — a webhook secret cannot be recovered from
-  the masked server value.
-- For webhook destinations, out-of-band changes to the **non-secret** parts of
-  `config` (url, method, headers, etc.) are **not** detected as drift, because the
-  whole `config` is preserved from state. This is the documented trade-off of the
-  stored-from-config rule (identical to `credential_data`).
-- `config` is **excluded from import** (only `id` is set on import); re-supply it
-  in HCL, exactly like `credential_data`.
-- The literal mask placeholder **`"****"` is rejected (HTTP 400) as a webhook
-  auth secret** on **create** and when **changing `auth.type`** — there is no
-  stored secret to preserve in those cases, so always supply the real secret.
-  (Re-sending `"****"` on an update with an *unchanged* `auth.type` still means
-  "keep the stored secret".)
+The destination `type` can change in place when supplied with the matching
+configuration. Supply real secrets when creating a webhook or changing its
+authentication type; the mask placeholder cannot initialize a secret.
 
 ### `type = "syslog"` config
 

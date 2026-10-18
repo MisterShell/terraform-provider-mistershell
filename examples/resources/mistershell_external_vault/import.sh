@@ -1,0 +1,1 @@
+terraform import mistershell_external_vault.production 42

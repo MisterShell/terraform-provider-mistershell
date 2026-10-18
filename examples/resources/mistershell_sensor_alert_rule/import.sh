@@ -1,0 +1,1 @@
+terraform import mistershell_sensor_alert_rule.example 123

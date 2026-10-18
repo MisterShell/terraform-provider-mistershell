@@ -5,6 +5,58 @@ Notable changes to the MisterShell Terraform provider, for people writing HCL ag
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- API 2.0.22 resources and matching data sources for CA certificates, recording
+  stores/rules, file stores/transfer rules, fact checks/policy rules, automation
+  playbooks, Configure templates/stacks/policies/resource variables, proxies,
+  sensors/custom sources/custom rules/alert rules, report templates, saved
+  commands, and MOTDs. Shell profiles/mappings are intentionally excluded.
+- Built-in AI agent and skill overrides, AI guardrail configuration, staged sensor
+  rule overrides, auth-provider mapping lookup, and credential/vault/prompt
+  variable catalogs.
+- Resource health metadata, role builtin/scope metadata, writable inventory
+  configuration metadata, and explicit verified trust/identity acceptance.
+- Repeatable disposable Core, SSH, PostgreSQL and external-vault acceptance
+  fixtures, including interruption cleanup and private startup diagnostics.
+- `mistershell_external_vault` resource and data source for HashiCorp Vault,
+  OpenBao, AWS Secrets Manager and Azure Key Vault. Supports imports, exact
+  lookup, masked configuration and explicit resets of removed config keys.
+- Independent platform/user external sources on `mistershell_credential` and
+  its data source, with vault references and optional literal fields. Source
+  changes preserve the credential ID. External resource onboarding passes the
+  planned name for reference templates. Tested against MisterShell 2.0.22;
+  existing local workflows retain their older-backend request shape.
+
+### Fixed
+
+- Preserve unmanaged tag assignments on metadata updates.
+- Refresh readable JSON configuration and import metadata while retaining masked
+  secrets; send explicit resets when optional configurations are removed.
+- Apply role scope/permission transitions atomically; resolve users through detail
+  endpoints; permit imported external users to leave passwords unmanaged.
+- Bound exact-name search prefixes to the API limit, preserving Unicode and exact
+  matching; validate canonical emails and organizational coordinates before apply.
+- Permit supported credential, log-destination, and custom AI-agent type changes
+  in place; support safe configuration of the default worker.
+- Clarify that legacy ACL enabled state does not control policy evaluation.
+- Revoke role permissions when their managed attribute is removed; preserve SAML
+  certificate formatting when the backend only trims whitespace.
+- Protect webhook secrets in automation graphs and preserve unknown imported
+  vault secrets through unrelated updates.
+- Require explicit import before adopting existing sensor overrides or saved
+  resource variables; reject managed imports of backend-owned catalog objects.
+- Validate CA certificates again after unknown values resolve, refuse automatic
+  ruleset publication, and reject unsupported sensor parameter clearing.
+- Honor `MISTERSHELL_INSECURE=1` or `true` (case-insensitive) when the provider's
+  `insecure` attribute is omitted. Explicit HCL values take precedence. The
+  acceptance-test license probe now uses the same configured TLS client.
+- Set and restore `app_base_url` in OIDC/SAML acceptance tests so they work on
+  a fresh instance. Auth-provider examples now configure this prerequisite and
+  declare the dependency before enabling OIDC/SAML.
+
 ## [2.0.15] - 2026-09-24
 
 **Requires MisterShell >= 2.0.7.** Adds support for MisterShell 2.0.15; each

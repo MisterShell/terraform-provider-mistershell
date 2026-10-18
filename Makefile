@@ -34,6 +34,10 @@ test-live-policy-auth: acceptance-preflight
 	set -a; . "$(MISTERSHELL_ENV_FILE)"; set +a; $(ACC_SHELL_ENV); \
 	go test ./internal/provider/ $(ACC_TEST_FLAGS) -run '^TestAcc(SessionPolicy|AuthProvider)'
 
+test-live-vaults: acceptance-preflight
+	set -a; . "$(MISTERSHELL_ENV_FILE)"; set +a; $(ACC_SHELL_ENV); \
+	go test ./internal/provider/ $(ACC_TEST_FLAGS) -run '^TestAcc(ExternalVault|Credential_externalSources)'
+
 test-live-ai: acceptance-preflight
 	set -a; . "$(MISTERSHELL_ENV_FILE)"; set +a; $(ACC_SHELL_ENV); \
 	go test ./internal/provider/ $(ACC_TEST_FLAGS) -run '^TestAcc(AI|EdgeAI_)'
@@ -42,7 +46,7 @@ test-live-edge: acceptance-preflight
 	set -a; . "$(MISTERSHELL_ENV_FILE)"; set +a; $(ACC_SHELL_ENV); \
 	go test ./internal/provider/ $(ACC_TEST_FLAGS) -run '^TestAccEdge_'
 
-test-live-staged: test-live-onboarding test-live-core test-live-policy-auth test-live-ai test-live-edge
+test-live-staged: test-live-onboarding test-live-core test-live-policy-auth test-live-vaults test-live-ai test-live-edge
 
 # Run the live end-to-end onboarding graph.
 test-e2e: build
@@ -100,4 +104,15 @@ docs:
 clean:
 	rm -f terraform-provider-mistershell
 
-.PHONY: default build install test test-live test-live-onboarding test-live-core test-live-policy-auth test-live-ai test-live-edge test-live-staged test-e2e acceptance-fixture-up acceptance-fixture-wait acceptance-fixture-down acceptance-preflight sweep fmt generate docs clean
+.PHONY: default build install test test-live test-live-onboarding test-live-core test-live-policy-auth test-live-vaults test-live-ai test-live-edge test-live-staged test-e2e acceptance-fixture-up acceptance-fixture-wait acceptance-fixture-down acceptance-preflight sweep fmt generate docs clean
+
+# Run against a uniquely owned disposable Core and real SSH/vault fixtures.
+# The image must be built from MISTERSHELL_SOURCE with its test licensing key.
+MISTERSHELL_SOURCE ?= ../mistershell
+MISTERSHELL_TEST_IMAGE ?= mistershell-core:tf-provider-compat
+MISTERSHELL_TEST_PYTHON ?= $(MISTERSHELL_SOURCE)/.venv/bin/python
+
+test-disposable:
+	"$(MISTERSHELL_TEST_PYTHON)" testdata/disposable/run.py \
+		--source "$(MISTERSHELL_SOURCE)" --image "$(MISTERSHELL_TEST_IMAGE)" \
+		-- go test ./internal/provider/ $(ACC_TEST_FLAGS)

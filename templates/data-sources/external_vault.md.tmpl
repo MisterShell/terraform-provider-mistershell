@@ -1,0 +1,23 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+Lookup by ID or exact name/mnemonic. Missing or ambiguous matches produce an
+error. `config` contains the API's masked secret values (`****`), not usable
+credentials; do not feed it into a new vault resource as secret configuration.
+Reads return metadata only and do not authenticate to the vault or resolve secrets.

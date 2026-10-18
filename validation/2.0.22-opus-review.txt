@@ -1,0 +1,27 @@
+Claude Opus CLI final focused review — 2026-10-18
+
+I found no verified remaining actionable issues. No high- or medium-severity reliability or security issue remains, and the fixes don't introduce any regression I could find.
+
+I ran nothing. Everything below comes from reading the provider, the backend and the pinned framework source. Your test results are as you reported them; I didn't re-run them.
+
+## Disposition
+
+| ID | Disposition | Evidence |
+|---|---|---|
+| **N1** | **Closed** | `playbook_secrets.go:12-62` matches nodes by `id` (`:20-29,49-50`), so node order doesn't matter. It requires the same `action_id == "webhook"` and `auth.type` (`:53`) and maps bearer/basic/header to token/password/header_value (`:39`), which matches the backend's auth types (`webhook_delivery.py:35-73`). A blank or `****` value is rejected (`:44-45`), as is nulling or omitting a known secret (`:56-57`). New nodes and type changes need an explicit secret (`:53-54`). `type = "none"` skips the hook (`:40`). The hook only runs when `graph` actually changed (`values.go:87,96-110`). On error it adds a diagnostic, and `Update` returns before any PATCH (`resource.go:148-151`). |
+| **N2** | **Closed (premise disproved)** | `server_updateresource.go:102-106` starts `updateResp.State` from `*req.PriorState`. `user_resource.go:266-277` and `external_vault_resource.go:179-206` return on API errors before their only `State.Set` (`:286`, `:208`). The API-managed `Update` returns on mutate failure before `resp.State` is assigned (`resource.go:158-163`). No blanket prior-state writes are needed. |
+| **L-a** | **Closed** | `ownership.go:149-180`: omitting `parameters` when the prior state has keys is rejected at plan time. Destroy is excluded (`:150`). An explicit config goes through `validateSourceParameterChange`, which rejects removed keys and blank, null or masked values (`:76-85`). The same check runs again at apply (`resource.go:145`). |
+| **L-b** | **Closed** | `validateImportOwnership` (`ownership.go:124-147`) checks every contract with an `is_builtin` field: recording_store, file_store, fact_check and command (`contracts.json:215,490,802,2251`). It also rejects any `sensor_source` whose `source_type` isn't `custom`. |
+| **L-c** | **Closed** | The vault `config` description now documents that imported nulls preserve stored secrets (`external_vault_resource.go:61`). The scheduled auto-mode publishing caveat is consistent across the schema (`sensor_rule_override_resource.go:40`), the template (`.md.tmpl:24-31`) and the docs (`sensor_rule_override.md:5,48-55`). The playbook import behaviour is documented in `automation_playbook.md:51-57` and its template. |
+| **L-d** | **Closed** | Create captures the original setting before writing (`ai_guardrail_resource.go:59-75`). Update carries it over (`:88`), and Read fills it in after import (`:113-115`). Delete sends `PUT false` when the original was false. When it was true, Delete calls the reset endpoint, which the backend confirms restores `allowlist_enabled=True` (`features/ai/api.py:1035,1059-1065`). With no baseline, Delete refuses (`:129-131`). |
+
+## Backend facts behind N1
+
+- The backend validates before merging, so the `****` placeholder must pass validation. It does: every secret field only requires `min_length=1` (`webhook_delivery.py:45-73`).
+- The merge restores the stored value by node `id` plus `action_id` (`config_secrets.py:57-69`). If no stored value exists, it raises an error instead of silently erasing (`:91-97`).
+- After the update, `Reconcile` keeps the prior state's keys for already-managed objects (`reconcile.go:75-78`) and keeps the prior value when the API returns the mask (`:68-70`). So an imported null stays null, and an omitted key stays omitted. No `****` gets into state, and you get no perpetual diff.
+
+## Untested edge cases (none actionable)
+
+- **Duplicate or empty node IDs:** these collide in `oldByID`. The backend ignores nodes with an empty `id` when matching (`config_secrets.py:58`), so the `****` placeholder raises an error rather than losing the secret. That failure is loud, not silent.
+- **Handwritten resources with built-in rows:** `role`, `session_policy_acl`, `ai_skill` and `ai_agent` have built-in rows in the backend, but they live outside `apimanaged` and outside L-b's scope. I didn't re-audit their import paths. These are older code, not regressions, and the backend rejects builtin edits and deletes loudly rather than silently.

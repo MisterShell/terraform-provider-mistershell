@@ -1,0 +1,32 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Webhook secrets and import
+
+The `graph` attribute is sensitive. Terraform state still contains any secret supplied in configuration; protect state storage accordingly.
+
+The API masks webhook bearer tokens, basic authentication passwords and custom header values. Import records these unavailable secrets as `null`. Leave an imported secret `null` or omit its key to preserve the stored credential while editing other graph fields. Preservation requires the same node `id`, `action_id = "webhook"` and authentication `type`; new nodes and authentication types require an explicit secret. Never configure the API's `****` mask as a credential.
+
+Supply a real value to rotate a credential. Removing or nulling a previously configured, known secret is rejected. To disable webhook authentication explicitly, set its `auth` object to `{ type = "none" }`. Removing the webhook node also removes its authentication configuration.
+
+{{ if .HasImport -}}
+## Import
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

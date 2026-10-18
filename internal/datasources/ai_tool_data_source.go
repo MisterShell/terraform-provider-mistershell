@@ -116,7 +116,7 @@ func (d *AIToolDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 			return
 		}
 
-		tools, err := d.client.ListAITools(ctx, client.AIToolListFilter{Search: config.Name.ValueString()})
+		tools, err := d.client.ListAITools(ctx, client.AIToolListFilter{Search: client.SearchPrefix(config.Name.ValueString())})
 		if err != nil {
 			resp.Diagnostics.AddError("Error searching AI tools", err.Error())
 			return

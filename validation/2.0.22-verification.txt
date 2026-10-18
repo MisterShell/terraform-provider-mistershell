@@ -1,0 +1,77 @@
+MisterShell Terraform provider verification — 2026-10-18
+
+Implementation validated on main, based on 0bbbbd3 before this change.
+Backend source: /home/lionel/mistershell, clean commit 7ff6b7faf, API 2.0.22.
+Core image: mistershell-core:tf-provider-compat
+Image ID: sha256:7c0677822a9a00f387d35cc174d1fbc245379f0b0bd3af2d395ffaf32b7dbf32
+Tools: Go 1.27.2, Terraform 1.12.2, linux/amd64.
+Scope: 43 resource types and 48 data sources. Shell profiles and their mappings excluded.
+
+FINAL VERIFICATION
+- Fresh disposable-container suite exit 0: 204 tests/subtests passed, 6 skipped,
+  0 failed, 362.826 seconds. Of the passing cases, 186 are TestAcc cases/subtests.
+  All new resource-family and review regressions executed without skips.
+- go test -race ./... -count=1: 366 tests/subtests passed, no failures.
+  129 acceptance tests gated off in that separate offline race run.
+- go vet ./...: passed.
+- make docs: passed; 43 resource / 48 data-source documents generated.
+- terraform fmt -check -recursive examples and git diff --check: passed.
+- Disposable runner tests: both passed (63.354 seconds), including real SIGTERM
+  cleanup of Core, SSH, HashiCorp Vault, OpenBao and the test child process;
+  pytest.fail bootstrap details do not appear in console output.
+
+REAL FIXTURES AND ASSERTIONS
+Fresh Core with isolated PostgreSQL/Redis state, test-only licensing, real SSH,
+two disposable PostgreSQL targets, actual HashiCorp Vault and OpenBao servers.
+Lifecycle checks include create/update, stable identities, data-source lookup,
+import, backend drift, clearing, delete/reset and direct API readback.
+The 20 additional configuration families each passed their lifecycle matrix.
+Regression coverage includes all 11 long-name lookups, user canonicalization,
+atomic role updates and permission removal, SAML normalization, explicit SSH
+trust/database identity acceptance, built-in AI restoration, staged sensor
+ownership, CA bundle rejection with unchanged trust store, and persisted imports
+of masked vault/webhook secrets through subsequent edits.
+AWS/Azure vault configuration and reference contracts are exercised against the
+real MisterShell API; external secret retrieval is exercised with HashiCorp and
+OpenBao, not external AWS/Azure accounts.
+
+EXISTING SKIPS / LIMITS
+- ambiguous resource lookup: covered by selection unit tests; legacy live case skipped.
+- Windows credential mismatch: requires a dedicated reachable Windows fixture.
+- two legacy tag tests: superseded by the real SSH-backed tag acceptance cases.
+- generic RDP and VNC personal-key rejection cases: require their dedicated fixtures.
+Exact skipped names:
+  TestAccEdge_DataSourceResolution/multiple_match
+  TestAccEdge_BackendConstraints/windows_cred_mismatch
+  TestAccEdge_TagExclusiveDrift
+  TestAccEdge_TagIDsTransitions
+  TestAccNetworkResource_sshgwAllowPersonalKeyRejectedOnGraphicalTypes/generic_rdp
+  TestAccNetworkResource_sshgwAllowPersonalKeyRejectedOnGraphicalTypes/generic_vnc
+
+CLAUDE OPUS CLI REVIEW
+Actual CLI invoked read-only with --model opus; returned model claude-opus-5-5.
+Initial and follow-up findings were investigated and fixed with regressions.
+The failed-update secret-state hypothesis was disproved by the pinned framework:
+UpdateResponse starts from prior state, and API failure paths return before state writes.
+Final focused Opus review: no verified remaining actionable issues; no high- or
+medium-severity reliability/security findings remain. Review is static analysis,
+independent of the real-container tests performed here.
+Final review: validation/2.0.22-opus-review.txt
+
+CLEANUP
+All owned test containers and old private acceptance credentials removed.
+Only the pre-existing mistershell_nats, mistershell_postgres, mistershell_redis and
+mistershell_redis_app containers remained. Backend source checkout unchanged.
+
+REPRODUCING
+See testdata/disposable/README.md and make test-disposable.
+Final test command: go test ./internal/provider -json -count=1 -parallel=1 -timeout=45m
+launched by testdata/disposable/run.py with current backend source and test image.
+
+EVIDENCE LOGS
+/tmp/tf-mistershell-all/full-disposable-closure.json
+/tmp/tf-mistershell-all/race-closure.json
+/tmp/tf-mistershell-all/vet-closure.log
+/tmp/tf-mistershell-all/docs-closure.log
+/tmp/tf-mistershell-runner-green.log
+/tmp/tf-mistershell-all/opus-closure.json

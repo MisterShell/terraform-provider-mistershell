@@ -1,0 +1,1 @@
+terraform import mistershell_file_transfer_rule.example 123

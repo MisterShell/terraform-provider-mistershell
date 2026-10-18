@@ -101,7 +101,9 @@ stores the observed SSH host-key fingerprint on the server. No manual fingerprin
 input is needed for onboarding. Do not include `host_key_fingerprint` or
 `tls_fingerprint` in onboarding `connector_data`: these are worker-observed
 fields and the API rejects them with HTTP 422. Terraform keeps only configured `connector_data`
-in state, so server-added fingerprints and defaults do not cause perpetual diffs.
+in managed state, so server-added fingerprints and defaults do not cause perpetual
+diffs. Readable configured fields refresh from the API and detect external
+changes. Import hydrates all readable connector settings.
 
 When an update includes `connector_data` without `host_key_fingerprint`, MisterShell
 preserves the saved fingerprint. Updating another connection setting therefore
@@ -112,15 +114,52 @@ fingerprint matching the presented key. With `strict_host_key = false`, a differ
 observed SSH key does not block connections. The stored pin remains available if
 strict checking is enabled again.
 
-MisterShell 2.0.7 rejects a supplied replacement fingerprint with HTTP 409 unless
-it is explicitly accepted from a completed resource check. This provider does not
-expose `check_task_id`, `accepted_trust_fields`, or `accepted_identity`. To rotate
-a saved pin, run a resource check in MisterShell, review the observed key, and
-explicitly accept and save it through the UI (or the API's equivalent workflow).
-Keep observed fingerprints out of Terraform `connector_data` so subsequent edits
-preserve that saved pin. A changed external identity uses the same explicit
-check-and-accept workflow; it cannot be assigned through Terraform's computed
-`external_id` attribute.
+Trust and identity changes require reviewed check evidence. This workflow is
+verified against MisterShell 2.0.22 and requires its completed edit-check API:
+
+1. Submit the exact draft to `POST /api/v1/resources/{id}/verify` using the same
+   API principal as Terraform. Include `resource_name`, `credential_id`,
+   `location_id`, and `connector_data`; omit observed fingerprints.
+2. Poll `GET /api/v1/worker-tasks/{task_id}` until it completes. Review the
+   verification report and the offered trust or external identity change.
+3. Set `check_task_id` to that task ID alongside the matching draft. Set
+   `accepted_trust_fields = ["host_key_fingerprint"]` only to accept the reviewed
+   SSH key, and `accepted_identity = true` only to accept an offered identity
+   change. Either acceptance is optional; there is no automatic acceptance.
+4. Apply before the evidence expires. MisterShell rejects evidence belonging to
+   another principal/resource, a changed draft or credential, stale evidence, or
+   an acceptance not offered by the check. Obtain and review a new check after
+   any such rejection.
+
+The task ID is submitted when it changes. Keeping it in configuration does not
+replay the acceptance on later metadata edits. A subsequent acceptance requires
+a new task ID. These fields apply only to updates; initial creation still uses
+discovery proof. `external_id` stays read-only.
+
+## Writable metadata and health
+
+`extra_data` is optional and computed. Omit it to read discovered metadata, or
+configure an object containing the metadata/configuration keys you manage.
+The installed resource type validates its schema. `file_transfer_available` is
+a discovered observation and cannot be configured. On create, the provider
+saves configured metadata through a follow-up PATCH after persisting the newly
+created resource ID. On update, only known changed metadata is submitted.
+Removing the attribute relinquishes management; use `{}` to clear writable keys.
+Accepting completed check evidence can refresh discovered metadata. If that
+refresh overwrites configured keys, the provider reapplies your configured
+metadata after acceptance. MisterShell then marks the earlier verification as
+historical because the configuration changed; the accepted identity or host key
+remains saved. A later check can verify the final configuration.
+
+| `health_status` | Meaning |
+|---|---|
+| `healthy` | Healthy according to the latest observation. |
+| `degraded` | Degraded operation. |
+| `critical` | Critical health issue. |
+| `unknown` | Health has not been determined. |
+
+`last_health_at` is the timestamp of the latest health observation. Both health
+attributes are read-only and also available from the resource data source.
 
 Changing connection settings, credentials, or location without retaining a
 resource check resets the resource's status to `unknown` until a subsequent

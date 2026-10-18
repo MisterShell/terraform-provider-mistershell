@@ -33,6 +33,14 @@ func (c *Client) ListCredentialTypes(ctx context.Context) ([]CredentialTypeInfo,
 }
 
 type CredentialCreateInput struct {
+	Source               string          `json:"source,omitempty"`
+	ExternalVaultID      *int64          `json:"external_vault_id,omitempty"`
+	ExternalVaultRef     json.RawMessage `json:"external_vault_ref,omitempty"`
+	UserSource           string          `json:"user_source,omitempty"`
+	UserExternalVaultID  *int64          `json:"user_external_vault_id,omitempty"`
+	UserExternalVaultRef json.RawMessage `json:"user_external_vault_ref,omitempty"`
+	UserCredentialData   json.RawMessage `json:"user_credential_data,omitempty"`
+
 	Name                string          `json:"name"`
 	CredentialType      string          `json:"credential_type"`
 	CredentialData      json.RawMessage `json:"credential_data"`
@@ -42,15 +50,35 @@ type CredentialCreateInput struct {
 }
 
 type CredentialUpdateInput struct {
+	Source               string          `json:"source,omitempty"`
+	ExternalVaultID      json.RawMessage `json:"external_vault_id,omitempty"`
+	ExternalVaultRef     json.RawMessage `json:"external_vault_ref,omitempty"`
+	UserSource           string          `json:"user_source,omitempty"`
+	UserExternalVaultID  json.RawMessage `json:"user_external_vault_id,omitempty"`
+	UserExternalVaultRef json.RawMessage `json:"user_external_vault_ref,omitempty"`
+	UserCredentialData   json.RawMessage `json:"user_credential_data,omitempty"`
+
 	Name                *string         `json:"name,omitempty"`
-	Description         *string         `json:"description"`
+	Description         json.RawMessage `json:"description,omitempty"`
 	CredentialType      *string         `json:"credential_type,omitempty"`
 	CredentialData      json.RawMessage `json:"credential_data,omitempty"`
 	RequiresUserMapping *bool           `json:"requires_user_mapping,omitempty"`
-	ExtraData           json.RawMessage `json:"extra_data"`
+	ExtraData           json.RawMessage `json:"extra_data,omitempty"`
 }
 
 type CredentialResponse struct {
+	Source                string          `json:"source,omitempty"`
+	ExternalVaultID       *int64          `json:"external_vault_id,omitempty"`
+	ExternalVaultRef      json.RawMessage `json:"external_vault_ref,omitempty"`
+	ExternalVaultName     *string         `json:"external_vault_name"`
+	ExternalVaultType     *string         `json:"external_vault_type"`
+	UserSource            string          `json:"user_source,omitempty"`
+	UserExternalVaultID   *int64          `json:"user_external_vault_id,omitempty"`
+	UserExternalVaultRef  json.RawMessage `json:"user_external_vault_ref,omitempty"`
+	UserExternalVaultName *string         `json:"user_external_vault_name"`
+	UserExternalVaultType *string         `json:"user_external_vault_type"`
+	UserCredentialData    json.RawMessage `json:"user_credential_data,omitempty"`
+
 	ID                  int64           `json:"id"`
 	Name                string          `json:"name"`
 	Description         *string         `json:"description"`

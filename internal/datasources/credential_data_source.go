@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-mistershell/internal/client"
+	"terraform-provider-mistershell/internal/credentialrefs"
 )
 
 var _ datasource.DataSource = &CredentialDataSource{}
@@ -18,6 +19,18 @@ type CredentialDataSource struct {
 }
 
 type CredentialDataSourceModel struct {
+	Source                types.String  `tfsdk:"source"`
+	ExternalVaultID       types.Int64   `tfsdk:"external_vault_id"`
+	ExternalVaultRef      types.Object  `tfsdk:"external_vault_ref"`
+	ExternalVaultName     types.String  `tfsdk:"external_vault_name"`
+	ExternalVaultType     types.String  `tfsdk:"external_vault_type"`
+	UserSource            types.String  `tfsdk:"user_source"`
+	UserExternalVaultID   types.Int64   `tfsdk:"user_external_vault_id"`
+	UserExternalVaultRef  types.Object  `tfsdk:"user_external_vault_ref"`
+	UserExternalVaultName types.String  `tfsdk:"user_external_vault_name"`
+	UserExternalVaultType types.String  `tfsdk:"user_external_vault_type"`
+	UserCredentialData    types.Dynamic `tfsdk:"user_credential_data"`
+
 	ID                  types.Int64   `tfsdk:"id"`
 	Name                types.String  `tfsdk:"name"`
 	CredentialType      types.String  `tfsdk:"credential_type"`
@@ -61,7 +74,7 @@ func (d *CredentialDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 				Computed:    true,
 			},
 			"requires_user_mapping": schema.BoolAttribute{
-				Description: "Whether users must fill their own credential copy.",
+				Description: "Whether interactive sessions use the independent user credential source.",
 				Computed:    true,
 			},
 			"credential_data": schema.DynamicAttribute{
@@ -83,6 +96,18 @@ func (d *CredentialDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 			},
 		},
 	}
+	for _, prefix := range []string{"", "user_"} {
+		resp.Schema.Attributes[prefix+"source"] = schema.StringAttribute{Computed: true, Description: "Credential source: local or external."}
+		resp.Schema.Attributes[prefix+"external_vault_id"] = schema.Int64Attribute{Computed: true, Description: "Referenced external vault ID."}
+		resp.Schema.Attributes[prefix+"external_vault_ref"] = schema.SingleNestedAttribute{Computed: true, Description: "Unresolved vault reference metadata.", Attributes: map[string]schema.Attribute{
+			"base":   schema.DynamicAttribute{Computed: true, Description: "Vault-specific reference parameters."},
+			"fields": schema.MapAttribute{Computed: true, ElementType: types.StringType, Description: "Credential fields mapped to vault keys."},
+		}}
+		resp.Schema.Attributes[prefix+"external_vault_name"] = schema.StringAttribute{Computed: true, Description: "Referenced vault name."}
+		resp.Schema.Attributes[prefix+"external_vault_type"] = schema.StringAttribute{Computed: true, Description: "Referenced vault type."}
+	}
+	resp.Schema.Attributes["user_credential_data"] = schema.DynamicAttribute{Computed: true, Sensitive: true, Description: "Masked user literal fields. Secrets are never resolved by Terraform."}
+
 }
 
 func (d *CredentialDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
@@ -126,7 +151,7 @@ func (d *CredentialDataSource) Read(ctx context.Context, req datasource.ReadRequ
 
 		filter := client.CredentialListFilter{}
 		if hasName {
-			filter.Search = config.Name.ValueString()
+			filter.Search = client.SearchPrefix(config.Name.ValueString())
 		}
 		if hasType {
 			filter.CredentialType = config.CredentialType.ValueString()
@@ -180,6 +205,36 @@ func (d *CredentialDataSource) Read(ctx context.Context, req datasource.ReadRequ
 		return
 	}
 	config.CredentialData = credentialData
+	config.Source = types.StringValue(cred.Source)
+	if cred.Source == "" {
+		config.Source = types.StringValue("local")
+	}
+	config.UserSource = types.StringValue(cred.UserSource)
+	if cred.UserSource == "" {
+		config.UserSource = types.StringValue("local")
+	}
+	config.ExternalVaultID = int64PtrToValue(cred.ExternalVaultID)
+	config.UserExternalVaultID = int64PtrToValue(cred.UserExternalVaultID)
+	config.ExternalVaultName = stringPtrToValue(cred.ExternalVaultName)
+	config.ExternalVaultType = stringPtrToValue(cred.ExternalVaultType)
+	config.UserExternalVaultName = stringPtrToValue(cred.UserExternalVaultName)
+	config.UserExternalVaultType = stringPtrToValue(cred.UserExternalVaultType)
+	config.ExternalVaultRef, err = credentialrefs.FromJSON(cred.ExternalVaultRef, config.ExternalVaultRef)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding external_vault_ref", err.Error())
+		return
+	}
+	config.UserExternalVaultRef, err = credentialrefs.FromJSON(cred.UserExternalVaultRef, config.UserExternalVaultRef)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding user_external_vault_ref", err.Error())
+		return
+	}
+	config.UserCredentialData, err = rawJSONToDynamic(cred.UserCredentialData)
+	if err != nil {
+		resp.Diagnostics.AddError("Error decoding user_credential_data", err.Error())
+		return
+	}
+
 	extraData, err := rawJSONToDynamic(cred.ExtraData)
 	if err != nil {
 		resp.Diagnostics.AddError("Error decoding credential extra_data", err.Error())

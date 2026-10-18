@@ -143,7 +143,7 @@ func (d *LocationDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 		filter := client.LocationListFilter{}
 		if hasName {
-			filter.Search = config.Name.ValueString()
+			filter.Search = client.SearchPrefix(config.Name.ValueString())
 		}
 		if hasParentID {
 			v := config.ParentID.ValueInt64()

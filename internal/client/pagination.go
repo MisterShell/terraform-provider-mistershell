@@ -47,3 +47,13 @@ func paginateJSON[T any](ctx context.Context, c *Client, path string, params url
 		return items, meta, nil
 	})
 }
+
+// SearchPrefix bounds a candidate search for an exact-name lookup to the API limit.
+// Callers must still perform exact matching across all returned pages.
+func SearchPrefix(value string) string {
+	r := []rune(value)
+	if len(r) > 100 {
+		return string(r[:100])
+	}
+	return value
+}

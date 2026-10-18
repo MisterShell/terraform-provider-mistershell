@@ -44,6 +44,7 @@ output "auditor_scope_location_ids" {
 
 - `created_at` (String) Creation timestamp.
 - `description` (String) Role description.
+- `is_builtin` (Boolean) Whether this is a built-in role.
 - `location_scope_mode` (String) Location scope mode (global or restricted).
 - `permissions` (Set of String) Set of permission names assigned to this role.
 - `scope_location_ids` (Set of Number) Set of location IDs that scope this role. Empty means all locations.

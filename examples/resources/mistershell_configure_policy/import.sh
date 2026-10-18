@@ -1,0 +1,1 @@
+terraform import mistershell_configure_policy.example 123

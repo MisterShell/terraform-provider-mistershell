@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -54,7 +55,7 @@ func (r *UserResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required for all auth types (the backend hashes it and enforces its own password policy); changing it rotates the password via the admin reset endpoint. Import by integer ID.",
+		Description: "Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required when creating a user, and may be omitted after import or to stop managing it. Only LOCAL users support password rotation. Import by integer ID.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "User ID.",
@@ -64,7 +65,8 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				},
 			},
 			"email": schema.StringAttribute{
-				Description: "User email address (unique). Changing it forces replacement.",
+				Description: "Canonical lowercase user email address (unique). Changing it forces replacement.",
+				Validators:  []validator.String{canonicalEmailValidator{}},
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -79,8 +81,9 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Required:    true,
 			},
 			"password": schema.StringAttribute{
-				Description: "User password. Required for all auth types: the backend hashes it and enforces its own password policy (complexity rules apply to LOCAL users only). Stored in state (sensitive); the API never returns it. Changing this value rotates the password via the admin reset endpoint.",
-				Required:    true,
+				Description: "Required when creating any user. Omit after import or to stop password management. Changes rotate LOCAL passwords; external users cannot rotate passwords. Stored in state; never returned by the API.",
+				Optional:    true,
+				Validators:  []validator.String{stringvalidator.LengthAtLeast(8)},
 				Sensitive:   true,
 			},
 			"auth_type": schema.StringAttribute{
@@ -119,9 +122,12 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Computed:    true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"id":          schema.Int64Attribute{Computed: true, Description: "Role ID."},
-						"name":        schema.StringAttribute{Computed: true, Description: "Role name."},
-						"description": schema.StringAttribute{Computed: true, Description: "Role description."},
+						"id":                  schema.Int64Attribute{Computed: true, Description: "Role ID."},
+						"name":                schema.StringAttribute{Computed: true, Description: "Role name."},
+						"description":         schema.StringAttribute{Computed: true, Description: "Role description."},
+						"is_builtin":          schema.BoolAttribute{Computed: true, Description: "Whether this is a built-in role."},
+						"location_scope_mode": schema.StringAttribute{Computed: true, Description: "Role location scope mode."},
+						"scope_location_ids":  schema.SetAttribute{Computed: true, ElementType: types.Int64Type, Description: "Role location scope roots."},
 					},
 				},
 			},
@@ -161,6 +167,11 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	var plan UserResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if plan.Password.IsNull() || plan.Password.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(path.Root("password"), "Password required for creation", "The API requires a password when creating any user, including external users. Imported users may omit password.")
 		return
 	}
 
@@ -231,6 +242,11 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	rotatePassword := !plan.Password.IsNull() && !plan.Password.IsUnknown() && !plan.Password.Equal(state.Password)
+	if rotatePassword && state.AuthType.ValueString() != "LOCAL" {
+		resp.Diagnostics.AddAttributeError(path.Root("password"), "Password rotation requires LOCAL authentication", "External users cannot rotate passwords. Omit password to leave it unmanaged.")
+		return
+	}
 	id := state.ID.ValueInt64()
 
 	input := client.UserUpdateInput{}
@@ -254,7 +270,7 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	}
 
 	// Rotate password when it changed.
-	if !plan.Password.Equal(state.Password) {
+	if rotatePassword {
 		if err := r.client.ResetUserPassword(ctx, id, plan.Password.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Error resetting user password", err.Error())
 			return
@@ -288,4 +304,24 @@ func (r *UserResource) ImportState(ctx context.Context, req resource.ImportState
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.Int64Value(id))...)
+}
+
+// The backend canonicalizes email to lowercase; rejecting noncanonical input
+// avoids changing a configured immutable attribute during apply.
+type canonicalEmailValidator struct{}
+
+func (canonicalEmailValidator) Description(context.Context) string {
+	return "Email must be lowercase without surrounding whitespace."
+}
+func (v canonicalEmailValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+func (v canonicalEmailValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	email := req.ConfigValue.ValueString()
+	if email != strings.ToLower(strings.TrimSpace(email)) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Noncanonical email", v.Description(ctx))
+	}
 }

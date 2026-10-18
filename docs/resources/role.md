@@ -53,13 +53,14 @@ resource "mistershell_role" "superuser" {
 
 - `description` (String) Role description (up to 500 characters).
 - `location_scope_mode` (String) Location scope mode: global applies everywhere; restricted applies only beneath scope_location_ids.
-- `permissions` (Set of String) Set of permission names assigned to this role (e.g. 'app.tags.read'). The backend validates names and superuser rules; invalid names are rejected.
+- `permissions` (Set of String) Complete permission set assigned to this role. Omitting this attribute removes all grants. The backend validates names and superuser rules.
 - `scope_location_ids` (Set of Number) Location scope roots. Required and non-empty when location_scope_mode is restricted; empty for global roles.
 
 ### Read-Only
 
 - `created_at` (String) Creation timestamp.
 - `id` (Number) Role ID.
+- `is_builtin` (Boolean) Whether this is a built-in role.
 - `updated_at` (String) Last update timestamp.
 
 ## Location scope
@@ -68,6 +69,13 @@ resource "mistershell_role" "superuser" {
 `scope_location_ids`. `location_scope_mode = "restricted"` requires at least
 one location root and applies the role beneath those subtrees. Superuser
 permission `*.*.*` is global and cannot be combined with other permissions.
+
+`permissions` manages the complete grant set. Removing the attribute revokes
+all permissions; imported roles expose their current grants for review.
+
+Permissions and scope are submitted atomically, including transitions between
+global superuser and restricted roles. `is_builtin` exposes the backend role
+protection metadata.
 
 Permission names are validated by MisterShell's live registry. Use the
 `mistershell_permissions` data source to enumerate names, modules, and current

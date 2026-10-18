@@ -2,12 +2,12 @@
 page_title: "mistershell_user Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required for all auth types (the backend hashes it and enforces its own password policy); changing it rotates the password via the admin reset endpoint. Import by integer ID.
+  Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required when creating a user, and may be omitted after import or to stop managing it. Only LOCAL users support password rotation. Import by integer ID.
 ---
 
 # mistershell_user (Resource)
 
-Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required for all auth types (the backend hashes it and enforces its own password policy); changing it rotates the password via the admin reset endpoint. Import by integer ID.
+Manages a MisterShell user. Role assignments are managed separately via mistershell_user_role; this resource exposes assigned roles read-only. password is required when creating a user, and may be omitted after import or to stop managing it. Only LOCAL users support password rotation. Import by integer ID.
 
 ## Example Usage
 
@@ -41,15 +41,15 @@ resource "mistershell_user" "oidc_bob" {
 
 ### Required
 
-- `email` (String) User email address (unique). Changing it forces replacement.
+- `email` (String) Canonical lowercase user email address (unique). Changing it forces replacement.
 - `first_name` (String) User first name.
 - `last_name` (String) User last name.
-- `password` (String, Sensitive) User password. Required for all auth types: the backend hashes it and enforces its own password policy (complexity rules apply to LOCAL users only). Stored in state (sensitive); the API never returns it. Changing this value rotates the password via the admin reset endpoint.
 
 ### Optional
 
 - `auth_type` (String) Authentication type. One of LOCAL, LDAP, OIDC, SAML. Defaults to LOCAL. A password is required for all types; complexity rules are enforced for LOCAL only.
 - `is_active` (Boolean) Whether the user account is active. Defaults to true.
+- `password` (String, Sensitive) Required when creating any user. Omit after import or to stop password management. Changes rotate LOCAL passwords; external users cannot rotate passwords. Stored in state; never returned by the API.
 
 ### Read-Only
 
@@ -68,16 +68,19 @@ Read-Only:
 
 - `description` (String) Role description.
 - `id` (Number) Role ID.
+- `is_builtin` (Boolean) Whether this is a built-in role.
+- `location_scope_mode` (String) Role location scope mode.
 - `name` (String) Role name.
+- `scope_location_ids` (Set of Number) Role location scope roots.
 
 ## Field reference
 
 | attribute | constraints |
 |---|---|
-| `email` | Required. Unique. Changing forces replacement. |
+| `email` | Required. Unique, lowercase, without surrounding whitespace. Changing forces replacement. |
 | `first_name` | Required. |
 | `last_name` | Required. |
-| `password` | Required. Sensitive. Hashed by the backend for all auth types; the backend enforces its own password policy (complexity rules apply to LOCAL only). Changing rotates the password. After `terraform import`, the next apply rotates the password to the configured value. |
+| `password` | Required only when creating a user of any auth type. Sensitive. May be omitted after import or to stop management. Changes rotate LOCAL passwords only; external users cannot rotate passwords. |
 | `auth_type` | Optional. One of the values below. Defaults to `LOCAL`. Changing forces replacement. |
 | `is_active` | Optional. Defaults to `true`. |
 

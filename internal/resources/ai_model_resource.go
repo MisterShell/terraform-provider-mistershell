@@ -164,14 +164,13 @@ func (r *AIModelResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Preserve the config already in state (the user's value). Provider secrets
-	// (e.g. api_key) are masked as '***' by the API, so reflecting the server
-	// config would differ from the planned config and break Terraform's
-	// apply-consistency contract for this Sensitive attribute. Use the
-	// stored-from-config rule (like log_destination's config / credential_data).
-	savedConfig := state.Config
+	refreshed, err := reconcileAIJSON(state.Config, model.Config, []string{"api_key", "secret", "secret_key", "token", "password", "access_key"})
+	if err != nil {
+		resp.Diagnostics.AddError("Error refreshing AI model JSON", err.Error())
+		return
+	}
 	mapAIModelResponseToModel(model, &state)
-	state.Config = savedConfig
+	state.Config = refreshed
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -191,6 +190,10 @@ func (r *AIModelResource) Update(ctx context.Context, req resource.UpdateRequest
 	if err != nil {
 		resp.Diagnostics.AddError("Error encoding AI model config", err.Error())
 		return
+	}
+
+	if len(config) == 0 {
+		config = []byte(`{}`)
 	}
 
 	input := client.AIModelUpdateInput{

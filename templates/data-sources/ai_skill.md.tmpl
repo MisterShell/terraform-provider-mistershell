@@ -27,8 +27,8 @@ Specify exactly one of:
 | `name` | Exact-match lookup by name (fuzzy server search, then exact `name ==` filter). Errors if zero or more than one skill matches. |
 
 This data source reads **both** custom skills and builtin
-(MisterShell-managed) skills. Builtin skills (`is_builtin = true`) are read-only
-and can only be read here — they cannot be created or managed as a resource.
+(MisterShell-managed) skills. Built-in content is registry-owned; manage its
+enabled setting using [`mistershell_ai_skill_override`](../resources/ai_skill_override.md).
 
 ## Returned values
 

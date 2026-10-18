@@ -1,0 +1,1 @@
+terraform import mistershell_sensor_rule_override.rule 1:2024218

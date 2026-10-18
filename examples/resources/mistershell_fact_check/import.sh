@@ -1,0 +1,1 @@
+terraform import mistershell_fact_check.example 123

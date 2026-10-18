@@ -141,22 +141,17 @@ model-construction path; per-request generation settings such as `max_tokens`,
 | `base_url` | string | `anthropic`, `openai`, `ollama`, `bedrock` (custom endpoints) | no | Custom endpoint. For `ollama` defaults server-side to `http://localhost:11434/v1`. Used for OpenAI/Anthropic-compatible gateways and Bedrock custom endpoints. |
 | `model_id` | string | all | no | Optional override of the top-level `model_id` when building the client. Normally leave unset and use the top-level `model_id` attribute. |
 
-**Secret handling** (identical to `credential_data` / log-destination `config`):
+**Refresh, import and secrets**
 
-- The backend masks any config key whose name (case-insensitive) is one of
-  `api_key`, `secret`, `secret_key`, `token`, `password`, `access_key` to `***`
-  in every API response.
-- The provider stores `config` **from your configuration** and does **not** read
-  it back from the server. Consequences:
-  - After **importing** a model, its secrets are unknown until you re-supply the
-    full `config` in HCL — a masked `***` value cannot be recovered.
-  - Out-of-band changes to the **non-secret** parts of `config` are **not**
-    detected as drift, because the whole `config` is preserved from state.
-  - `config` is **excluded from import** (only `id` is set on import); re-supply
-    it in HCL, exactly like `credential_data`.
-- On update, if you omit `api_key` from `config`, the server **preserves** the
-  previously stored `api_key`. To rotate the key, supply the new value
-  explicitly.
+The provider refreshes managed non-secret config keys and detects remote changes.
+Import hydrates readable config; masked secrets remain unknown until supplied in
+HCL. For an existing managed model, masked API secrets preserve their prior
+Terraform values. Equivalent values retain their Terraform collection types.
+
+Removing `config` sends an empty object and clears non-secret settings. The backend
+preserves omitted secrets. To remove a secret explicitly, set its key to `null`
+or an empty string. To rotate it, supply the new value. Secret changes made
+outside Terraform cannot be detected from the masked API response.
 
 ### Per-provider config
 

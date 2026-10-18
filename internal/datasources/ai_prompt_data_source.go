@@ -115,7 +115,7 @@ func (d *AIPromptDataSource) Read(ctx context.Context, req datasource.ReadReques
 			return
 		}
 
-		prompts, err := d.client.ListAIPrompts(ctx, client.AIPromptListFilter{Search: config.Name.ValueString()})
+		prompts, err := d.client.ListAIPrompts(ctx, client.AIPromptListFilter{Search: client.SearchPrefix(config.Name.ValueString())})
 		if err != nil {
 			resp.Diagnostics.AddError("Error searching AI prompts", err.Error())
 			return

@@ -196,8 +196,9 @@ data "mistershell_auth_provider" "by_id" {
 `, name, mfaMethodLine)
 }
 
-// LDAP mfa_method round-trips for the supported values, an omitted key leaves
-// the stored method unchanged, and email is refused at plan time. The invalid
+// LDAP mfa_method round-trips for supported values. Removing a managed key
+// resets its default; an unmanaged key preserves external changes. Email is
+// refused at plan time. The invalid
 // configs run first: the post-test destroy uses the last step's config.
 func TestAccAuthProvider_ldapMfaMethod(t *testing.T) {
 	testAccPreCheck(t)
@@ -205,6 +206,7 @@ func TestAccAuthProvider_ldapMfaMethod(t *testing.T) {
 		t.Skip("auth providers require a MisterShell license; instance is unlicensed")
 	}
 	name := acctestPrefix + "ldap-mfa"
+	var providerID string
 	const addr = "mistershell_auth_provider.test"
 	const ds = "data.mistershell_auth_provider.by_id"
 	resource.Test(t, resource.TestCase{
@@ -225,6 +227,7 @@ func TestAccAuthProvider_ldapMfaMethod(t *testing.T) {
 				Config: testAccLDAPMfaConfig(name, `mfa_method = "totp"`),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(addr, "config.mfa_method", "totp"),
+					captureResourceID(addr, &providerID),
 					resource.TestCheckResourceAttr(ds, "config.mfa_method", "totp"),
 				),
 			},
@@ -237,15 +240,37 @@ func TestAccAuthProvider_ldapMfaMethod(t *testing.T) {
 				Config: testAccLDAPMfaConfig(name, `mfa_method = "totp"`),
 				Check:  resource.TestCheckResourceAttr(ds, "config.mfa_method", "totp"),
 			},
-			// Dropping the key updates config but keeps the stored method, which
-			// is how a UI-managed method (e.g. email) survives applies.
+			// Removing a previously managed key explicitly restores the API
+			// default, instead of silently retaining the old configured value.
 			{
 				Config: testAccLDAPMfaConfig(name, `connection_timeout = 15`),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(ds, "config.mfa_method", "totp"),
+					resource.TestCheckNoResourceAttr(addr, "config.mfa_method"),
+					resource.TestCheckResourceAttr(ds, "config.mfa_method", "none"),
 					resource.TestCheckResourceAttr(ds, "config.connection_timeout", "15"),
 				),
 			},
+			// Once the key is unmanaged, preserve a method configured outside
+			// Terraform while still applying changes to other managed keys.
+			{
+				PreConfig: func() {
+					id, err := strconv.ParseInt(providerID, 10, 64)
+					if err != nil {
+						t.Fatal(err)
+					}
+					_, err = testAccClient().UpdateAuthProvider(context.Background(), id, client.AuthProviderUpdateInput{Config: json.RawMessage(`{"mfa_method":"totp"}`)})
+					if err != nil {
+						t.Fatal(err)
+					}
+				},
+				Config: testAccLDAPMfaConfig(name, `connection_timeout = 20`),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(addr, "config.mfa_method"),
+					resource.TestCheckResourceAttr(ds, "config.mfa_method", "totp"),
+					resource.TestCheckResourceAttr(ds, "config.connection_timeout", "20"),
+				),
+			},
+			{Config: testAccLDAPMfaConfig(name, `connection_timeout = 20`), PlanOnly: true, ExpectNonEmptyPlan: false},
 		},
 	})
 }

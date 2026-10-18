@@ -1,0 +1,19 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: "Access Management"
+description: |-
+  {{ .Description | plainmarkdown }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+```hcl
+data "mistershell_auth_provider_mapping" "engineering" {
+  provider_id    = mistershell_auth_provider.corporate.id
+  external_group = "engineering"
+}
+```
+
+{{ .SchemaMarkdown | trimspace }}

@@ -2,12 +2,19 @@
 page_title: "mistershell_auth_provider Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is a native per-provider_type Terraform object carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.
+  Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is a native per-provider_type Terraform object carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so non-secret managed config fields are refreshed while masked secrets retain their configured values. display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.
 ---
 
 # mistershell_auth_provider (Resource)
 
-Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is a native per-provider_type Terraform object carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.
+Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is a native per-provider_type Terraform object carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so non-secret managed config fields are refreshed while masked secrets retain their configured values. display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.
+
+Before enabling OIDC or SAML, configure the instance's `app_base_url` setting
+to its public URL. MisterShell uses it to build callback and SAML SP URLs and
+rejects enabling these providers while the setting is still at its default.
+Manage the setting once per instance and add an explicit `depends_on` from each
+OIDC/SAML provider, as shown below. The same dependency applies to SAML; LDAP
+does not require this setting.
 
 ## Example Usage
 
@@ -18,7 +25,16 @@ Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). Th
 # used in stable login and callback URLs.
 #
 # Create and update require an active license.
+# OIDC and SAML also require the deployment's public URL before being enabled.
+# Manage this instance-wide setting once, and share it across auth providers.
+resource "mistershell_setting" "app_base_url" {
+  key   = "app_base_url"
+  value = jsonencode(var.mistershell_public_url)
+}
+
 resource "mistershell_auth_provider" "corp_oidc" {
+  depends_on = [mistershell_setting.app_base_url]
+
   name          = "corp-oidc"
   mnemonic      = "corp-oidc"
   provider_type = "OIDC"
@@ -33,6 +49,11 @@ resource "mistershell_auth_provider" "corp_oidc" {
   }
 }
 
+variable "mistershell_public_url" {
+  type        = string
+  description = "Public URL users and identity providers use to reach MisterShell (e.g. https://mistershell.example.com)."
+}
+
 variable "oidc_client_secret" {
   type      = string
   sensitive = true
@@ -44,7 +65,7 @@ variable "oidc_client_secret" {
 
 ### Required
 
-- `config` (Dynamic, Sensitive) Per-provider_type config as a native Terraform object. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout/mfa_method (none or totp; email MFA cannot be managed with Terraform, omit mfa_method to keep a method set in the UI). For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.
+- `config` (Dynamic, Sensitive) Per-provider_type config as a native Terraform object. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout/mfa_method (none or totp; email MFA cannot be managed with Terraform; removing a managed mfa_method resets it to none, while an already unmanaged method is preserved). For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/additional_params/tls_verify/ldap_group_provider_id/mcp_audience/mcp_email_claim. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). Managed non-secret fields are refreshed; masked secrets retain configured values. Imports populate non-secret config; supply secret values before applying. Removing a managed optional key restores its API default or clears nullable fields.
 - `mnemonic` (String) Stable URL token used in login, callback, ACS, and metadata URLs. Immutable after creation.
 - `name` (String) Unique provider name (1-100 characters).
 - `provider_type` (String) Provider type. One of: LDAP, OIDC, SAML. Cannot be changed after creation (the config shape is type-coupled).
@@ -102,24 +123,16 @@ variable "oidc_client_secret" {
 `config` is a native Terraform object. Its shape is determined by `provider_type` (one table per type
 below). Each type carries at least one **secret** field.
 
-**Secret & drift handling.** Every secret field (LDAP `bind_password`, OIDC
-`client_secret`, SAML `sp_private_key`) is encrypted at rest and **masked to
-`****`** in the API's responses. As with `credential_data`, the provider stores
-the **entire `config` from your configuration** and does **not** read it back from
-the server — for **all** provider types, not just the secret fields. This is
-necessary because the server also **enriches** non-secret defaults (LDAP
-`user_search_filter`/`user_attributes`; OIDC `scopes`/`claims_mapping`/
-`redirect_uri`; SAML `attribute_mapping`/`sign_requests`/
-`want_assertions_signed`), so reflecting the server value would churn.
-Consequences:
+**Secret handling and refresh.** The provider refreshes managed non-secret
+configuration fields and preserves configured secrets when the API returns
+`****`. Server defaults for keys omitted in HCL stay unmanaged. Import reads
+non-secret configuration; masked secrets cannot be recovered and must be
+supplied in HCL before applying.
 
-- After **importing** a provider, `config` is unknown until you re-supply it in
-  HCL — secrets cannot be recovered from the masked server value. `config` is
-  **excluded from import** (only `id` is set on import).
-- Out-of-band changes to the **non-secret** parts of `config` are **not** detected
-  as drift, because the whole `config` is preserved from state. This is the
-  documented trade-off of the stored-from-config rule (identical to
-  `credential_data`).
+Removing a previously managed optional key resets its API default or clears a
+nullable field, including OIDC `mcp_audience`, `mcp_email_claim`, and
+`ldap_group_provider_id`. Required fields cannot be removed. A key that has
+never been managed is left unchanged by updates.
 
 **License.** `config` create/update (and group-mapping create/update) require an
 active license; an unlicensed instance returns a `403` error, surfaced verbatim.
@@ -140,7 +153,7 @@ Delete works unlicensed.
 | `use_tls` | boolean | no | `true` | no |
 | `tls_verify` | boolean | no | `false` | no |
 | `connection_timeout` | integer (1-60) | no | `10` | no |
-| `mfa_method` | string: `none` or `totp` (`email` is not supported by this provider) | no | `none` on create; unchanged on update when omitted | no |
+| `mfa_method` | string: `none` or `totp` (`email` is not supported by this provider) | no | `none` on create/removal; unchanged when already unmanaged | no |
 
 `use_tls` and `tls_verify` are independent: `use_tls` encrypts the connection,
 `tls_verify` decides whether the LDAP server's certificate is validated (against
@@ -177,11 +190,10 @@ provider supports two values:
 `mfa_method = "email"` only after an interactive check in which an
 administrator receives and enters an emailed code, which Terraform cannot
 perform. The provider rejects `mfa_method = "email"` at plan time. To use email
-MFA, enable it in the MisterShell UI (**Settings → User Access → Auth
-Providers**) and **omit `mfa_method`** from `config`: when the key is omitted,
-updates leave the stored method unchanged. Because `config` is stored from your
-configuration and not read back, Terraform does not show a method set in the UI
-as drift.
+MFA, first omit `mfa_method` from Terraform config and apply that change.
+Then enable email MFA in the MisterShell UI (**Settings → User Access → Auth
+Providers**). Updates preserve the method while the key remains unmanaged.
+Removing a previously managed `mfa_method` resets it to `none`.
 
 Any change of `mfa_method`, including back to `none`, invalidates the MFA
 proof of existing sessions for that provider, so its users must sign in again.

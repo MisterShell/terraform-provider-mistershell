@@ -1,0 +1,1 @@
+terraform import mistershell_ca_certificate.example 123

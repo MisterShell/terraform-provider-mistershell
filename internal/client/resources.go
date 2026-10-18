@@ -62,6 +62,10 @@ type NetworkResourceCreateInput struct {
 }
 
 type NetworkResourceUpdateInput struct {
+	ExtraData             json.RawMessage `json:"extra_data,omitempty"`
+	CheckTaskID           *int64          `json:"check_task_id,omitempty"`
+	AcceptedTrustFields   []string        `json:"accepted_trust_fields,omitempty"`
+	AcceptedIdentity      *bool           `json:"accepted_identity,omitempty"`
 	Name                  *string         `json:"name,omitempty"`
 	LocationID            *int64          `json:"location_id,omitempty"`
 	ConnectorData         json.RawMessage `json:"connector_data,omitempty"`
@@ -78,6 +82,8 @@ type EffectiveCoordinates struct {
 }
 
 type NetworkResourceResponse struct {
+	HealthStatus           string                `json:"health_status"`
+	LastHealthAt           *string               `json:"last_health_at"`
 	ID                     int64                 `json:"id"`
 	Name                   string                `json:"name"`
 	ResourceType           string                `json:"resource_type"`
@@ -100,6 +106,7 @@ type NetworkResourceResponse struct {
 }
 
 type DiscoveryTestInput struct {
+	ResourceName   string          `json:"resource_name,omitempty"`
 	EngineID       string          `json:"engine_id"`
 	ExpectedTypeID *string         `json:"expected_type_id,omitempty"`
 	CredentialID   int64           `json:"credential_id"`

@@ -53,7 +53,7 @@ func (r *AIAgentResource) Metadata(_ context.Context, req resource.MetadataReque
 
 func (r *AIAgentResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages user-defined AI agents (type chat or background) referencing a model and a system prompt; builtin agents (type builtin_*) are managed by MisterShell and exposed read-only via the data source.",
+		Description: "Manages user-defined AI agents (type chat or background) referencing a model and a system prompt; builtin agents (type builtin_*) are managed using ai_agent_override.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "AI agent ID.",
@@ -70,15 +70,12 @@ func (r *AIAgentResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				},
 			},
 			"type": schema.StringAttribute{
-				Description: "User agent type. One of: chat, background. Defaults to chat. Cannot be changed after creation. builtin_* agents are managed by MisterShell and read-only (use the data source).",
+				Description: "User agent type. One of: chat, background. Defaults to chat. Changes between chat and background are applied in place. Use ai_agent_override for builtin settings.",
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString("chat"),
 				Validators: []validator.String{
 					stringvalidator.OneOf("chat", "background"),
-				},
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"description": schema.StringAttribute{
@@ -94,7 +91,7 @@ func (r *AIAgentResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required:    true,
 			},
 			"config": schema.DynamicAttribute{
-				Description: "Agent config as a native Terraform object (token_budget, temperature, label, icon, etc.). The server may enrich this value, so the planned value is stored from config.",
+				Description: "Agent config as a native Terraform object (token_budget, temperature, label, icon, etc.). Reads refresh managed keys and imports hydrate readable config; removing this argument clears non-secret settings.",
 				Optional:    true,
 			},
 			"tool_ids": schema.SetAttribute{
@@ -194,11 +191,13 @@ func (r *AIAgentResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Preserve config from state (stored-from-config): server enriches/reorders the
-	// blob and for builtin agents config is merged, so reflecting it would drift.
-	savedConfig := state.Config
+	refreshed, err := reconcileAIJSON(state.Config, agent.Config, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error refreshing AI agent JSON", err.Error())
+		return
+	}
 	mapAIAgentResponseToModel(agent, &state)
-	state.Config = savedConfig
+	state.Config = refreshed
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -222,7 +221,12 @@ func (r *AIAgentResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	if len(config) == 0 {
+		config = []byte(`{}`)
+	}
+
 	input := client.AIAgentUpdateInput{
+		Type:   stringValueToPtr(plan.Type),
 		Config: config,
 	}
 	if !plan.Name.Equal(state.Name) {

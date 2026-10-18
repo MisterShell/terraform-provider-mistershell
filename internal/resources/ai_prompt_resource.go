@@ -169,10 +169,13 @@ func (r *AIPromptResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	// Preserve variable_schema from state (stored from config).
-	savedSchema := state.VariableSchema
+	refreshed, err := reconcileAIJSON(state.VariableSchema, prompt.VariableSchema, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error refreshing AI prompt JSON", err.Error())
+		return
+	}
 	mapAIPromptResponseToModel(prompt, &state)
-	state.VariableSchema = savedSchema
+	state.VariableSchema = refreshed
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -192,6 +195,10 @@ func (r *AIPromptResource) Update(ctx context.Context, req resource.UpdateReques
 	if err != nil {
 		resp.Diagnostics.AddError("Error encoding AI prompt variable_schema", err.Error())
 		return
+	}
+
+	if len(variableSchema) == 0 {
+		variableSchema = []byte(`null`)
 	}
 
 	input := client.AIPromptUpdateInput{

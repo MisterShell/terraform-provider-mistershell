@@ -161,10 +161,9 @@ reverted.
 - Only their **`is_enabled`** flag is mutable server-side. Attempting to change
   `name`, `description`, `body`, `agent_types`, or `resource_types` of a builtin
   skill returns `403 Forbidden` (those fields are frozen by the registry).
-- Because they are read-only in practice, manage them through the
-  [`mistershell_ai_skill` data source](../data-sources/ai_skill.md) rather than
-  this resource. `is_builtin` on any skill created by this resource is always
-  `false`.
+- Look up built-in skills with the [`mistershell_ai_skill` data source](../data-sources/ai_skill.md)
+  and manage their enabled setting with [`mistershell_ai_skill_override`](ai_skill_override.md).
+  `is_builtin` on a skill created by this resource is always `false`.
 
 A representative set of builtin skills (the per-platform briefs) is:
 

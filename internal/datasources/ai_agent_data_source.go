@@ -136,7 +136,7 @@ func (d *AIAgentDataSource) Read(ctx context.Context, req datasource.ReadRequest
 			return
 		}
 
-		agents, err := d.client.ListAIAgents(ctx, client.AIAgentListFilter{Search: config.Name.ValueString()})
+		agents, err := d.client.ListAIAgents(ctx, client.AIAgentListFilter{Search: client.SearchPrefix(config.Name.ValueString())})
 		if err != nil {
 			resp.Diagnostics.AddError("Error searching AI agents", err.Error())
 			return

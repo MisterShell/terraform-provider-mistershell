@@ -49,6 +49,8 @@ func TestNetworkResourceCreateSendsSshgwAllowPersonalKeyOnlyWhenOptedIn(t *testi
 			ctx := context.Background()
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				switch req.Method + " " + req.URL.Path {
+				case "GET /api/v1/credentials/7":
+					fmt.Fprint(w, `{"success":true,"data":{"id":7}}`)
 				case "POST /api/v1/resources/test/discovery":
 					fmt.Fprint(w, `{"success":true,"data":{"task_id":46,"status":"queued","discovery_token":"opaque-discovery-token-at-least-32-bytes"}}`)
 				case "GET /api/v1/worker-tasks/46":
@@ -91,7 +93,7 @@ func TestNetworkResourceCreateSendsSshgwAllowPersonalKeyOnlyWhenOptedIn(t *testi
 				planned = result.PlanValue
 			}
 			plan := tfsdk.Plan{Schema: schema.Schema}
-			if diags := plan.Set(ctx, &NetworkResourceResourceModel{
+			if diags := plan.Set(ctx, &NetworkResourceResourceModel{AcceptedTrustFields: types.SetNull(types.StringType),
 				Name: types.StringValue("edge"), EngineID: types.StringValue("ssh"),
 				LocationID: types.Int64Value(3), CredentialID: types.Int64Value(7),
 				ConnectorData: testConnectorData("192.0.2.10"), IsEnabled: types.BoolValue(true),
@@ -117,7 +119,7 @@ func TestNetworkResourceCreateSendsSshgwAllowPersonalKeyOnlyWhenOptedIn(t *testi
 }
 
 func TestNetworkResourceUpdateSendsSshgwAllowPersonalKeyOnlyOnChange(t *testing.T) {
-	state := NetworkResourceResourceModel{
+	state := NetworkResourceResourceModel{AcceptedTrustFields: types.SetNull(types.StringType),
 		Name: types.StringValue("edge"), LocationID: types.Int64Value(3),
 		CredentialID: types.Int64Value(7), ConnectorData: testConnectorData("192.0.2.10"),
 		IsEnabled: types.BoolValue(true), SshgwAllowPersonalKey: types.BoolValue(true),
@@ -149,7 +151,7 @@ func TestNetworkResourceUpdateSendsSshgwAllowPersonalKeyOnlyOnChange(t *testing.
 }
 
 func TestNetworkResourceRefreshDetectsSshgwAllowPersonalKeyDrift(t *testing.T) {
-	model := NetworkResourceResourceModel{SshgwAllowPersonalKey: types.BoolValue(true)}
+	model := NetworkResourceResourceModel{AcceptedTrustFields: types.SetNull(types.StringType), SshgwAllowPersonalKey: types.BoolValue(true)}
 	for _, allowed := range []bool{false, true} {
 		if err := mapNetworkResourceResponseToModel(&client.NetworkResourceResponse{SshgwAllowPersonalKey: allowed}, &model); err != nil {
 			t.Fatal(err)

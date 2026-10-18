@@ -17,6 +17,9 @@ description: |-
 
 {{ .SchemaMarkdown | trimspace }}
 
+Locations with `kind = "org"` cannot set latitude or longitude. Terraform rejects
+that combination during validation; use `kind = "geo"` for coordinates.
+
 ## Valid `kind` values
 
 | kind | meaning |

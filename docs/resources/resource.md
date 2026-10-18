@@ -124,7 +124,11 @@ resource "mistershell_resource" "automation_target" {
 
 ### Optional
 
+- `accepted_identity` (Boolean) Explicitly accept the new external identity observed by a new check_task_id. Omit unless you reviewed the identity change.
+- `accepted_trust_fields` (Set of String) Explicit trust observations to accept from a new check_task_id. Only host_key_fingerprint is supported. Omit unless you reviewed and intend to accept the observed host key.
+- `check_task_id` (Number) Explicit completed edit-check task ID. Obtain and review a resource check for this exact draft using the same API principal before applying. A new ID is submitted once when changed; the backend validates ownership, draft, freshness and evidence. Update only; never automatically runs or trusts a check.
 - `engine_id` (String) Connection engine used for automatic onboarding. Supply engine_id without resource_type to let MisterShell discover the resource type.
+- `extra_data` (Dynamic) Resource metadata/configuration as a native Terraform object. Omit to read discovered metadata. Configured keys are managed; file_transfer_available is an observation and cannot be configured. Valid writable keys depend on the installed resource type.
 - `is_enabled` (Boolean) Whether automatic snapshot collection is enabled for this resource. Defaults to true. Disabling it does not prevent manual sessions or operations.
 - `resource_type` (String) Optional exact installed resource type. When supplied, MisterShell must discover that type or onboarding fails.
 - `sshgw_allow_personal_key` (Boolean) Whether a user's own SSH key, registered in MisterShell under My Account > Account Security > My SSH keys, is accepted on its own in place of the account password and the second authentication factor (MFA) when that user opens a direct native SSH session to this resource through the MisterShell SSH gateway, so non-interactive automation can connect. The account must still be active, and the resource credential, session policy, session recording, and audit logging still apply; deleting the key or deactivating the user ends access. Defaults to false. Only resource types with a shell session mode accept true; MisterShell rejects it on graphical-only types with HTTP 400. Requires MisterShell >= 2.0.15: older backends reject any create or update that sends it with HTTP 422.
@@ -139,11 +143,12 @@ resource "mistershell_resource" "automation_target" {
 - `effective_latitude` (Number) Effective latitude resolved from the resource's location or its nearest ancestor with valid coordinates. Null when no location in that path has valid coordinates.
 - `effective_longitude` (Number) Effective longitude resolved from the resource's location or its nearest ancestor with valid coordinates. Null when no location in that path has valid coordinates.
 - `external_id` (String) External identifier discovered by MisterShell. Null is valid for types such as Generic SSH.
-- `extra_data` (Dynamic) Discovered metadata as a native Terraform value. Auto-populated by MisterShell from connectivity checks.
+- `health_status` (String) Current resource health: healthy, degraded, critical, or unknown.
 - `id` (Number) Resource ID.
 - `last_collection_at` (String) Timestamp of last data collection.
 - `last_connectivity_check` (String) Timestamp of last connectivity check.
 - `last_connectivity_result` (Dynamic) Structured result of the most recent connectivity check (read-only).
+- `last_health_at` (String) Timestamp of the latest resource health observation.
 - `next_collection_at` (String) Scheduled time for next data collection.
 - `status` (String) Connectivity status (unknown, verified, unreachable, auth_failed, error, identity_mismatch, snapshot_truncated).
 - `tags` (Attributes List) The tags currently assigned to this resource (read-back), as objects with id, name, color, and description. Always reflects server state regardless of whether tag_ids is managed. (see [below for nested schema](#nestedatt--tags))
@@ -243,7 +248,9 @@ stores the observed SSH host-key fingerprint on the server. No manual fingerprin
 input is needed for onboarding. Do not include `host_key_fingerprint` or
 `tls_fingerprint` in onboarding `connector_data`: these are worker-observed
 fields and the API rejects them with HTTP 422. Terraform keeps only configured `connector_data`
-in state, so server-added fingerprints and defaults do not cause perpetual diffs.
+in managed state, so server-added fingerprints and defaults do not cause perpetual
+diffs. Readable configured fields refresh from the API and detect external
+changes. Import hydrates all readable connector settings.
 
 When an update includes `connector_data` without `host_key_fingerprint`, MisterShell
 preserves the saved fingerprint. Updating another connection setting therefore
@@ -254,15 +261,52 @@ fingerprint matching the presented key. With `strict_host_key = false`, a differ
 observed SSH key does not block connections. The stored pin remains available if
 strict checking is enabled again.
 
-MisterShell 2.0.7 rejects a supplied replacement fingerprint with HTTP 409 unless
-it is explicitly accepted from a completed resource check. This provider does not
-expose `check_task_id`, `accepted_trust_fields`, or `accepted_identity`. To rotate
-a saved pin, run a resource check in MisterShell, review the observed key, and
-explicitly accept and save it through the UI (or the API's equivalent workflow).
-Keep observed fingerprints out of Terraform `connector_data` so subsequent edits
-preserve that saved pin. A changed external identity uses the same explicit
-check-and-accept workflow; it cannot be assigned through Terraform's computed
-`external_id` attribute.
+Trust and identity changes require reviewed check evidence. This workflow is
+verified against MisterShell 2.0.22 and requires its completed edit-check API:
+
+1. Submit the exact draft to `POST /api/v1/resources/{id}/verify` using the same
+   API principal as Terraform. Include `resource_name`, `credential_id`,
+   `location_id`, and `connector_data`; omit observed fingerprints.
+2. Poll `GET /api/v1/worker-tasks/{task_id}` until it completes. Review the
+   verification report and the offered trust or external identity change.
+3. Set `check_task_id` to that task ID alongside the matching draft. Set
+   `accepted_trust_fields = ["host_key_fingerprint"]` only to accept the reviewed
+   SSH key, and `accepted_identity = true` only to accept an offered identity
+   change. Either acceptance is optional; there is no automatic acceptance.
+4. Apply before the evidence expires. MisterShell rejects evidence belonging to
+   another principal/resource, a changed draft or credential, stale evidence, or
+   an acceptance not offered by the check. Obtain and review a new check after
+   any such rejection.
+
+The task ID is submitted when it changes. Keeping it in configuration does not
+replay the acceptance on later metadata edits. A subsequent acceptance requires
+a new task ID. These fields apply only to updates; initial creation still uses
+discovery proof. `external_id` stays read-only.
+
+## Writable metadata and health
+
+`extra_data` is optional and computed. Omit it to read discovered metadata, or
+configure an object containing the metadata/configuration keys you manage.
+The installed resource type validates its schema. `file_transfer_available` is
+a discovered observation and cannot be configured. On create, the provider
+saves configured metadata through a follow-up PATCH after persisting the newly
+created resource ID. On update, only known changed metadata is submitted.
+Removing the attribute relinquishes management; use `{}` to clear writable keys.
+Accepting completed check evidence can refresh discovered metadata. If that
+refresh overwrites configured keys, the provider reapplies your configured
+metadata after acceptance. MisterShell then marks the earlier verification as
+historical because the configuration changed; the accepted identity or host key
+remains saved. A later check can verify the final configuration.
+
+| `health_status` | Meaning |
+|---|---|
+| `healthy` | Healthy according to the latest observation. |
+| `degraded` | Degraded operation. |
+| `critical` | Critical health issue. |
+| `unknown` | Health has not been determined. |
+
+`last_health_at` is the timestamp of the latest health observation. Both health
+attributes are read-only and also available from the resource data source.
 
 Changing connection settings, credentials, or location without retaining a
 resource check resets the resource's status to `unknown` until a subsequent

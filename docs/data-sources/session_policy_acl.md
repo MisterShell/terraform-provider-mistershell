@@ -39,7 +39,7 @@ output "acl_patterns" {
 
 - `created_at` (String) Creation timestamp.
 - `description` (String) ACL description.
-- `enabled` (Boolean) Whether the ACL is enabled.
+- `enabled` (Boolean) Compatibility metadata only; does not control ACL enforcement.
 - `is_builtin` (Boolean) Whether this is a built-in ACL.
 - `patterns` (Attributes List) Ordered list of command-match patterns. (see [below for nested schema](#nestedatt--patterns))
 - `updated_at` (String) Last update timestamp.

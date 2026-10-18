@@ -312,9 +312,12 @@ func (m *useStateForUnknownStringModifier) PlanModifyString(_ context.Context, r
 // roleObjectAttrTypes is the element object type for the user `roles` read-back
 // list ({id, name, description}).
 var roleObjectAttrTypes = map[string]attr.Type{
-	"id":          types.Int64Type,
-	"name":        types.StringType,
-	"description": types.StringType,
+	"id":                  types.Int64Type,
+	"name":                types.StringType,
+	"description":         types.StringType,
+	"is_builtin":          types.BoolType,
+	"location_scope_mode": types.StringType,
+	"scope_location_ids":  types.SetType{ElemType: types.Int64Type},
 }
 
 // roleObjectType is the object type for one role in the `roles` list.
@@ -326,9 +329,12 @@ func rolesToList(roles []client.RoleResponse) types.List {
 	elems := make([]attr.Value, 0, len(roles))
 	for _, role := range roles {
 		obj := types.ObjectValueMust(roleObjectAttrTypes, map[string]attr.Value{
-			"id":          types.Int64Value(role.ID),
-			"name":        types.StringValue(role.Name),
-			"description": stringPtrToValue(role.Description),
+			"id":                  types.Int64Value(role.ID),
+			"name":                types.StringValue(role.Name),
+			"description":         stringPtrToValue(role.Description),
+			"is_builtin":          types.BoolValue(role.IsBuiltin),
+			"location_scope_mode": types.StringValue(role.LocationScopeMode),
+			"scope_location_ids":  int64SliceToSet(role.ScopeLocationIDs),
 		})
 		elems = append(elems, obj)
 	}

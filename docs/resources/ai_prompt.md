@@ -159,10 +159,9 @@ and which are required. It is advisory metadata for the prompt editor; it does
 **not** gate rendering (an undeclared variable still renders, and a missing
 optional one renders empty).
 
-As with other stored-from-config JSON fields, the provider stores
-`variable_schema` **from your configuration** and does not read it back from the
-server. Consequently it is **excluded from import** (only `id` is set on import);
-re-supply it in HCL after importing so the next plan shows no diff.
+The provider refreshes `variable_schema` and hydrates it on import. Remote changes
+are detected while equivalent values preserve their Terraform types. Removing
+this argument sends explicit JSON `null` to clear the server value.
 
 **Deletion is blocked while referenced.** Deleting a prompt that is still
 attached to one or more agents (as their `system_prompt`) returns **HTTP 403**

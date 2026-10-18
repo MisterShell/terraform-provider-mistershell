@@ -1,0 +1,47 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Ownership and restoration
+
+This resource adopts an existing built-in agent by integer `agent_id`. Configure
+only fields you intend Terraform to own. Name, type, description, and the config
+keys `capability`, `label`, and `icon` remain registry-owned.
+
+At adoption, `original_settings` captures the current settings. Removing an owned
+field or destroying the resource restores only that field to its captured value;
+unmanaged fields are left unchanged. The backend merges config and has no key
+delete operation. A config key absent from the snapshot is restored to its
+effective backend default: counts and execution time `0`, temperature `0.7`,
+`top_p` `1`, and output format `markdown`. Existing registry-specific values are
+restored from the snapshot. The built-in agent is never deleted.
+
+`model_id = 0` explicitly selects the default model. An empty `tool_ids` set allows
+all tools compatible with the agent type. Removing either argument restores the
+captured selection. Avoid having multiple resources manage the same agent fields.
+
+Import captures the agent's current values as the restoration baseline. It cannot
+recover settings from before the import. Optional override fields remain unmanaged
+until configured in HCL. The baseline stays in Terraform state; protect that state
+and retain it until restoration is complete.
+
+{{ if .HasImport -}}
+## Import
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

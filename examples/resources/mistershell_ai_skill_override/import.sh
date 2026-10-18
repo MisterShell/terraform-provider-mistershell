@@ -1,0 +1,1 @@
+terraform import mistershell_ai_skill_override.example 42

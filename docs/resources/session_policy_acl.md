@@ -54,7 +54,7 @@ resource "mistershell_session_policy_acl" "package_managers" {
 ### Optional
 
 - `description` (String) ACL description (up to 255 characters).
-- `enabled` (Boolean) Whether the ACL is enabled. Defaults to true.
+- `enabled` (Boolean, Deprecated) Compatibility metadata only; this flag does not enable or disable ACL enforcement.
 - `patterns` (Attributes List) Ordered list of command-match patterns. Order is significant (evaluation merges them in order). Defaults to an empty list. (see [below for nested schema](#nestedatt--patterns))
 
 ### Read-Only
@@ -81,7 +81,7 @@ Optional:
 |---|---|
 | `name` | Required. 1-128 characters. Unique. |
 | `description` | Optional. Up to 255 characters. Defaults to `""`. |
-| `enabled` | Optional. Boolean. Defaults to `true`. |
+| `enabled` | Deprecated compatibility metadata. Defaults to `true`; has no effect on enforcement. Remove the ACL to revoke its grant. |
 | `patterns` | Optional. Ordered list of pattern objects (see below). **Order is significant** — evaluation merges them in order. Defaults to an empty list. |
 | `is_builtin` | Read-only. `true` for built-in ACLs. |
 

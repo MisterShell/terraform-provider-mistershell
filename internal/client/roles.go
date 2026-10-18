@@ -13,20 +13,23 @@ import (
 // ---------------------------------------------------------------------------
 
 type RoleCreateInput struct {
-	Name              string  `json:"name"`
-	Description       *string `json:"description,omitempty"`
-	LocationScopeMode string  `json:"location_scope_mode"`
-	ScopeLocationIDs  []int64 `json:"scope_location_ids,omitempty"`
+	Permissions       []string `json:"permissions,omitempty"`
+	Name              string   `json:"name"`
+	Description       *string  `json:"description,omitempty"`
+	LocationScopeMode string   `json:"location_scope_mode"`
+	ScopeLocationIDs  []int64  `json:"scope_location_ids,omitempty"`
 }
 
 type RoleUpdateInput struct {
-	Name              *string  `json:"name,omitempty"`
-	Description       *string  `json:"description"`
-	LocationScopeMode *string  `json:"location_scope_mode,omitempty"`
-	ScopeLocationIDs  *[]int64 `json:"scope_location_ids,omitempty"`
+	Permissions       *[]string `json:"permissions,omitempty"`
+	Name              *string   `json:"name,omitempty"`
+	Description       *string   `json:"description"`
+	LocationScopeMode *string   `json:"location_scope_mode,omitempty"`
+	ScopeLocationIDs  *[]int64  `json:"scope_location_ids,omitempty"`
 }
 
 type RoleResponse struct { // POST/PATCH
+	IsBuiltin         bool    `json:"is_builtin"`
 	ID                int64   `json:"id"`
 	Name              string  `json:"name"`
 	Description       *string `json:"description"`

@@ -9,6 +9,13 @@ description: |-
 
 {{ .Description | trimspace }}
 
+Before enabling OIDC or SAML, configure the instance's `app_base_url` setting
+to its public URL. MisterShell uses it to build callback and SAML SP URLs and
+rejects enabling these providers while the setting is still at its default.
+Manage the setting once per instance and add an explicit `depends_on` from each
+OIDC/SAML provider, as shown below. The same dependency applies to SAML; LDAP
+does not require this setting.
+
 {{ if .HasExample -}}
 ## Example Usage
 
@@ -55,24 +62,16 @@ description: |-
 `config` is a native Terraform object. Its shape is determined by `provider_type` (one table per type
 below). Each type carries at least one **secret** field.
 
-**Secret & drift handling.** Every secret field (LDAP `bind_password`, OIDC
-`client_secret`, SAML `sp_private_key`) is encrypted at rest and **masked to
-`****`** in the API's responses. As with `credential_data`, the provider stores
-the **entire `config` from your configuration** and does **not** read it back from
-the server — for **all** provider types, not just the secret fields. This is
-necessary because the server also **enriches** non-secret defaults (LDAP
-`user_search_filter`/`user_attributes`; OIDC `scopes`/`claims_mapping`/
-`redirect_uri`; SAML `attribute_mapping`/`sign_requests`/
-`want_assertions_signed`), so reflecting the server value would churn.
-Consequences:
+**Secret handling and refresh.** The provider refreshes managed non-secret
+configuration fields and preserves configured secrets when the API returns
+`****`. Server defaults for keys omitted in HCL stay unmanaged. Import reads
+non-secret configuration; masked secrets cannot be recovered and must be
+supplied in HCL before applying.
 
-- After **importing** a provider, `config` is unknown until you re-supply it in
-  HCL — secrets cannot be recovered from the masked server value. `config` is
-  **excluded from import** (only `id` is set on import).
-- Out-of-band changes to the **non-secret** parts of `config` are **not** detected
-  as drift, because the whole `config` is preserved from state. This is the
-  documented trade-off of the stored-from-config rule (identical to
-  `credential_data`).
+Removing a previously managed optional key resets its API default or clears a
+nullable field, including OIDC `mcp_audience`, `mcp_email_claim`, and
+`ldap_group_provider_id`. Required fields cannot be removed. A key that has
+never been managed is left unchanged by updates.
 
 **License.** `config` create/update (and group-mapping create/update) require an
 active license; an unlicensed instance returns a `403` error, surfaced verbatim.
@@ -93,7 +92,7 @@ Delete works unlicensed.
 | `use_tls` | boolean | no | `true` | no |
 | `tls_verify` | boolean | no | `false` | no |
 | `connection_timeout` | integer (1-60) | no | `10` | no |
-| `mfa_method` | string: `none` or `totp` (`email` is not supported by this provider) | no | `none` on create; unchanged on update when omitted | no |
+| `mfa_method` | string: `none` or `totp` (`email` is not supported by this provider) | no | `none` on create/removal; unchanged when already unmanaged | no |
 
 `use_tls` and `tls_verify` are independent: `use_tls` encrypts the connection,
 `tls_verify` decides whether the LDAP server's certificate is validated (against
@@ -130,11 +129,10 @@ provider supports two values:
 `mfa_method = "email"` only after an interactive check in which an
 administrator receives and enters an emailed code, which Terraform cannot
 perform. The provider rejects `mfa_method = "email"` at plan time. To use email
-MFA, enable it in the MisterShell UI (**Settings → User Access → Auth
-Providers**) and **omit `mfa_method`** from `config`: when the key is omitted,
-updates leave the stored method unchanged. Because `config` is stored from your
-configuration and not read back, Terraform does not show a method set in the UI
-as drift.
+MFA, first omit `mfa_method` from Terraform config and apply that change.
+Then enable email MFA in the MisterShell UI (**Settings → User Access → Auth
+Providers**). Updates preserve the method while the key remains unmanaged.
+Removing a previously managed `mfa_method` resets it to `none`.
 
 Any change of `mfa_method`, including back to `none`, invalidates the MFA
 proof of existing sessions for that provider, so its users must sign in again.

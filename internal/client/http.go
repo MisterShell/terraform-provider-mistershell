@@ -100,7 +100,7 @@ func (c *Client) doRequestWithMeta(ctx context.Context, method, path string, bod
 			return nil, nil, fmt.Errorf("decoding response (status %d, body: %s): %w", resp.StatusCode, string(respBody), err)
 		}
 		if !envelope.Success {
-			return nil, nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, envelope.Message)
+			return nil, nil, &APIError{StatusCode: resp.StatusCode, Message: envelope.Message}
 		}
 		return envelope.Data, envelope.Meta, nil
 	}

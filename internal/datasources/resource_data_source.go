@@ -18,6 +18,8 @@ type NetworkResourceDataSource struct {
 }
 
 type NetworkResourceDataSourceModel struct {
+	HealthStatus           types.String  `tfsdk:"health_status"`
+	LastHealthAt           types.String  `tfsdk:"last_health_at"`
 	ID                     types.Int64   `tfsdk:"id"`
 	Name                   types.String  `tfsdk:"name"`
 	ResourceType           types.String  `tfsdk:"resource_type"`
@@ -56,6 +58,8 @@ func (d *NetworkResourceDataSource) Schema(_ context.Context, _ datasource.Schem
 	resp.Schema = schema.Schema{
 		Description: "Reads a MisterShell network resource. Look up by id or search by name/resource_type/location_id/status. The engine is resolved from the target instance's installed type catalog.",
 		Attributes: map[string]schema.Attribute{
+			"health_status":  schema.StringAttribute{Computed: true, Description: "Current resource health: healthy, degraded, critical, or unknown."},
+			"last_health_at": schema.StringAttribute{Computed: true, Description: "Timestamp of the latest resource health observation."},
 			"id": schema.Int64Attribute{
 				Description: "Resource ID. Use for direct lookup.",
 				Optional:    true,
@@ -213,7 +217,7 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 
 		filter := client.NetworkResourceListFilter{}
 		if hasName {
-			filter.Search = config.Name.ValueString()
+			filter.Search = client.SearchPrefix(config.Name.ValueString())
 		}
 		if hasType {
 			filter.ResourceType = config.ResourceType.ValueString()
@@ -283,6 +287,8 @@ func (d *NetworkResourceDataSource) Read(ctx context.Context, req datasource.Rea
 	config.LocationID = int64PtrToValue(res.LocationID)
 	mapNetworkResourceCoordinatesToDataSourceModel(res.EffectiveCoordinates, &config)
 	config.Status = types.StringValue(res.Status)
+	config.HealthStatus = types.StringValue(res.HealthStatus)
+	config.LastHealthAt = optStringPtrToValue(res.LastHealthAt)
 	config.IsEnabled = types.BoolValue(res.IsEnabled)
 	config.SshgwAllowPersonalKey = types.BoolValue(res.SshgwAllowPersonalKey)
 

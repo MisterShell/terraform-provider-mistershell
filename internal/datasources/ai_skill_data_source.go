@@ -127,7 +127,7 @@ func (d *AISkillDataSource) Read(ctx context.Context, req datasource.ReadRequest
 			return
 		}
 
-		skills, err := d.client.ListAISkills(ctx, client.AISkillListFilter{Search: config.Name.ValueString()})
+		skills, err := d.client.ListAISkills(ctx, client.AISkillListFilter{Search: client.SearchPrefix(config.Name.ValueString())})
 		if err != nil {
 			resp.Diagnostics.AddError("Error searching AI skills", err.Error())
 			return

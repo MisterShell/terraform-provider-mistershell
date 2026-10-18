@@ -1,0 +1,1 @@
+terraform import mistershell_configure_resource_vars.example 123:456

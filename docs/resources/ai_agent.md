@@ -2,12 +2,12 @@
 page_title: "mistershell_ai_agent Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages user-defined AI agents (type chat or background) referencing a model and a system prompt; builtin agents (type builtin_*) are managed by MisterShell and exposed read-only via the data source.
+  Manages user-defined AI agents (type chat or background) referencing a model and a system prompt; builtin agents (type builtin_*) are managed using ai_agent_override.
 ---
 
 # mistershell_ai_agent (Resource)
 
-Manages user-defined AI agents (type chat or background) referencing a model and a system prompt; builtin agents (type builtin_*) are managed by MisterShell and exposed read-only via the data source.
+Manages user-defined AI agents (type chat or background) referencing a model and a system prompt; builtin agents (type builtin_*) are managed using ai_agent_override.
 
 ## Example Usage
 
@@ -85,11 +85,11 @@ variable "anthropic_api_key" {
 
 ### Optional
 
-- `config` (Dynamic) Agent config as a native Terraform object (token_budget, temperature, label, icon, etc.). The server may enrich this value, so the planned value is stored from config.
+- `config` (Dynamic) Agent config as a native Terraform object (token_budget, temperature, label, icon, etc.). Reads refresh managed keys and imports hydrate readable config; removing this argument clears non-secret settings.
 - `description` (String) Agent description.
 - `model_id` (Number) FK to a mistershell_ai_model. If omitted the default model is used.
 - `tool_ids` (Set of Number) Tool IDs the agent may use; empty or unset means ALL tools are allowed. Look up ids with the mistershell_ai_tool data source.
-- `type` (String) User agent type. One of: chat, background. Defaults to chat. Cannot be changed after creation. builtin_* agents are managed by MisterShell and read-only (use the data source).
+- `type` (String) User agent type. One of: chat, background. Defaults to chat. Changes between chat and background are applied in place. Use ai_agent_override for builtin settings.
 
 ### Read-Only
 
@@ -104,11 +104,11 @@ variable "anthropic_api_key" {
 | attribute | constraints |
 |---|---|
 | `name` | Required. 1-255 characters. Unique across agents. |
-| `type` | Optional + Computed. One of `chat`, `background`. Defaults to `chat`. **Immutable** — changing it forces replacement. Only these two are creatable; `builtin_*` types are managed by MisterShell (read-only). See the `type` table below. |
+| `type` | Optional + Computed. One of `chat`, `background`. Defaults to `chat`. Changes between these values update the agent in place. Only these two are creatable; use `mistershell_ai_agent_override` to manage built-in settings. See the `type` table below. |
 | `description` | Optional. Up to 2000 characters. |
 | `model_id` | Optional. Integer ID of a `mistershell_ai_model`. If omitted, the default model is used. See the note below. |
 | `system_prompt_id` | **Required.** Integer ID of a `mistershell_ai_prompt`. See the note below. |
-| `config` | Optional, **not sensitive**. Agent execution config as a native Terraform object; see the `config` table below. Stored from configuration and **excluded from import**. |
+| `config` | Optional, **not sensitive**. Agent execution config as a native Terraform object; see the `config` table below. Refreshed from the server, including on import. |
 | `tool_ids` | Optional + Computed. Set of integer tool IDs. Empty or unset = **all tools allowed**. A non-empty set restricts the agent to those tools. See the tools section. |
 | `id` | Read-only. Agent integer ID. |
 | `is_builtin` | Read-only. `true` for `builtin_*` agents (always `false` for agents managed by this resource). |
@@ -120,8 +120,9 @@ variable "anthropic_api_key" {
 
 Only `chat` and `background` are creatable with this resource. Attempting to
 create or delete a `builtin_*` agent returns **HTTP 403**. The `builtin_*`
-types exist only on agents managed by MisterShell and are exposed read-only via
-the [`mistershell_ai_agent` data source](../data-sources/ai_agent.md).
+types exist only on agents managed by MisterShell. Look them up through the
+[`mistershell_ai_agent` data source](../data-sources/ai_agent.md) and manage their
+runtime settings with [`mistershell_ai_agent_override`](ai_agent_override.md).
 
 | type | creatable | managed by | meaning |
 |---|---|---|---|
@@ -150,8 +151,8 @@ The current builtin agents are:
 
 Builtin agents **can** be patched server-side (model, system prompt, config,
 and tool restrictions are all editable). **This resource manages user agents
-only** and does not adopt or reconcile builtin agents — manage their
-customizations out of band (option (c): operator-side). When a builtin agent's
+only**. Manage built-in customizations with
+[`mistershell_ai_agent_override`](ai_agent_override.md). When a builtin agent's
 `config` is patched server-side, the new keys are **merged** into the
 registry-defined config (the backend preserves identity keys such as
 `capability`, `label`, and `icon`), **not** replaced wholesale. To read a
@@ -180,14 +181,9 @@ runs and are distinct from any model-level config on the `mistershell_ai_model`.
 | `label` | string | Display label for quick-action UI buttons. **Builtin quick-action agents only.** | _(none)_ |
 | `icon` | string | UI icon name. **Builtin agents only.** | _(none)_ |
 
-**Stored-from-config handling.** The server may enrich or reorder this blob, so
-the provider stores `config` **from your configuration**, not from the server
-read-back. Two consequences, identical to other stored-from-config fields:
-
-- Out-of-band changes to `config` on the server are **not** detected as drift
-  (the whole blob is preserved from state).
-- `config` is **excluded from import** (only `id` and the server-managed fields
-  are set on import). Re-supply the full `config` in HCL after importing.
+**Refresh and import.** The provider refreshes managed config keys, detects remote
+changes and hydrates config on import. Server-added default keys do not cause
+perpetual differences. Removing `config` sends an empty object to clear it.
 
 Example:
 

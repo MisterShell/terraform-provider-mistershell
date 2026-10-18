@@ -116,7 +116,7 @@ func (d *AIModelDataSource) Read(ctx context.Context, req datasource.ReadRequest
 			return
 		}
 
-		models, err := d.client.ListAIModels(ctx, client.AIModelListFilter{Search: config.Name.ValueString()})
+		models, err := d.client.ListAIModels(ctx, client.AIModelListFilter{Search: client.SearchPrefix(config.Name.ValueString())})
 		if err != nil {
 			resp.Diagnostics.AddError("Error searching AI models", err.Error())
 			return

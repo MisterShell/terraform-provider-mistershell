@@ -3,6 +3,7 @@ package datasources
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -68,9 +69,12 @@ func (d *UserDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 				Computed:    true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"id":          schema.Int64Attribute{Computed: true, Description: "Role ID."},
-						"name":        schema.StringAttribute{Computed: true, Description: "Role name."},
-						"description": schema.StringAttribute{Computed: true, Description: "Role description."},
+						"id":                  schema.Int64Attribute{Computed: true, Description: "Role ID."},
+						"name":                schema.StringAttribute{Computed: true, Description: "Role name."},
+						"description":         schema.StringAttribute{Computed: true, Description: "Role description."},
+						"is_builtin":          schema.BoolAttribute{Computed: true, Description: "Whether this is a built-in role."},
+						"location_scope_mode": schema.StringAttribute{Computed: true, Description: "Role location scope mode."},
+						"scope_location_ids":  schema.SetAttribute{Computed: true, ElementType: types.Int64Type, Description: "Role location scope roots."},
 					},
 				},
 			},
@@ -121,15 +125,15 @@ func (d *UserDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 			resp.Diagnostics.AddError("Missing lookup criteria", "Specify 'id' for direct lookup, or 'email' to search.")
 			return
 		}
-		email := config.Email.ValueString()
-		users, lerr := d.client.ListUsers(ctx, client.UserListFilter{Search: email})
+		email := strings.ToLower(strings.TrimSpace(config.Email.ValueString()))
+		users, lerr := d.client.ListUsers(ctx, client.UserListFilter{Search: client.SearchPrefix(email)})
 		if lerr != nil {
 			resp.Diagnostics.AddError("Error searching users", lerr.Error())
 			return
 		}
 		var matched []client.UserDetailResponse
 		for i := range users {
-			if users[i].Email == email {
+			if strings.EqualFold(users[i].Email, email) {
 				matched = append(matched, users[i])
 			}
 		}
@@ -142,8 +146,11 @@ func (d *UserDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 				fmt.Sprintf("Found %d users matching the email. Emails should be unique.", len(matched)))
 			return
 		}
-		u := matched[0]
-		user = &u
+		user, err = d.client.GetUser(ctx, matched[0].ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading user", err.Error())
+			return
+		}
 	}
 
 	config.ID = types.Int64Value(user.ID)

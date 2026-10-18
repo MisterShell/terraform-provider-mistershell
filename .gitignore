@@ -5,4 +5,5 @@ terraform-provider-mistershell
 *.tfstate.backup
 .terraform.lock.hcl
 .env
+__pycache__/
 docs/superpowers/

@@ -2,12 +2,12 @@
 page_title: "mistershell_worker Resource - MisterShell"
 subcategory: ""
 description: |-
-  Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are native Terraform values (the worker's task-handler config and its JSON Schema). The bootstrap default worker (is_default=true) is provisioned by the backend and cannot be edited or deleted (the API returns 403); do not manage it with this resource. The authentication token is returned only once at creation and is never readable again.
+  Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are native Terraform values (the worker's task-handler config and its JSON Schema). The backend-owned default worker may be imported to manage only config. Keep its other imported settings unchanged. Destroying an imported default worker only removes Terraform management and leaves its configuration intact. The authentication token is returned only once at creation and is never readable again.
 ---
 
 # mistershell_worker (Resource)
 
-Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are native Terraform values (the worker's task-handler config and its JSON Schema). The bootstrap default worker (is_default=true) is provisioned by the backend and cannot be edited or deleted (the API returns 403); do not manage it with this resource. The authentication token is returned only once at creation and is never readable again.
+Manages a MisterShell worker — a task-handler agent bound to a location. The config and config_schema attributes are native Terraform values (the worker's task-handler config and its JSON Schema). The backend-owned default worker may be imported to manage only config. Keep its other imported settings unchanged. Destroying an imported default worker only removes Terraform management and leaves its configuration intact. The authentication token is returned only once at creation and is never readable again.
 
 ## Example Usage
 
@@ -73,7 +73,7 @@ output "worker_token" {
 - `connected_at` (String) Timestamp at which the worker connected.
 - `created_at` (String) Creation timestamp.
 - `id` (Number) Worker ID.
-- `is_default` (Boolean) Whether this is the bootstrap default worker. Default workers cannot be edited or deleted via the API.
+- `is_default` (Boolean) Whether this is the bootstrap default worker. Only config may be edited on default workers. Terraform destroy leaves default workers intact.
 - `last_heartbeat_at` (String) Timestamp of the worker's last heartbeat.
 - `presence_ip` (String) IP address from which the worker is connected.
 - `presence_ip_source` (String) Source of the presence IP determination.
@@ -93,8 +93,8 @@ output "worker_token" {
 | `name` | Required. 1-255 characters. Must be unique. |
 | `description` | Optional. Free-form text. |
 | `location_id` | Required. Integer ID of the location this worker is bound to. **Updatable** — changing it re-routes the worker, it does not force replacement. |
-| `config` | Optional native Terraform value. Stored-from-config (see below). Excluded from import. |
-| `config_schema` | Optional native Terraform object containing a JSON Schema. Stored-from-config. Excluded from import. |
+| `config` | Optional native Terraform value. Refreshed from the API and populated on import. Removing it clears the remote config. |
+| `config_schema` | Optional native Terraform object containing a JSON Schema. Refreshed and imported; removing it clears the remote schema. |
 | `is_enabled` | Optional. Boolean. Defaults to `true`. Admin intent — whether the worker is allowed to connect and accept tasks. Distinct from the operational `status` below. |
 | `id` | Read-only. Integer worker ID. |
 | `token` | Read-only, **sensitive**. Returned only once at creation (see below). |
@@ -130,10 +130,17 @@ system-managed:
 
 - It **cannot be created** via the API (`POST /workers` with `is_default = true`
   returns **403**), so you cannot reproduce it with this resource.
-- It **cannot be edited or deleted** (PATCH / DELETE return **403**).
+- Only `config` may be edited. Its name, description, location, enabled flag and
+  `config_schema` remain backend-owned.
+- It cannot be deleted. Terraform destroy removes management from state and
+  leaves the worker and its current configuration intact.
 
-Do **not** manage the default worker with `mistershell_worker`. Use this resource
-only for additional, user-created workers.
+To manage its config, import the existing default worker ID and keep all other
+fields equal to their imported values. Configure the desired native `config`
+object. Removing `config` explicitly sends JSON null to clear it. If you only
+want to stop managing the config, remove the resource from Terraform; destroy
+preserves the last applied config. Default-worker config management is verified
+against MisterShell 2.0.22 and requires a backend supporting config-only PATCH.
 
 ## The `token`
 
@@ -184,15 +191,12 @@ calling the backend.
   }
   ```
 
-**Stored-from-config.** As with `credential_data` and log-destination `config`,
-the provider stores `config` and `config_schema` **from your configuration** and
-does not read them back from the server (the server normalizes/reorders keys and
-derives `config_version`). Two consequences:
-
-- **Out-of-band, non-secret changes are not detected as drift** — the whole blob
-  is preserved from state. Manage these values exclusively through Terraform.
-- Both are **excluded from import** (only `id` is set on import); re-supply them
-  in HCL after importing, exactly like `credential_data`.
+Reads refresh both values, and import populates them. Changes to configured keys
+made outside Terraform appear as drift and are repaired on apply. Server-added
+default keys are excluded from an already managed object to avoid perpetual
+differences; JSON-equivalent ordering and Terraform collection types are preserved.
+Removing either attribute sends explicit JSON null. Updates send only changed
+fields, so changing default-worker config does not resubmit protected fields.
 
 ## Import
 

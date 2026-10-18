@@ -312,3 +312,15 @@ func mapLocationResponseToModel(loc *client.LocationResponse, m *LocationResourc
 	m.UpdatedAt = types.StringValue(loc.UpdatedAt)
 	return nil
 }
+
+// Organizational locations cannot carry geographic coordinates.
+func (r *LocationResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config LocationResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() || config.Kind.IsUnknown() || config.Kind.ValueString() != "org" {
+		return
+	}
+	if !config.Latitude.IsNull() && !config.Latitude.IsUnknown() || !config.Longitude.IsNull() && !config.Longitude.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(path.Root("kind"), "Invalid organizational coordinates", "Locations with kind = org cannot set latitude or longitude. Use kind = geo or remove both coordinates.")
+	}
+}

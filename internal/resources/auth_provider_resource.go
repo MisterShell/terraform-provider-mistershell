@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"slices"
@@ -59,7 +60,7 @@ func (r *AuthProviderResource) Metadata(_ context.Context, req resource.Metadata
 
 func (r *AuthProviderResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is a native per-provider_type Terraform object carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so config is stored from your plan (not read back). display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.",
+		Description: "Manages a MisterShell external authentication provider (LDAP, OIDC, or SAML). The config attribute is a native per-provider_type Terraform object carrying secrets; the API masks secrets ('****') and enriches non-secret defaults, so non-secret managed config fields are refreshed while masked secrets retain their configured values. display_order is set declaratively (honored on create; omitted appends at the end). Create and update require an active license.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Auth provider ID.",
@@ -113,7 +114,7 @@ func (r *AuthProviderResource) Schema(_ context.Context, _ resource.SchemaReques
 				},
 			},
 			"config": schema.DynamicAttribute{
-				Description: "Per-provider_type config as a native Terraform object. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout/mfa_method (none or totp; email MFA cannot be managed with Terraform, omit mfa_method to keep a method set in the UI). For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/redirect_uri/additional_params/tls_verify. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). The API masks secrets as '****' and enriches non-secret defaults, so this value is stored from config (not read back) and is not importable.",
+				Description: "Per-provider_type config as a native Terraform object. For LDAP: server_url, bind_dn, bind_password (secret), base_dn, and optional user_search_filter/user_attributes/group_search_base/group_search_filter/use_tls/tls_verify/connection_timeout/mfa_method (none or totp; email MFA cannot be managed with Terraform; removing a managed mfa_method resets it to none, while an already unmanaged method is preserved). For OIDC: issuer_url, client_id, client_secret (secret), and optional scopes/claims_mapping/additional_params/tls_verify/ldap_group_provider_id/mcp_audience/mcp_email_claim. For SAML: idp_entity_id, idp_sso_url, idp_x509_cert (PEM, BEGIN/END CERTIFICATE markers required), and optional attribute_mapping/sign_requests/want_assertions_signed/sp_private_key (secret)/sp_x509_cert; SAML rejects unknown keys (the SP URLs are derived server-side and exposed as the read-only sp_entity_id/sp_acs_url attributes). Managed non-secret fields are refreshed; masked secrets retain configured values. Imports populate non-secret config; supply secret values before applying. Removing a managed optional key restores its API default or clears nullable fields.",
 				Required:    true,
 				Sensitive:   true,
 			},
@@ -177,7 +178,7 @@ func (r *AuthProviderResource) ValidateConfig(ctx context.Context, req resource.
 	detail := fmt.Sprintf("config.mfa_method must be one of: %s.", strings.Join(terraformMfaMethods, ", "))
 	if method.ValueString() == "email" {
 		detail = "Email MFA cannot be managed with Terraform: MisterShell only enables it after an interactive emailed-code check. " +
-			"Enable it in the MisterShell UI (Settings > User Access > Auth Providers) and omit mfa_method from config so Terraform leaves the stored method unchanged."
+			"First omit mfa_method from config and apply; this resets any previously managed method to none. Then enable email MFA in the MisterShell UI (Settings > User Access > Auth Providers). Terraform preserves the method while the key remains unmanaged."
 	}
 	resp.Diagnostics.AddAttributeError(path.Root("config").AtName("mfa_method"), "Unsupported mfa_method", detail)
 }
@@ -280,10 +281,27 @@ func (r *AuthProviderResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	// Preserve config from state (API masks secrets and enriches non-secret defaults).
-	savedConfig := state.Config
+	// The LDAP revision is server-only MFA bookkeeping, not writable config.
+	if detail.ProviderType == "LDAP" {
+		var configFields map[string]json.RawMessage
+		if err := json.Unmarshal(detail.Config, &configFields); err != nil {
+			resp.Diagnostics.AddError("Error reading auth provider config", err.Error())
+			return
+		}
+		delete(configFields, "mfa_revision")
+		detail.Config, err = json.Marshal(configFields)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading auth provider config", err.Error())
+			return
+		}
+	}
+	config, err := authProviderRefreshConfig(detail.ProviderType, state.Config, detail.Config)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading auth provider config", err.Error())
+		return
+	}
 	mapAuthProviderDetailToModel(detail, &state)
-	state.Config = savedConfig
+	state.Config = config
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -314,7 +332,7 @@ func (r *AuthProviderResource) Update(ctx context.Context, req resource.UpdateRe
 		input.DisplayOrder = &v
 	}
 	if !plan.Config.Equal(state.Config) {
-		config, err := dynamicToRawJSON(plan.Config)
+		config, err := authProviderConfigPatch(plan.ProviderType.ValueString(), state.Config, plan.Config)
 		if err != nil {
 			resp.Diagnostics.AddError("Error encoding auth provider config", err.Error())
 			return

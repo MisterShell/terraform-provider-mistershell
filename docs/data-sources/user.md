@@ -51,7 +51,10 @@ Read-Only:
 
 - `description` (String) Role description.
 - `id` (Number) Role ID.
+- `is_builtin` (Boolean) Whether this is a built-in role.
+- `location_scope_mode` (String) Role location scope mode.
 - `name` (String) Role name.
+- `scope_location_ids` (Set of Number) Role location scope roots.
 
 ## Lookup
 

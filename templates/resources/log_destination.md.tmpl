@@ -73,25 +73,15 @@ shape is determined by `type` and must include a matching `type` discriminator
 field inside the blob. The fields below are the complete set the backend accepts;
 any other key is rejected.
 
-**Secret handling.** Webhook `auth` secret fields (marked below) are encrypted at
-rest and **masked to `****`** in every API response. As with `credential_data`,
-the provider stores `config` **from your configuration** and does **not** read it
-back from the server. Two consequences:
+**Secret handling and refresh.** Webhook secrets are masked as `****` by the API.
+Refresh preserves configured secrets and detects changes to managed non-secret
+fields, including the URL and headers. Server defaults for omitted keys stay
+unmanaged. Import populates non-secret config; supply masked secrets in HCL
+before applying.
 
-- After **importing** a webhook destination, its secret is unknown until you
-  re-supply the full `config` in HCL — a webhook secret cannot be recovered from
-  the masked server value.
-- For webhook destinations, out-of-band changes to the **non-secret** parts of
-  `config` (url, method, headers, etc.) are **not** detected as drift, because the
-  whole `config` is preserved from state. This is the documented trade-off of the
-  stored-from-config rule (identical to `credential_data`).
-- `config` is **excluded from import** (only `id` is set on import); re-supply it
-  in HCL, exactly like `credential_data`.
-- The literal mask placeholder **`"****"` is rejected (HTTP 400) as a webhook
-  auth secret** on **create** and when **changing `auth.type`** — there is no
-  stored secret to preserve in those cases, so always supply the real secret.
-  (Re-sending `"****"` on an update with an *unchanged* `auth.type` still means
-  "keep the stored secret".)
+The destination `type` can change in place when supplied with the matching
+configuration. Supply real secrets when creating a webhook or changing its
+authentication type; the mask placeholder cannot initialize a secret.
 
 ### `type = "syslog"` config
 
