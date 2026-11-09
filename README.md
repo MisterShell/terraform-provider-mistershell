@@ -13,7 +13,7 @@ fixture requirements are in [the disposable test guide](testdata/disposable/READ
 
 ## Current API coverage
 
-The upcoming provider 2.1.0 adds Canary enrollment, custom services, built-in
+Provider 2.1.0 adds Canary enrollment, custom services, built-in
 service overrides, alert policies and ordering; Syslog rules and ordering;
 license installation/status; file catalog folders/uploads; tree elements; and
 scoped notes. Matching data sources expose supported reads and catalogs.
@@ -48,8 +48,8 @@ including its configuration, as documented in its resource lifecycle.
 
 ## Installation
 
-Version 2.1.0 is unreleased. Until publication, use `make install` for a local
-build or the isolated demo workflow below. The version constraint is:
+Use the following version constraint for provider 2.1.0. For a local build,
+use `make install` or the isolated demo workflow below.
 
 ```hcl
 terraform {

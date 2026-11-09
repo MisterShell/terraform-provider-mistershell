@@ -7,7 +7,9 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
-Planned for **2.1.0**. New coverage targets **MisterShell 2.1.0**; existing
+## [2.1.0] - 2026-11-09
+
+New coverage targets **MisterShell 2.1.0**; existing
 features retain their documented backend minimums.
 
 ### Added
@@ -27,6 +29,8 @@ features retain their documented backend minimums.
 
 - Preserve restoration state after partial binding failures, detect whole-object
   configuration drift, and reject configuration changes that cannot be restored.
+- Update the Terraform CLI installer dependency to refresh its expired signing
+  key and restore automatic installation during provider tests.
 
 ## [2.0.22] - 2026-10-18
 
