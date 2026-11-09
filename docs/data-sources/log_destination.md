@@ -45,7 +45,7 @@ output "destination_streams" {
 - `created_at` (String) Creation timestamp.
 - `enabled` (Boolean) Whether the destination is enabled.
 - `min_severity` (String) Minimum severity forwarded.
-- `streams` (Set of String) Log streams forwarded (security, policy, api, app, ids, collector).
+- `streams` (Set of String) Log streams forwarded (security, policy, api, app, ai, ids, collector, canary).
 - `type` (String) Destination type (syslog or webhook).
 - `updated_at` (String) Last update timestamp.
 

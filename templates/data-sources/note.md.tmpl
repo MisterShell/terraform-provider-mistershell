@@ -1,0 +1,32 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Requires MisterShell >= 2.1.0.
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Scope and content
+
+| `scope_type` | `scope_id` |
+|---|---|
+| `resource` | Network resource ID |
+| `location` | Location ID |
+
+Requires `app.notes.read` plus read access to the scope. This lookup reads only
+the latest Markdown version and never acquires locks. A scope with no note
+returns null `content` and version `0`. A missing or inaccessible scope produces
+an error. Note content is sensitive but persists in Terraform state.

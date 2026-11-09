@@ -1,0 +1,46 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Requires MisterShell >= 2.1.0.
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Tree presentation settings
+
+| Field | Valid values |
+|---|---|
+| `element_type` | `line`, `label` |
+| `parent_key` | `location:<positive ID>`, or omitted for root |
+| `config.variant` | `badge`, `text` |
+| `config.icon` | `label`, `flag`, `star`, `bookmark`, `folder_special`, `dns`, `cloud`, `warning`, `bolt`, `lan`, `hub`, `router`, `storage`, `shield`, `groups` |
+| `config.color` | `primary`, `secondary`, `positive`, `negative`, `warning`, `info`, `purple`, `teal`, `indigo`, `orange`, `grey-7` |
+
+All configuration keys are optional. Pass a native Terraform object, without
+`jsonencode`. Omitted configuration is null; label elements render as badges
+when no variant is selected. Elements are presentation only: they contain no
+resources and grant no access. The provider manages type, parent, label and
+configuration; sibling ordering is not owned.
+
+Requires `app.resources.read` for the scoped browse tree, plus
+`app.resources.write` and `app.resources.delete` for resource management on the
+parent location. Root elements require unrestricted location scope. A missing
+entry is an error, because tree filtering cannot distinguish deletion from
+lost permission. Restore access, or confirm deletion and remove it from
+Terraform state before recreating it.
+
+`metadata` is the selected browse node, including `id`, `kind`, `key`,
+`parent_key`, `label`, `element_type`, `config`, and presentation flags.

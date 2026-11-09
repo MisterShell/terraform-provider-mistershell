@@ -5,7 +5,7 @@ The MisterShell Terraform provider enables infrastructure-as-code management of 
 ## Requirements
 
 - [Terraform](https://www.terraform.io/downloads) >= 1.5
-- A running MisterShell 2.0.7 or newer instance; some features need a newer backend (external vault support is tested on 2.0.22), as stated in the [CHANGELOG](CHANGELOG.md)
+- A running MisterShell 2.0.7 or newer instance; new 2.1.0 coverage targets MisterShell 2.1.0; existing features retain their documented backend minimums, as stated in the [CHANGELOG](CHANGELOG.md)
 - A MisterShell API key (`apikey_` prefixed)
 
 For repeatable end-to-end verification, use `make test-disposable`; setup and
@@ -13,8 +13,19 @@ fixture requirements are in [the disposable test guide](testdata/disposable/READ
 
 ## Current API coverage
 
-Provider 2.0.22 targets MisterShell 2.0.22. New resources
-cover CA certificates, recording and file-transfer policies/stores, fact policies,
+The upcoming provider 2.1.0 adds Canary enrollment, custom services, built-in
+service overrides, alert policies and ordering; Syslog rules and ordering;
+license installation/status; file catalog folders/uploads; tree elements; and
+scoped notes. Matching data sources expose supported reads and catalogs.
+
+Configuration bindings manage existing scheduled tasks, fact collection,
+metrics/snaps and ordered tag customizations, Local authentication policy, and
+built-in Sensor sources. These bindings capture originals and restore owned
+configuration on destroy; they never create or delete the backend-owned object.
+Email MFA still requires the interactive application workflow. Sensor parameters
+can be managed only when their original values can be restored.
+
+Previous resource families cover CA certificates, recording and file-transfer policies/stores, fact policies,
 automation playbooks, Configure templates/stacks/policies/resource variables,
 proxies, sensors and rule configuration, report templates, saved commands, MOTDs,
 and built-in AI overrides/guardrails. Each has a matching lookup data source where
@@ -37,12 +48,15 @@ including its configuration, as documented in its resource lifecycle.
 
 ## Installation
 
+Version 2.1.0 is unreleased. Until publication, use `make install` for a local
+build or the isolated demo workflow below. The version constraint is:
+
 ```hcl
 terraform {
   required_providers {
     mistershell = {
       source  = "MisterShell/mistershell"
-      version = "~> 2.0.22"
+      version = "~> 2.1.0"
     }
   }
 }
@@ -170,6 +184,26 @@ make build
 # Run acceptance tests (requires a running MisterShell instance)
 MISTERSHELL_URL=http://localhost:13000 MISTERSHELL_API_KEY=apikey_xxx make test
 ```
+
+### Isolated demo qualification
+
+Run the demo targets from the **MisterShell main worktree**, after its required
+release-image qualification. The demo builds this local provider and installs it
+into a private filesystem mirror with version **2.1.0**; its Terraform modules
+pin that exact version and do not download this provider from the registry.
+
+```bash
+cd /path/to/mistershell-main
+DEMO_PROVIDER_SOURCE=/path/to/terraform-provider-mistershell make demo-up
+make demo-down
+```
+
+The qualification workflow exercises creation, updates, imports, deliberate
+readable drift and repair, and a final no-change plan. Teardown destroys Terraform
+resources in dependency order and checks restoration before removing the demo's
+containers and state. A failed destroy retains them for diagnosis and retry.
+Each `demo-up` starts fresh. Follow the backend's `demo/README.md` for image,
+license-signing, port and fixture requirements.
 
 ### Live acceptance suite
 

@@ -119,6 +119,19 @@ func refresh(ctx context.Context, d Definition, state *tfsdk.State, raw json.Raw
 		diags.AddError("Invalid API response", err.Error())
 		return diags
 	}
+	recovery := false
+	if d.Name == "canary" {
+		var expected types.String
+		diags.Append(state.GetAttribute(ctx, path.Root("id"), &expected)...)
+		if diags.HasError() {
+			return diags
+		}
+		recovery, err = validateCanaryProjection(obj, expected.ValueString())
+		if err != nil {
+			diags.AddError("Invalid Canary response", err.Error())
+			return diags
+		}
+	}
 	if id, ok := obj["id"]; ok && d.Name != "configure_resource_vars" {
 		diags.Append(state.SetAttribute(ctx, path.Root("id"), types.StringValue(idString(id)))...)
 	}
@@ -130,7 +143,8 @@ func refresh(ctx context.Context, d Definition, state *tfsdk.State, raw json.Raw
 			return diags
 		}
 		if !present {
-			if f.Name == "token" {
+			if f.Name == "token" || recovery && !old.IsUnknown() {
+				// Unlicensed recovery responses deliberately omit protected Canary fields.
 				continue
 			}
 			data = json.RawMessage("null")

@@ -1,0 +1,1 @@
+terraform import mistershell_canary_rule_order.example policy

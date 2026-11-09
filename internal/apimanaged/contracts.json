@@ -1354,6 +1354,674 @@
     "list_path": "/api/v1/configure/resource-vars"
   },
   {
+    "name": "canary",
+    "list_only": false,
+    "path": "/api/v1/canaries",
+    "item_path": "/api/v1/canaries/{id}",
+    "method": "POST",
+    "update_method": "PUT",
+    "fields": [
+      {
+        "name": "applied_config_generation",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Applied config generation."
+      },
+      {
+        "name": "applied_content_hash",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Applied content hash."
+      },
+      {
+        "name": "configuration_unavailable",
+        "kind": "boolean",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Configuration unavailable."
+      },
+      {
+        "name": "connected_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Connected at."
+      },
+      {
+        "name": "counters",
+        "kind": "dynamic",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Counters."
+      },
+      {
+        "name": "decoy_interface",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Decoy interface.",
+        "min_length": 1,
+        "max_length": 15
+      },
+      {
+        "name": "description",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Description.",
+        "max_length": 4096
+      },
+      {
+        "name": "desired_config_generation",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Desired config generation."
+      },
+      {
+        "name": "desired_content_hash",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Desired content hash."
+      },
+      {
+        "name": "health",
+        "kind": "dynamic",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Health."
+      },
+      {
+        "name": "ip_ignorelist",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Ip ignorelist.",
+        "default": []
+      },
+      {
+        "name": "is_enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Is enabled.",
+        "default": true
+      },
+      {
+        "name": "last_heartbeat_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Last heartbeat at."
+      },
+      {
+        "name": "license_reason",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "License reason."
+      },
+      {
+        "name": "location",
+        "kind": "dynamic",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Location."
+      },
+      {
+        "name": "location_id",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Location id."
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 255
+      },
+      {
+        "name": "rate_limit_per_min",
+        "kind": "integer",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Rate limit per min.",
+        "default": 600
+      },
+      {
+        "name": "runtime_status",
+        "kind": "dynamic",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Runtime status."
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Status."
+      },
+      {
+        "name": "token",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": true,
+        "description": "Shown once; store securely in the private deployment token file."
+      },
+      {
+        "name": "version",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Version."
+      }
+    ],
+    "description": "Manages a MisterShell canary. Requires MisterShell 2.1 or newer.",
+    "list_path": "/api/v1/canaries"
+  },
+  {
+    "name": "canary_service",
+    "list_only": false,
+    "path": "/api/v1/canaries/services",
+    "item_path": "/api/v1/canaries/services/{id}",
+    "method": "POST",
+    "update_method": "PUT",
+    "fields": [
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": false
+      },
+      {
+        "name": "location_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Location ids."
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "origin_key",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Origin key."
+      },
+      {
+        "name": "origin_version",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Origin version."
+      },
+      {
+        "name": "seed_key",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Seed key."
+      },
+      {
+        "name": "service_type",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Service type.",
+        "enum": [
+          "ftp",
+          "git",
+          "http",
+          "https",
+          "httpproxy",
+          "mongodb",
+          "mysql",
+          "mssql",
+          "ntp",
+          "rdp",
+          "redis",
+          "sip",
+          "ssh",
+          "tcpbanner",
+          "tftp",
+          "telnet",
+          "vnc",
+          "snmp",
+          "smb",
+          "portscan"
+        ]
+      },
+      {
+        "name": "settings",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Settings."
+      }
+    ],
+    "description": "Manages a MisterShell canary service. Requires MisterShell 2.1 or newer.",
+    "list_path": "/api/v1/canaries/services"
+  },
+  {
+    "name": "canary_alert_rule",
+    "list_only": false,
+    "path": "/api/v1/canaries/rules",
+    "item_path": "/api/v1/canaries/rules/{id}",
+    "method": "POST",
+    "update_method": "PUT",
+    "fields": [
+      {
+        "name": "canary_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Canary ids.",
+        "default": []
+      },
+      {
+        "name": "discard",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Discard.",
+        "default": false
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": true
+      },
+      {
+        "name": "event_codes",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Event codes.",
+        "default": []
+      },
+      {
+        "name": "forward",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Forward.",
+        "default": false
+      },
+      {
+        "name": "location_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Location ids.",
+        "default": []
+      },
+      {
+        "name": "log",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Log.",
+        "default": false
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": true,
+        "sensitive": false,
+        "description": "Name.",
+        "min_length": 1,
+        "max_length": 128
+      },
+      {
+        "name": "notify",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Notify.",
+        "default": false
+      },
+      {
+        "name": "position",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Position.",
+        "computed": true
+      },
+      {
+        "name": "service_types",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Service types.",
+        "default": []
+      },
+      {
+        "name": "src_cidrs",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Src cidrs.",
+        "default": []
+      }
+    ],
+    "description": "Manages a MisterShell canary alert rule. Requires MisterShell 2.1 or newer.",
+    "list_path": "/api/v1/canaries/rules"
+  },
+  {
+    "name": "syslog_rule",
+    "list_only": true,
+    "path": "/api/v1/collector/policy",
+    "item_path": "/api/v1/collector/policy/{id}",
+    "method": "POST",
+    "update_method": "PATCH",
+    "fields": [
+      {
+        "name": "apps",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Apps.",
+        "default": []
+      },
+      {
+        "name": "created_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Created at."
+      },
+      {
+        "name": "discard",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Discard.",
+        "default": false
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Enabled.",
+        "default": true
+      },
+      {
+        "name": "facilities",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Facilities.",
+        "default": []
+      },
+      {
+        "name": "forward",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Forward.",
+        "default": false
+      },
+      {
+        "name": "hit_count",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Hit count."
+      },
+      {
+        "name": "hosts",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Hosts.",
+        "default": []
+      },
+      {
+        "name": "last_hit_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Last hit at."
+      },
+      {
+        "name": "location_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Location ids.",
+        "default": []
+      },
+      {
+        "name": "log",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Log.",
+        "default": false
+      },
+      {
+        "name": "msg_contains",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Msg contains."
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Name.",
+        "default": "",
+        "max_length": 128
+      },
+      {
+        "name": "notify",
+        "kind": "boolean",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Notify.",
+        "default": false
+      },
+      {
+        "name": "position",
+        "kind": "integer",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Position.",
+        "computed": true
+      },
+      {
+        "name": "resource_types",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Resource types.",
+        "default": []
+      },
+      {
+        "name": "severities",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Severities.",
+        "default": []
+      },
+      {
+        "name": "src_cidrs",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Src cidrs.",
+        "default": []
+      },
+      {
+        "name": "tag_ids",
+        "kind": "dynamic",
+        "create": true,
+        "update": true,
+        "required": false,
+        "sensitive": false,
+        "description": "Tag ids.",
+        "default": []
+      },
+      {
+        "name": "updated_at",
+        "kind": "string",
+        "create": false,
+        "update": false,
+        "required": false,
+        "sensitive": false,
+        "description": "Updated at."
+      }
+    ],
+    "description": "Manages a MisterShell syslog rule. Requires MisterShell 2.1 or newer.",
+    "list_path": "/api/v1/collector/policy"
+  },
+  {
     "name": "proxy",
     "list_only": false,
     "path": "/api/v1/proxies",

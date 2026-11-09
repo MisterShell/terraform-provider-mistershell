@@ -38,16 +38,17 @@ func (r *ManagedResource) Configure(_ context.Context, req resource.ConfigureReq
 	}
 }
 func (r *ManagedResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-	if r.definition.Name != "ca_certificate" {
-		return
+	resp.Diagnostics.Append(validateCanarySelectors(ctx, r.definition, req.Config, true)...)
+	if r.definition.Name == "ca_certificate" {
+		resp.Diagnostics.Append(validateCACertificatePEM(ctx, req.Config, true)...)
 	}
-	resp.Diagnostics.Append(validateCACertificatePEM(ctx, req.Config, true)...)
 }
 func (r *ManagedResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	d := r.definition
 	if d.Name == "ca_certificate" {
 		resp.Diagnostics.Append(validateCACertificatePEM(ctx, req.Plan, false)...)
 	}
+	resp.Diagnostics.Append(validateCanarySelectors(ctx, d, req.Plan, false)...)
 	resp.Diagnostics.Append(r.validateSourceParameters(ctx, req.Plan, nil)...)
 	body, diags := payload(ctx, d, req.Plan, nil, true)
 	resp.Diagnostics.Append(diags...)
@@ -142,6 +143,7 @@ func (r *ManagedResource) Update(ctx context.Context, req resource.UpdateRequest
 	if d.Name == "ca_certificate" {
 		resp.Diagnostics.Append(validateCACertificatePEM(ctx, req.Plan, false)...)
 	}
+	resp.Diagnostics.Append(validateCanarySelectors(ctx, d, req.Plan, false)...)
 	resp.Diagnostics.Append(r.validateSourceParameters(ctx, req.Plan, req.State)...)
 	var id types.String
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &id)...)
@@ -151,6 +153,10 @@ func (r *ManagedResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 	if len(body) > 0 {
+		if err := r.guardCanaryOwnership(ctx, id.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Cannot update "+d.Name, err.Error())
+			return
+		}
 		if err := r.guardCustomRuleMutation(ctx); err != nil {
 			resp.Diagnostics.AddError("Cannot update "+d.Name, err.Error())
 			return
@@ -161,7 +167,7 @@ func (r *ManagedResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 	}
 	resp.State = tfsdk.State{Schema: req.Plan.Schema, Raw: req.Plan.Raw}
-	if d.Name == "sensor" || d.Name == "proxy" {
+	if d.Name == "sensor" || d.Name == "proxy" || d.Name == "canary" {
 		var token types.String
 		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("token"), &token)...)
 		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("token"), token)...)
@@ -180,6 +186,10 @@ func (r *ManagedResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 	if err := r.guardCustomRuleMutation(ctx); err != nil {
+		resp.Diagnostics.AddError("Cannot delete "+r.definition.Name, err.Error())
+		return
+	}
+	if err := r.guardCanaryOwnership(ctx, id.ValueString()); err != nil && !client.IsNotFound(err) {
 		resp.Diagnostics.AddError("Cannot delete "+r.definition.Name, err.Error())
 		return
 	}

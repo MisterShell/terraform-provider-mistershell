@@ -17,6 +17,39 @@ description: |-
 
 {{ .SchemaMarkdown | trimspace }}
 
+## S3 and S3-compatible storage
+
+With `backend = "s3"`, reference an `aws_credentials` credential through
+`credential_id`. Keep access and secret keys in that credential, not in `params`.
+The bucket must already exist and be accessible to the credential.
+
+| Parameter | Meaning |
+|---|---|
+| `s3_bucket` | Required bucket name. |
+| `s3_region` | Required signing region, including for S3-compatible services. |
+| `s3_prefix` | Optional object-key prefix; default empty. |
+| `s3_role_arn` | Optional AWS role to assume; default empty. |
+| `s3_endpoint_url` | Optional HTTP(S) service endpoint; empty uses AWS endpoints. Requires MisterShell 2.1.0. |
+| `s3_addressing_style` | `auto` (default), `path`, or `virtual`. Requires MisterShell 2.1.0. |
+
+For an S3-compatible service, a typical parameter object is:
+
+```terraform
+params = {
+  s3_bucket           = "mistershell-data"
+  s3_region           = "us-east-1"
+  s3_prefix           = "application/"
+  s3_endpoint_url     = "https://objects.example.com"
+  s3_addressing_style = "path"
+}
+```
+
+Custom endpoints may include a port and base path, but must not contain embedded
+credentials, a query, a fragment or whitespace. HTTPS endpoints use MisterShell’s
+application CA trust. Add the endpoint’s private CA to that trust when needed;
+there is no per-store TLS-verification bypass. Omit the new endpoint/addressing
+parameters when targeting a backend older than 2.1.0.
+
 ## Ownership and lifecycle
 
 This resource manages custom file stores. Built-in file stores are available through the data source and cannot be imported as managed resources, because the API restricts their updates or deletion.

@@ -1,15 +1,16 @@
 default: build
 
+PROVIDER_VERSION ?= 2.1.0
 MISTERSHELL_ENV_FILE ?= ./.env
 ACC_TEST_FLAGS = -count=1 -parallel=1 -v -timeout=30m
 ACC_SHELL_ENV = export TF_ACC=1; : "$${MISTERSHELL_ACC_SSH_HOST:=127.0.0.1}"; : "$${MISTERSHELL_ACC_SSH_PORT:=12223}"; : "$${MISTERSHELL_ACC_SSH_USERNAME:=tfacc}"; : "$${MISTERSHELL_ACC_SSH_PASSWORD:=tfacc-password}"; : "$${MISTERSHELL_ACC_SSH_UPDATE_HOST:=localhost}"; export MISTERSHELL_ACC_SSH_HOST MISTERSHELL_ACC_SSH_PORT MISTERSHELL_ACC_SSH_USERNAME MISTERSHELL_ACC_SSH_PASSWORD MISTERSHELL_ACC_SSH_UPDATE_HOST
 
 build:
-	go build -o terraform-provider-mistershell
+	go build -ldflags "-X main.version=$(PROVIDER_VERSION)" -o terraform-provider-mistershell
 
 install: build
-	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/mistershell/mistershell/2.0.22/linux_amd64
-	cp terraform-provider-mistershell ~/.terraform.d/plugins/registry.terraform.io/mistershell/mistershell/2.0.22/linux_amd64/
+	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/mistershell/mistershell/$(PROVIDER_VERSION)/linux_amd64
+	cp terraform-provider-mistershell ~/.terraform.d/plugins/registry.terraform.io/mistershell/mistershell/$(PROVIDER_VERSION)/linux_amd64/
 
 # Run the full acceptance test suite against a live MisterShell instance.
 # Sources MISTERSHELL_URL and MISTERSHELL_API_KEY (and optional MISTERSHELL_INSECURE)

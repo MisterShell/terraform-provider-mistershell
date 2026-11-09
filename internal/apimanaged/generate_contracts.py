@@ -12,6 +12,7 @@ entries=[
 ('fact_check','fact-policy/checks','check_id'),('fact_policy_rule','fact-policy/rules','rule_id'),
 ('automation_playbook','automation/playbooks','playbook_id'),
 ('configure_template','configure/templates','template_id'),('configure_stack','configure/stacks','stack_id'),('configure_policy','configure/policies','policy_id'),('configure_resource_vars','configure/resource-vars',None),
+('canary','canaries','canary_id'),('canary_service','canaries/services','item_id'),('canary_alert_rule','canaries/rules','item_id'),('syslog_rule','collector/policy','rule_id'),
 ('proxy','proxies','proxy_id'),('sensor','sensors','sensor_id'),('sensor_custom_rule','sensors/custom-rules','rule_id'),('sensor_alert_rule','sensors/alert-rules','rule_id'),
 ('sensor_source','sensors/sources/custom','source_id'),('report_template','reporting/templates','template_id'),('command','commands','command_id'),('motd','motds','motd_id')]
 def resolve(s):
@@ -41,10 +42,11 @@ for name,base,key in entries:
  if name=='configure_resource_vars':update=create
  c=body(create);u=body(update);r=response(itemops['get']) if 'get' in itemops else response(create)
  if name=='ca_certificate':r=schemas['CACertificateDetails']
+ if name=='canary':r=schemas['CanaryResponse']
  created=response(create)
  fields=[]
  combined={**c.get('properties',{}),**u.get('properties',{}),**r.get('properties',{})}
- if name in ['proxy','sensor']:combined['token']=created['properties']['token']
+ if name in ['proxy','sensor','canary']:combined['token']=created['properties']['token']
  for f,v in sorted(combined.items()):
   if f=='id':continue
   cv=c.get('properties',{}).get(f);uv=u.get('properties',{}).get(f)
@@ -77,6 +79,6 @@ for name,base,key in entries:
   for f in fields:
    if f['name']=='enabled':f.update(update=True,default=False)
    if f['name']=='parameters':f.update(update=True,computed=True,sensitive=True)
- result.append({'name':name,'list_only':'get' not in itemops,'path':path,'item_path':item,'method':'PUT' if name=='configure_resource_vars' else 'POST','update_method':'PUT' if 'put' in itemops or name=='configure_resource_vars' else 'PATCH','fields':fields,'description':'Manages a MisterShell '+name.replace('_',' ')+'.','list_path':'/api/v1/sensors/sources' if name=='sensor_source' else path})
+ result.append({'name':name,'list_only':'get' not in itemops,'path':path,'item_path':item,'method':'PUT' if name=='configure_resource_vars' else 'POST','update_method':'PUT' if 'put' in itemops or name=='configure_resource_vars' else 'PATCH','fields':fields,'description':'Manages a MisterShell '+name.replace('_',' ')+'.'+(' Requires MisterShell 2.1 or newer.' if name in ['canary','canary_service','canary_alert_rule','syslog_rule'] else ''),'list_path':'/api/v1/sensors/sources' if name=='sensor_source' else path})
 Path(__file__).with_name('contracts.json').write_text(json.dumps(result,indent=2)+'\n')
 print('Generated',len(result),'reviewable API contracts')

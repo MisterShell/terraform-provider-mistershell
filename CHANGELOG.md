@@ -7,6 +7,27 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+Planned for **2.1.0**. New coverage targets **MisterShell 2.1.0**; existing
+features retain their documented backend minimums.
+
+### Added
+
+- Canary enrollment, custom services, built-in service overrides, alert policies,
+  ordered rules and catalogs; Canary log forwarding and retention configuration.
+- Syslog rules/order; license installation/status; file catalog folders/uploads;
+  tree elements and scoped notes, with matching supported data sources.
+- Reversible configuration bindings for scheduled tasks, fact collection,
+  metrics/snaps and ordered tag customizations, Local authentication policy and
+  built-in Sensor sources. Destroy restores owned originals without deleting
+  backend-owned objects. Email MFA and unrestorable secret changes remain excluded.
+- Documented S3-compatible endpoint/addressing parameters for recording and file
+  stores, and a locally built, pinned-provider demo qualification workflow.
+
+### Fixed
+
+- Preserve restoration state after partial binding failures, detect whole-object
+  configuration drift, and reject configuration changes that cannot be restored.
+
 ## [2.0.22] - 2026-10-18
 
 The new resource families and external-vault integration require **MisterShell

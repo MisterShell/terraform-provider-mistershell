@@ -1,0 +1,1 @@
+terraform import mistershell_syslog_rule_order.example policy

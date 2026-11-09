@@ -12,7 +12,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-mistershell/internal/apimanaged"
+	"terraform-provider-mistershell/internal/canaryextras"
 	"terraform-provider-mistershell/internal/client"
+	"terraform-provider-mistershell/internal/configbindings"
+	"terraform-provider-mistershell/internal/contentconfig"
 	"terraform-provider-mistershell/internal/datasources"
 	"terraform-provider-mistershell/internal/resources"
 )
@@ -138,6 +141,13 @@ func (p *MisterShellProvider) Resources(_ context.Context) []func() resource.Res
 	for _, definition := range apimanaged.Definitions() {
 		constructors = append(constructors, func() resource.Resource { return apimanaged.NewResource(definition) })
 	}
+	constructors = append(constructors,
+		canaryextras.NewCanaryRuleOrderResource,
+		canaryextras.NewSyslogRuleOrderResource,
+		canaryextras.NewCanaryServiceOverrideResource,
+	)
+	constructors = append(constructors, configbindings.Resources()...)
+	constructors = append(constructors, contentconfig.Resources()...)
 	return constructors
 }
 
@@ -175,5 +185,8 @@ func (p *MisterShellProvider) DataSources(_ context.Context) []func() datasource
 	for _, definition := range apimanaged.Definitions() {
 		constructors = append(constructors, func() datasource.DataSource { return apimanaged.NewDataSource(definition) })
 	}
+	constructors = append(constructors, canaryextras.NewCanaryCatalogDataSource)
+	constructors = append(constructors, configbindings.DataSources()...)
+	constructors = append(constructors, contentconfig.DataSources()...)
 	return constructors
 }

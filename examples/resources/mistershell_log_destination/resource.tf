@@ -22,7 +22,7 @@ resource "mistershell_log_destination" "webhook" {
   name         = "siem-webhook"
   type         = "webhook"
   enabled      = true
-  streams      = ["security", "policy", "api", "app", "ids", "collector"]
+  streams      = ["security", "policy", "api", "app", "ai", "ids", "collector", "canary"]
   min_severity = "info"
 
   config = {

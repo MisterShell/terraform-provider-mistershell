@@ -48,8 +48,6 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 
 // doRequestWithMeta executes an HTTP request and returns data plus pagination metadata.
 func (c *Client) doRequestWithMeta(ctx context.Context, method, path string, body interface{}) (json.RawMessage, *PaginationMeta, error) {
-	reqURL := c.BaseURL + path
-
 	var bodyBytes []byte
 	if body != nil {
 		var err error
@@ -59,17 +57,34 @@ func (c *Client) doRequestWithMeta(ctx context.Context, method, path string, bod
 		}
 	}
 
+	return c.doRequestBody(ctx, method, path, "application/json", bytes.NewReader(bodyBytes))
+}
+
+// ConfigurationUpload sends binary catalog content through the shared authenticated
+// transport. A seekable body lets rate-limit retries replay the complete upload.
+func (c *Client) ConfigurationUpload(ctx context.Context, path string, body io.ReadSeeker) (json.RawMessage, error) {
+	data, _, err := c.doRequestBody(ctx, http.MethodPost, path, "application/octet-stream", body)
+	return data, err
+}
+
+func (c *Client) doRequestBody(ctx context.Context, method, path, contentType string, body io.ReadSeeker) (json.RawMessage, *PaginationMeta, error) {
 	for attempt := 1; ; attempt++ {
-		var bodyReader io.Reader
-		if bodyBytes != nil {
-			bodyReader = bytes.NewReader(bodyBytes)
+		if body != nil {
+			if _, err := body.Seek(0, io.SeekStart); err != nil {
+				return nil, nil, fmt.Errorf("rewinding request body: %w", err)
+			}
 		}
-		req, err := http.NewRequestWithContext(ctx, method, reqURL, bodyReader)
+		req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
 		if err != nil {
 			return nil, nil, fmt.Errorf("creating request: %w", err)
 		}
+		// The caller owns seekable uploads; HTTP must not close a file needed
+		// by a rate-limit retry (or by the caller after this request).
+		if body != nil && req.Body != http.NoBody {
+			req.Body = io.NopCloser(body)
+		}
 		req.Header.Set("Authorization", "Bearer "+c.APIKey)
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Accept", "application/json")
 
 		resp, err := c.HTTPClient.Do(req)
@@ -97,7 +112,7 @@ func (c *Client) doRequestWithMeta(ctx context.Context, method, path string, bod
 
 		var envelope responseEnvelope
 		if err := json.Unmarshal(respBody, &envelope); err != nil {
-			return nil, nil, fmt.Errorf("decoding response (status %d, body: %s): %w", resp.StatusCode, string(respBody), err)
+			return nil, nil, fmt.Errorf("decoding response (status %d): %w", resp.StatusCode, err)
 		}
 		if !envelope.Success {
 			return nil, nil, &APIError{StatusCode: resp.StatusCode, Message: envelope.Message}

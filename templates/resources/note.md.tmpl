@@ -1,0 +1,53 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Requires MisterShell >= 2.1.0.
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Scope and lifecycle
+
+| `scope_type` | `scope_id` |
+|---|---|
+| `resource` | Network resource ID |
+| `location` | Location ID |
+
+Content is Markdown (`text/markdown`), at most 2,000,000 characters. Read requires
+`app.notes.read` and read access to the scope. Writes additionally require
+`app.notes.write` and write access to the scope. API keys operate as their owning
+user; use a dedicated automation user and serialize applies affecting the same
+note.
+
+The resource adopts the current note when created on a scope with an existing
+note. Each changed apply appends a version. Before writing, it refuses any
+existing editor lock, acquires an advisory lock, and rechecks the version.
+A version mismatch aborts the write so you can refresh and review the changed
+content. The backend has no atomic conditional write: a client ignoring the
+advisory lock, or a concurrent session using the same API user, can still race.
+
+Destroy preserves the current note and its entire history, including notes
+created by Terraform. The backend cannot delete the current version. Remove the
+resource from configuration to relinquish management; use the application to
+edit the remaining content. Historical-version pruning and attachments are not
+managed by this resource. Sensitive note content is still stored in Terraform
+state, so restrict access to the state backend.
+
+{{ if .HasImport -}}
+## Import
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

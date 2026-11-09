@@ -1,0 +1,1 @@
+terraform import mistershell_canary_alert_rule.example 123

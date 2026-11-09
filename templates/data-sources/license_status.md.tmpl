@@ -1,0 +1,56 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Requires MisterShell >= 2.1.0.
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Entitlement and capacity projection
+
+Requires `app.licenses.read`. This lookup returns the full administrative
+projection, including billing identity and per-license summaries, but no signed
+license keys. `projection.available = false` with `unavailable_reason` means the
+snapshot is unavailable; do not interpret it as a Free license.
+
+| Field | Values or shape |
+|---|---|
+| `core_feature`, `inherited` | `free`, `base`, `pro`, `enterprise`; `core_feature` can be null when unavailable |
+| `extras` | List containing `ids`, `collector`, `proxy`, `canary` |
+| `ha` | Object with `topology` (`single`, `multi`), `compliant`, and nullable `violation_reason` |
+| `warning_level` | `none`, `approaching`, `imminent`, `expired` |
+| `capacity` | Objects with `category`, `used`, `capacity`, `over_capacity` |
+| `capacity.category` | `resources`, `sensors`, `collector_workers`, `proxies`, `canaries` |
+| `capabilities` | Objects with `id`, `granted`, nullable `reason` and `capacity_category` |
+| `capabilities.id` | `commands.author`, `ai.author`, `reports.operate`, `workers.remote`, `auth.enterprise`, `vault.external`, `log_forwarding.configure`, `ha.multicore`, `policy.session`, `policy.recording`, `policy.fact`, `policy.configuration`, `recording.create`, `automation.execute`, `configure.workflows`, `ids.operate`, `collector.operate`, `proxy.operate`, `canary.operate`, `resources.operate` |
+
+Other fields are `licensed_to`, `licensing_email`, `warning_licenses`, `ha`,
+`instance_id`, `revision`, `reconciled_at`, and `licenses`. Entitlement may lag an
+accepted license mutation until reconciliation completes. Capacity usage is
+live status; it is not a Terraform-managed limit.
+
+## License metadata
+
+Per-license summaries contain `license_id`, nullable `status`, `feature`, `quantity`, `email`,
+`licensed_to`, `issued_at`, `expires_at`, `error`, and non-null `install_channel`
+and `format_version`. Signed license strings are never returned by reads.
+
+| Field | Values |
+|---|---|
+| `status` | `denied`, `invalid`, `expired`, `email_mismatch`, `core_license_missing`, `lower_tier_suppressed`, `active`, or null when validity is not available |
+| `feature` | `base`, `pro`, `enterprise`, `ids`, `collector`, `proxy`, `canary`, or null for unreadable legacy material |
+
+Requires `app.licenses.read`.

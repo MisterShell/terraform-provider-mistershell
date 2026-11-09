@@ -1,0 +1,49 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Requires MisterShell >= 2.1.0.
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Listing behavior
+
+The lookup reads every page of one directory, without recursing. An empty
+`parent_path` selects the location root. Root listings can include navigation
+nodes with `node_type = "location"`, `location_id`, and `name`. File and folder
+nodes carry `node_type` equal to `file` or `folder`, plus the entry fields below.
+A visible ancestor without operational file-read access returns navigation
+locations only; an empty listing alone does not prove that no files exist.
+
+## Entry metadata
+
+| Field | Type and meaning |
+|---|---|
+| `id`, `location_id` | Integer entry identity and containing location |
+| `name`, `path` | Name and full relative catalog path |
+| `kind` | `file` or `folder` |
+| `size` | File size in bytes; null for folders |
+| `sha256` | Hexadecimal SHA-256 checksum; null for folders |
+| `content_type` | Recorded MIME type, or null |
+| `uploaded_by` | Uploader identity, or null |
+| `created_at`, `updated_at` | Server timestamps |
+
+Requires `app.files.read` on the location. Resource management also requires
+`app.files.write` and `app.files.delete` on that location. A visible ancestor
+location is navigation only: it does not grant file access. When an entry is not
+visible, managed resources retain state and report an error because the API
+cannot distinguish deletion from lost scope. Restore permission, or confirm the
+entry was deleted and use `terraform state rm` before recreating it.

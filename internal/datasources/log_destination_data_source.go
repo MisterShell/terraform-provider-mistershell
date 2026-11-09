@@ -60,7 +60,7 @@ func (d *LogDestinationDataSource) Schema(_ context.Context, _ datasource.Schema
 				Computed:    true,
 			},
 			"streams": schema.SetAttribute{
-				Description: "Log streams forwarded (security, policy, api, app, ids, collector).",
+				Description: "Log streams forwarded (security, policy, api, app, ai, ids, collector, canary).",
 				Computed:    true,
 				ElementType: types.StringType,
 			},

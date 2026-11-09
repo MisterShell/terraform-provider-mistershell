@@ -1,0 +1,83 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Requires MisterShell >= 2.1.0.
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Installation and removal
+
+The API user needs `app.licenses.read`, `app.licenses.write`, and
+`app.licenses.delete`. New installation requires `license_key`; it is sensitive
+but remains in Terraform state. Protect that state. Import an existing license
+by its signed license ID and omit `license_key`: reads cannot recover it, and
+setting or changing this argument plans replacement. Removing a configured
+key is rejected before removal. To retain the installation while switching to
+an imported configuration without a key, remove it from Terraform state and
+import it again. Replacement keys must be known at plan time; resolve generated
+replacement keys in a separate apply first.
+
+Known replacement keys also run a non-mutating server preview during planning.
+Invalid, expired, excessively future-issued, already-installed, or unconfirmed
+over-capacity keys are rejected before any removal. The provider checks the
+verified claim dates against its local clock; keep that clock synchronized. For renewal to a new license ID, use
+`lifecycle { create_before_destroy = true }` as in the example so installation
+succeeds before the previous entitlement is withdrawn. Reusing the same license
+ID with different signed content is unsupported. Keep `license_key` omitted for
+an imported license; supplying its already-installed key is rejected rather than
+deleting and reinstalling it.
+
+Installation and removal each run a preview. Set `confirm_over_capacity` for an
+installation that would exceed capacity; set `confirm_removal_over_capacity`
+before destroying a license whose removal would exceed capacity. Apply the flag
+change before issuing `terraform destroy`. Both default to false. Preview is
+advisory and the server revalidates capacity at mutation time. A key can expire,
+capacity can change, or the API can fail between plan and apply; using
+`create_before_destroy` for renewal protects the existing grant against an
+installation failure.
+
+When removal-over-capacity is already authorized and removing the old license
+would leave a capacity deficit, replacement also requires
+`confirm_over_capacity = true`. This is conservative: the installation preview
+still includes the old license, so it cannot establish capacity after removal.
+Review and explicitly accept both confirmations before replacing in this case.
+This planning check also applies when using `create_before_destroy`.
+
+An accepted but pending reconciliation is a committed installation/removal,
+not a failure or rollback. `mistershell_license_status` exposes the current
+entitlement projection; it may still be reconciling after an accepted mutation.
+Removing a license withdraws entitlement without deleting application objects.
+Destroy licensed dependent resources before their license.
+
+## License metadata
+
+`metadata` contains `license_id`, nullable `status`, `feature`, `quantity`, `email`,
+`licensed_to`, `issued_at`, `expires_at`, `error`, and non-null `install_channel`
+and `format_version`. Signed license strings are never returned by reads.
+
+| Field | Values |
+|---|---|
+| `status` | `denied`, `invalid`, `expired`, `email_mismatch`, `core_license_missing`, `lower_tier_suppressed`, `active`, or null when validity is not available |
+| `feature` | `base`, `pro`, `enterprise`, `ids`, `collector`, `proxy`, `canary`, or null for unreadable legacy material |
+
+Requires `app.licenses.read`.
+
+{{ if .HasImport -}}
+## Import
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

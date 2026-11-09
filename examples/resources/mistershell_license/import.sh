@@ -1,0 +1,1 @@
+terraform import mistershell_license.example lic-identifier

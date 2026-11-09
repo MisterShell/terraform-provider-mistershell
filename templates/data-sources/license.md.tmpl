@@ -1,0 +1,33 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Requires MisterShell >= 2.1.0.
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## License metadata
+
+`metadata` contains `license_id`, nullable `status`, `feature`, `quantity`, `email`,
+`licensed_to`, `issued_at`, `expires_at`, `error`, and non-null `install_channel`
+and `format_version`. Signed license strings are never returned by reads.
+
+| Field | Values |
+|---|---|
+| `status` | `denied`, `invalid`, `expired`, `email_mismatch`, `core_license_missing`, `lower_tier_suppressed`, `active`, or null when validity is not available |
+| `feature` | `base`, `pro`, `enterprise`, `ids`, `collector`, `proxy`, `canary`, or null for unreadable legacy material |
+
+Requires `app.licenses.read`.

@@ -67,16 +67,27 @@ output "retention_is_secret" {
 | `created_at` | Creation timestamp. |
 | `updated_at` | Last update timestamp. |
 
+## Retention settings
+
+Retention periods use the generic setting resource; they do not require separate
+resources for each log family. For example, `canary_log_retention_days` accepts
+1–365 days and defaults to 30 on MisterShell 2.1.0. Sensor, collector, session,
+metric, snapshot and fact-history retention keys are listed below. Changing a
+retention period affects subsequent cleanup; it does not recover deleted data.
+Destroying a setting resource resets its registry default, whereas configuration
+bindings such as `mistershell_scheduled_task_config` restore captured originals.
+
 ## Valid `key` values
 
-The following table is derived from the MisterShell 2.0.15 registry. Unknown keys
-return 404. Defaults below are registry defaults, not the instance's current
+The following table lists backend registry settings, including Canary retention
+added in MisterShell 2.1.0. The target instance controls key availability and
+validation; unknown keys return 404. Defaults below are registry defaults, not the instance's current
 values. The session inactivity timeout accepts 1–240 minutes; backend upgrades
 clamp larger stored values to 240.
 
 | key | type and constraints | default | secret | meaning |
 |---|---|---|---|---|
-| `local_mfa` | object; `method` one of `"none"`, `"email"`, `"totp"`; `revision` string (min length 1) | `{"method": "none", "revision": "<random>"}` | no | Local sign-in MFA policy. **Read-only through this provider**: MisterShell rejects writes and resets of this key with HTTP 400 `Manage Local MFA through Auth Providers`; change it in the MisterShell UI (Settings → User Access → Auth Providers). |
+| `local_mfa` | object; `method` one of `"none"`, `"email"`, `"totp"`; `revision` string (min length 1) | `{"method": "none", "revision": "<random>"}` | no | Local sign-in MFA policy. **Read-only through the generic setting resource**: MisterShell rejects writes and resets of this key. Use `mistershell_local_auth_policy` for `none`/`totp`; email MFA requires the Auth Providers UI workflow. |
 | `carto_api_key` | string; max length 4096 | `""` | **yes** | Optional API key for CARTO light and dark map backgrounds. Leave empty to use OpenStreetMap. |
 | `enable_email_notifications` | boolean | `false` | no | Global toggle for email notification feature |
 | `rate_limiting_enabled` | boolean | `true` | no | Enable or disable API rate limiting globally |
@@ -164,6 +175,7 @@ clamp larger stored values to 240.
 | `sensor_ruleset_update_mode` | string; one of `"auto"`, `"manual"` | `"manual"` | no | Sensor ruleset update mode (auto = scheduled fetch, manual = admin upload). In auto mode the fetch cadence is controlled by the 'Sensor Ruleset Update' scheduled task interval (Settings > Scheduled Tasks). |
 | `sensor_suricata_version` | string; pattern `^\d+\.\d+\.\d+$` | `"8.0.5"` | no | Suricata engine version for ruleset builds (must match sensor fleet) |
 | `sensor_alert_retention_days` | integer; >= 1; <= 3650 | `30` | no | IDS alert retention period in days |
+| `canary_log_retention_days` | integer; >= 1; <= 365 | `30` | no | Canary log retention period in days; requires MisterShell 2.1.0. |
 | `sensor_alert_rate_limit_per_min` | integer; >= 1; <= 100000 | `600` | no | Per-sensor IDS alert ingest rate limit (alerts per minute) |
 | `collector_retention_days` | integer; >= 1; <= 90 | `7` | no | Device log retention period in days |
 | `collector_ingest_rate_per_second` | integer; >= 1; <= 1000000 | `2000` | no | Operational safety limit on log ingestion (records/second). This is a protection limit, not an entitlement — the collector license grants the feature and a collector-enabled Worker count, never a logs/second rate. |

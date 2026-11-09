@@ -52,7 +52,7 @@ func (r *LogDestinationResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *LogDestinationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a MisterShell log destination, forwarding security/policy/api/app/ids/collector log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and preserved from config while non-secret fields are refreshed.",
+		Description: "Manages a MisterShell log destination, forwarding security/policy/api/app/ai/ids/collector/canary log streams to a syslog server or webhook endpoint. The config attribute is a native per-type Terraform object (syslog or webhook); webhook auth secrets are masked by the API and preserved from config while non-secret fields are refreshed.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Log destination ID.",
@@ -83,7 +83,7 @@ func (r *LogDestinationResource) Schema(_ context.Context, _ resource.SchemaRequ
 				},
 			},
 			"streams": schema.SetAttribute{
-				Description: "Log streams to forward. At least one of: security, policy, api, app, ids, collector.",
+				Description: "Log streams to forward. At least one of: security, policy, api, app, ai, ids, collector, canary.",
 				Required:    true,
 				ElementType: types.StringType,
 				Validators: []validator.Set{

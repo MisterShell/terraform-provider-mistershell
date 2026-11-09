@@ -35,6 +35,7 @@ var SupportedLogStreams = []string{
 	"ai",
 	"api",
 	"app",
+	"canary",
 	"collector",
 	"ids",
 	"policy",

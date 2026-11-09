@@ -122,7 +122,7 @@ func (r *ManagedResource) validateSourceParameters(ctx context.Context, plan att
 }
 
 func (r *ManagedResource) validateImportOwnership(ctx context.Context, id string) error {
-	checkOwnership := r.definition.Name == "sensor_source"
+	checkOwnership := r.definition.Name == "sensor_source" || r.definition.Name == "canary_service"
 	for _, f := range r.definition.Fields {
 		checkOwnership = checkOwnership || f.Name == "is_builtin"
 	}
@@ -134,13 +134,14 @@ func (r *ManagedResource) validateImportOwnership(ctx context.Context, id string
 		return err
 	}
 	var obj struct {
-		IsBuiltin  bool   `json:"is_builtin"`
-		SourceType string `json:"source_type"`
+		IsBuiltin  bool    `json:"is_builtin"`
+		SeedKey    *string `json:"seed_key"`
+		SourceType string  `json:"source_type"`
 	}
 	if err = json.Unmarshal(raw, &obj); err != nil {
 		return err
 	}
-	if obj.IsBuiltin || r.definition.Name == "sensor_source" && obj.SourceType != "custom" {
+	if obj.IsBuiltin || obj.SeedKey != nil || r.definition.Name == "sensor_source" && obj.SourceType != "custom" {
 		return fmt.Errorf("backend-owned objects cannot be imported as managed resources; use the matching data source")
 	}
 	return nil
@@ -177,4 +178,11 @@ func (r *ManagedResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 	if len(keys) > 0 {
 		resp.Diagnostics.AddAttributeError(path.Root("parameters"), "Cannot clear source parameters", "Source parameters cannot be omitted after they have been managed: the API retains stored secrets. Keep the configured parameters or explicitly replace the custom source to clear them.")
 	}
+}
+
+func (r *ManagedResource) guardCanaryOwnership(ctx context.Context, id string) error {
+	if r.definition.Name != "canary_service" {
+		return nil
+	}
+	return r.validateImportOwnership(ctx, id)
 }
